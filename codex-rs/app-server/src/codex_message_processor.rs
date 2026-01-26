@@ -4938,6 +4938,7 @@ impl CodexMessageProcessor {
                     summary: params.summary,
                     collaboration_mode,
                     personality: params.personality,
+                    provider_id: None,
                 })
                 .await;
         }
