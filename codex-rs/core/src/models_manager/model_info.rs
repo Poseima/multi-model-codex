@@ -310,6 +310,36 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             truncation_policy: TruncationPolicyConfig::bytes(10_000),
             context_window: Some(CONTEXT_WINDOW_272K),
         )
+    // OpenRouter models
+    } else if slug.starts_with("xiaomi/mimo") {
+        model_info!(
+            slug,
+            context_window: Some(256_000),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None
+        )
+    } else if slug.starts_with("z-ai/glm") {
+        model_info!(
+            slug,
+            context_window: Some(128_000),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None
+        )
+    } else if slug.starts_with("google/gemini-2") || slug.starts_with("google/gemini-3") {
+        model_info!(
+            slug,
+            context_window: Some(1_000_000),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None
+        )
+    } else if slug.starts_with("openai/gpt-5") {
+        // OpenAI models via OpenRouter
+        model_info!(
+            slug,
+            context_window: Some(CONTEXT_WINDOW_272K),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None
+        )
     } else {
         warn!("Unknown model {slug} is used. This will degrade the performance of Codex.");
         model_info!(

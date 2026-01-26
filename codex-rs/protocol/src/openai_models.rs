@@ -88,6 +88,9 @@ pub struct ModelPreset {
     pub show_in_picker: bool,
     /// whether this model is supported in the api
     pub supported_in_api: bool,
+    /// Optional provider ID. When set, selecting this model also switches to this provider.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
 }
 
 /// Visibility of a model in the picker or APIs.
@@ -350,6 +353,7 @@ impl From<ModelInfo> for ModelPreset {
             }),
             show_in_picker: info.visibility == ModelVisibility::List,
             supported_in_api: info.supported_in_api,
+            provider_id: None,
         }
     }
 }
