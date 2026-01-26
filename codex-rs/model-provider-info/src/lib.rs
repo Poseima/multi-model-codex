@@ -396,6 +396,8 @@ pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 
 pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
+pub const OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
+pub const OPENROUTER_PROVIDER_ID: &str = "openrouter";
 
 /// Built-in default provider list.
 pub fn built_in_model_providers(
@@ -420,6 +422,7 @@ pub fn built_in_model_providers(
             LMSTUDIO_OSS_PROVIDER_ID,
             create_oss_provider(DEFAULT_LMSTUDIO_PORT, WireApi::Responses),
         ),
+        (OPENROUTER_PROVIDER_ID, create_openrouter_provider()),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
@@ -462,6 +465,39 @@ pub fn merge_configured_model_providers(
     }
 
     Ok(model_providers)
+}
+
+/// Create an OpenRouter provider configuration.
+pub fn create_openrouter_provider() -> ModelProviderInfo {
+    ModelProviderInfo {
+        name: "OpenRouter".into(),
+        base_url: Some("https://openrouter.ai/api/v1".into()),
+        env_key: Some("OPENROUTER_API_KEY".into()),
+        env_key_instructions: Some("Get your API key at https://openrouter.ai/keys".into()),
+        experimental_bearer_token: None,
+        auth: None,
+        aws: None,
+        wire_api: WireApi::Responses,
+        query_params: None,
+        http_headers: Some(
+            [
+                (
+                    "HTTP-Referer".to_string(),
+                    "https://github.com/openai/codex".to_string(),
+                ),
+                ("X-Title".to_string(), "Codex CLI".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        ),
+        env_http_headers: None,
+        request_max_retries: None,
+        stream_max_retries: None,
+        stream_idle_timeout_ms: None,
+        websocket_connect_timeout_ms: None,
+        requires_openai_auth: false,
+        supports_websockets: false,
+    }
 }
 
 pub fn create_oss_provider(default_provider_port: u16, wire_api: WireApi) -> ModelProviderInfo {
