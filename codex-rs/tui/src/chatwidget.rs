@@ -1750,6 +1750,7 @@ impl ChatWidget {
             Some(info) => self.apply_token_info(info),
             None => {
                 self.bottom_pane.set_context_window(None, None);
+                self.bottom_pane.set_context_window_total(None);
                 self.token_info = None;
             }
         }
@@ -1780,22 +1781,22 @@ impl ChatWidget {
         let percent = self.context_remaining_percent(&info);
         let used_tokens = self.context_used_tokens(&info, percent.is_some());
         self.bottom_pane.set_context_window(percent, used_tokens);
+        self.bottom_pane
+            .set_context_window_total(info.model_context_window);
         self.token_info = Some(info);
     }
 
     fn context_remaining_percent(&self, info: &TokenUsageInfo) -> Option<i64> {
         info.model_context_window.map(|window| {
+            // Use last_token_usage which represents current context state
             info.last_token_usage
                 .percent_of_context_window_remaining(window)
         })
     }
 
-    fn context_used_tokens(&self, info: &TokenUsageInfo, percent_known: bool) -> Option<i64> {
-        if percent_known {
-            return None;
-        }
-
-        Some(info.total_token_usage.tokens_in_context_window())
+    fn context_used_tokens(&self, info: &TokenUsageInfo, _percent_known: bool) -> Option<i64> {
+        // Use last_token_usage which represents current context state (not cumulative)
+        Some(info.last_token_usage.tokens_in_context_window())
     }
 
     fn restore_pre_review_token_info(&mut self) {
@@ -1804,6 +1805,7 @@ impl ChatWidget {
                 Some(info) => self.apply_token_info(info),
                 None => {
                     self.bottom_pane.set_context_window(None, None);
+                    self.bottom_pane.set_context_window_total(None);
                     self.token_info = None;
                 }
             }
@@ -5691,6 +5693,7 @@ impl ChatWidget {
         let switch_model = preset.model;
         let switch_model_for_events = switch_model.clone();
         let default_effort: ReasoningEffortConfig = preset.default_reasoning_effort;
+        let switch_provider_id = preset.provider_id.clone();
 
         let switch_actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
             tx.send(AppEvent::CodexOp(Op::OverrideTurnContext {
@@ -5704,6 +5707,7 @@ impl ChatWidget {
                 service_tier: None,
                 collaboration_mode: None,
                 personality: None,
+                provider_id: switch_provider_id.clone(),
             }));
             tx.send(AppEvent::UpdateModel(switch_model_for_events.clone()));
             tx.send(AppEvent::UpdateReasoningEffort(Some(default_effort)));
@@ -5825,6 +5829,7 @@ impl ChatWidget {
                         collaboration_mode: None,
                         windows_sandbox_level: None,
                         personality: Some(personality),
+                        provider_id: None,
                     }));
                     tx.send(AppEvent::UpdatePersonality(personality));
                     tx.send(AppEvent::PersistPersonalitySelection { personality });
@@ -6084,6 +6089,7 @@ impl ChatWidget {
                     model.clone(),
                     Some(preset.default_reasoning_effort),
                     should_prompt_plan_mode_scope,
+                    preset.provider_id.clone(),
                 );
                 SelectionItem {
                     name: model.clone(),
@@ -6239,6 +6245,7 @@ impl ChatWidget {
         model_for_action: String,
         effort_for_action: Option<ReasoningEffortConfig>,
         should_prompt_plan_mode_scope: bool,
+        provider_id: Option<String>,
     ) -> Vec<SelectionAction> {
         vec![Box::new(move |tx| {
             if should_prompt_plan_mode_scope {
@@ -6249,11 +6256,24 @@ impl ChatWidget {
                 return;
             }
 
+            tx.send(AppEvent::CodexOp(Op::OverrideTurnContext {
+                cwd: None,
+                approval_policy: None,
+                sandbox_policy: None,
+                windows_sandbox_level: None,
+                model: Some(model_for_action.clone()),
+                effort: Some(effort_for_action),
+                summary: None,
+                collaboration_mode: None,
+                personality: None,
+                provider_id: provider_id.clone(),
+            }));
             tx.send(AppEvent::UpdateModel(model_for_action.clone()));
             tx.send(AppEvent::UpdateReasoningEffort(effort_for_action));
             tx.send(AppEvent::PersistModelSelection {
                 model: model_for_action.clone(),
                 effort: effort_for_action,
+                provider: provider_id.clone(),
             });
         })]
     }
@@ -6422,7 +6442,7 @@ impl ChatWidget {
                         effort: selected_effort,
                     });
             } else {
-                self.apply_model_and_effort(selected_model, selected_effort);
+                self.apply_model_and_effort(selected_model, selected_effort, preset.provider_id);
             }
             return;
         }
@@ -6436,6 +6456,7 @@ impl ChatWidget {
             .or(Some(default_effort));
 
         let model_slug = preset.model.to_string();
+        let provider_id = preset.provider_id.clone();
         let is_current_model = self.current_model() == preset.model.as_str();
         let highlight_choice = if is_current_model {
             if in_plan_mode {
@@ -6490,21 +6511,12 @@ impl ChatWidget {
             let choice_effort = choice.stored;
             let should_prompt_plan_mode_scope =
                 self.should_prompt_plan_mode_reasoning_scope(model_slug.as_str(), choice_effort);
-            let actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
-                if should_prompt_plan_mode_scope {
-                    tx.send(AppEvent::OpenPlanReasoningScopePrompt {
-                        model: model_for_action.clone(),
-                        effort: choice_effort,
-                    });
-                } else {
-                    tx.send(AppEvent::UpdateModel(model_for_action.clone()));
-                    tx.send(AppEvent::UpdateReasoningEffort(choice_effort));
-                    tx.send(AppEvent::PersistModelSelection {
-                        model: model_for_action.clone(),
-                        effort: choice_effort,
-                    });
-                }
-            })];
+            let actions = Self::model_selection_actions(
+                model_for_action,
+                choice.stored,
+                should_prompt_plan_mode_scope,
+                provider_id.clone(),
+            );
 
             items.push(SelectionItem {
                 name: effort_label,
@@ -6546,16 +6558,45 @@ impl ChatWidget {
         &self,
         model: String,
         effort: Option<ReasoningEffortConfig>,
+        provider_id: Option<String>,
     ) {
+        self.app_event_tx
+            .send(AppEvent::CodexOp(Op::OverrideTurnContext {
+                cwd: None,
+                approval_policy: None,
+                sandbox_policy: None,
+                windows_sandbox_level: None,
+                model: Some(model.clone()),
+                effort: Some(effort),
+                summary: None,
+                collaboration_mode: None,
+                personality: None,
+                provider_id,
+            }));
         self.app_event_tx.send(AppEvent::UpdateModel(model));
         self.app_event_tx
             .send(AppEvent::UpdateReasoningEffort(effort));
     }
 
-    fn apply_model_and_effort(&self, model: String, effort: Option<ReasoningEffortConfig>) {
-        self.apply_model_and_effort_without_persist(model.clone(), effort);
-        self.app_event_tx
-            .send(AppEvent::PersistModelSelection { model, effort });
+    fn apply_model_and_effort(
+        &self,
+        model: String,
+        effort: Option<ReasoningEffortConfig>,
+        provider_id: Option<String>,
+    ) {
+        self.apply_model_and_effort_without_persist(model.clone(), effort, provider_id.clone());
+        self.app_event_tx.send(AppEvent::PersistModelSelection {
+            model: model.clone(),
+            effort,
+            provider: provider_id,
+        });
+        tracing::info!(
+            "Selected model: {}, Selected effort: {}",
+            model,
+            effort
+                .map(|e| e.to_string())
+                .unwrap_or_else(|| "default".to_string())
+        );
     }
 
     /// Open the permissions popup (alias for /permissions).
@@ -6741,6 +6782,7 @@ impl ChatWidget {
                 service_tier: None,
                 collaboration_mode: None,
                 personality: None,
+                provider_id: None,
             }));
             tx.send(AppEvent::UpdateAskForApprovalPolicy(approval));
             tx.send(AppEvent::UpdateSandboxPolicy(sandbox_clone));
