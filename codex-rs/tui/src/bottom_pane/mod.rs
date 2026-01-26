@@ -167,6 +167,7 @@ pub(crate) struct BottomPane {
     queued_user_messages: QueuedUserMessages,
     context_window_percent: Option<i64>,
     context_window_used_tokens: Option<i64>,
+    context_window_total: Option<i64>,
 }
 
 pub(crate) struct BottomPaneParams {
@@ -217,6 +218,7 @@ impl BottomPane {
             animations_enabled,
             context_window_percent: None,
             context_window_used_tokens: None,
+            context_window_total: None,
         }
     }
 
@@ -654,6 +656,15 @@ impl BottomPane {
         self.context_window_used_tokens = used_tokens;
         self.composer
             .set_context_window(percent, self.context_window_used_tokens);
+        self.request_redraw();
+    }
+
+    pub(crate) fn set_context_window_total(&mut self, total: Option<i64>) {
+        if self.context_window_total == total {
+            return;
+        }
+        self.context_window_total = total;
+        self.composer.set_context_window_total(total);
         self.request_redraw();
     }
 
