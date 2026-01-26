@@ -250,6 +250,11 @@ pub enum Op {
         /// Updated personality preference.
         #[serde(skip_serializing_if = "Option::is_none")]
         personality: Option<Personality>,
+
+        /// Updated model provider ID. When set, switches to the specified provider
+        /// for API calls (e.g., "openrouter", "ollama").
+        #[serde(skip_serializing_if = "Option::is_none")]
+        provider_id: Option<String>,
     },
 
     /// Approve a command execution
