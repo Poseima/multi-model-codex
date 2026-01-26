@@ -384,6 +384,7 @@ pub(crate) struct ChatComposer {
     #[cfg(not(target_os = "linux"))]
     next_element_id: u64,
     context_window_used_tokens: Option<i64>,
+    context_window_total: Option<i64>,
     skills: Option<Vec<SkillMetadata>>,
     connectors_snapshot: Option<ConnectorsSnapshot>,
     dismissed_mention_popup_token: Option<String>,
@@ -490,6 +491,7 @@ impl ChatComposer {
             #[cfg(not(target_os = "linux"))]
             next_element_id: 0,
             context_window_used_tokens: None,
+            context_window_total: None,
             skills: None,
             connectors_snapshot: None,
             dismissed_mention_popup_token: None,
@@ -3161,6 +3163,7 @@ impl ChatComposer {
             context_window_used_tokens: self.context_window_used_tokens,
             status_line_value: self.status_line_value.clone(),
             status_line_enabled: self.status_line_enabled,
+            context_window_total: self.context_window_total,
         }
     }
 
@@ -3651,6 +3654,10 @@ impl ChatComposer {
         }
         self.context_window_percent = percent;
         self.context_window_used_tokens = used_tokens;
+    }
+
+    pub(crate) fn set_context_window_total(&mut self, total: Option<i64>) {
+        self.context_window_total = total;
     }
 
     pub(crate) fn set_esc_backtrack_hint(&mut self, show: bool) {
