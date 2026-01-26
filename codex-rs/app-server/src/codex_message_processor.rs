@@ -5144,6 +5144,7 @@ impl CodexMessageProcessor {
                     service_tier: params.service_tier,
                     collaboration_mode,
                     personality: params.personality,
+                    provider_id: None,
                 })
                 .await;
         }
