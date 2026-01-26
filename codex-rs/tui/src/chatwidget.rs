@@ -7086,6 +7086,7 @@ impl ChatWidget {
             .or(Some(default_effort));
 
         let model_slug = preset.model.to_string();
+        let provider_id = fork_provider_mapping::provider_for_preset(&preset.id).map(String::from);
         let is_current_model = self.current_model() == preset.model.as_str();
         let highlight_choice = if is_current_model {
             if in_plan_mode {

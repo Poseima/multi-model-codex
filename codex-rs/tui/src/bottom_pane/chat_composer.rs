@@ -3209,6 +3209,7 @@ impl ChatComposer {
             status_line_value: self.status_line_value.clone(),
             status_line_enabled: self.status_line_enabled,
             active_agent_label: self.active_agent_label.clone(),
+            context_window_total: self.context_window_total,
         }
     }
 
