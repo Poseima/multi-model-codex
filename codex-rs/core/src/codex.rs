@@ -787,6 +787,11 @@ impl SessionConfiguration {
         if let Some(cwd) = updates.cwd.clone() {
             next_configuration.cwd = cwd;
         }
+        if let Some(ref provider_id) = updates.provider_id {
+            if let Some(new_provider) = self.original_config_do_not_use.model_providers.get(provider_id) {
+                next_configuration.provider = new_provider.clone();
+            }
+        }
         Ok(next_configuration)
     }
 }
@@ -801,6 +806,7 @@ pub(crate) struct SessionSettingsUpdate {
     pub(crate) reasoning_summary: Option<ReasoningSummaryConfig>,
     pub(crate) final_output_json_schema: Option<Option<Value>>,
     pub(crate) personality: Option<Personality>,
+    pub(crate) provider_id: Option<String>,
 }
 
 impl Session {
@@ -3143,6 +3149,7 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                 summary,
                 collaboration_mode,
                 personality,
+                provider_id,
             } => {
                 let collaboration_mode = if let Some(collab_mode) = collaboration_mode {
                     collab_mode
@@ -3165,6 +3172,7 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                         collaboration_mode: Some(collaboration_mode),
                         reasoning_summary: summary,
                         personality,
+                        provider_id,
                         ..Default::default()
                     },
                 )
@@ -3400,6 +3408,7 @@ mod handlers {
                         reasoning_summary: Some(summary),
                         final_output_json_schema: Some(final_output_json_schema),
                         personality,
+                        provider_id: None,
                     },
                 )
             }
