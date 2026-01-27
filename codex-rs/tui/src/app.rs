@@ -2582,7 +2582,8 @@ impl App {
             }
             AppEvent::UpdateProvider(provider_id) => {
                 // Update the provider in the runtime config
-                if let Some(provider_info) = self.config.model_providers.get(&provider_id).cloned() {
+                if let Some(provider_info) = self.config.model_providers.get(&provider_id).cloned()
+                {
                     self.config.model_provider_id = provider_id.clone();
                     self.config.model_provider = provider_info.clone();
                     self.chat_widget.set_provider(provider_id, provider_info);

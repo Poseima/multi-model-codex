@@ -61,16 +61,14 @@ pub struct ConfigProfile {
 
 /// Built-in default profile list.
 pub fn built_in_profiles() -> std::collections::HashMap<String, ConfigProfile> {
-    [
-        (
-            "m21".to_string(),
-            ConfigProfile {
-                model: Some("codex-MiniMax-M2.1".to_string()),
-                model_provider: Some("minimax".to_string()),
-                ..Default::default()
-            },
-        ),
-    ]
+    [(
+        "m21".to_string(),
+        ConfigProfile {
+            model: Some("codex-MiniMax-M2.1".to_string()),
+            model_provider: Some("minimax".to_string()),
+            ..Default::default()
+        },
+    )]
     .into_iter()
     .collect()
 }

@@ -102,4 +102,44 @@ mod tests {
             "responses/compact"
         );
     }
+
+    fn provider(wire: WireApi) -> Provider {
+        Provider {
+            name: "test".to_string(),
+            base_url: "https://example.com/v1".to_string(),
+            query_params: None,
+            wire,
+            headers: HeaderMap::new(),
+            retry: RetryConfig {
+                max_attempts: 1,
+                base_delay: Duration::from_millis(1),
+                retry_429: false,
+                retry_5xx: true,
+                retry_transport: true,
+            },
+            stream_idle_timeout: Duration::from_secs(1),
+            system_role: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn errors_when_wire_is_chat() {
+        let client = CompactClient::new(DummyTransport, provider(WireApi::Chat), DummyAuth);
+        let input = CompactionInput {
+            model: "gpt-test",
+            input: &[],
+            instructions: "inst",
+        };
+        let err = client
+            .compact_input(&input, HeaderMap::new())
+            .await
+            .expect_err("expected wire mismatch to fail");
+
+        match err {
+            ApiError::Stream(msg) => {
+                assert_eq!(msg, "compact endpoint requires responses wire api");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
 }

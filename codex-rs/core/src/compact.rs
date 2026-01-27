@@ -435,6 +435,10 @@ async fn drain_to_completed(
                 sess.update_rate_limits(turn_context, snapshot).await;
             }
             Ok(ResponseEvent::Completed { token_usage, .. }) => {
+                tracing::debug!(
+                    ?token_usage,
+                    "Received ResponseEvent::Completed in compact::drain_to_completed"
+                );
                 sess.update_token_usage_info(turn_context, token_usage.as_ref())
                     .await;
                 return Ok(());
