@@ -99,6 +99,7 @@ fn gpt_52_codex() -> ModelPreset {
         upgrade: None,
         show_in_picker: true,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -142,6 +143,7 @@ fn gpt_5_1_codex_max() -> ModelPreset {
         )),
         show_in_picker: true,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -177,6 +179,7 @@ fn gpt_5_1_codex_mini() -> ModelPreset {
         )),
         show_in_picker: true,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -222,6 +225,7 @@ fn gpt_5_2() -> ModelPreset {
         )),
         show_in_picker: true,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -255,6 +259,7 @@ fn bengalfox() -> ModelPreset {
         upgrade: None,
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -288,6 +293,7 @@ fn boomslang() -> ModelPreset {
         upgrade: None,
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -327,6 +333,7 @@ fn gpt_5_codex() -> ModelPreset {
         )),
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -362,6 +369,7 @@ fn gpt_5_codex_mini() -> ModelPreset {
         )),
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -401,6 +409,7 @@ fn gpt_5_1_codex() -> ModelPreset {
         )),
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -444,6 +453,7 @@ fn gpt_5() -> ModelPreset {
         )),
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
@@ -483,6 +493,7 @@ fn gpt_5_1() -> ModelPreset {
         )),
         show_in_picker: false,
         supported_in_api: true,
+        provider_id: None,
     }
 }
 
