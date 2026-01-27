@@ -804,6 +804,10 @@ async fn drain_to_completed(
                 usage_metadata,
                 ..
             }) => {
+                tracing::debug!(
+                    ?token_usage,
+                    "Received ResponseEvent::Completed in compact::drain_to_completed"
+                );
                 sess.record_observed_response_completed(
                     turn_context,
                     &response_id,
