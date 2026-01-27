@@ -348,6 +348,7 @@ async fn user_turn_personality_some_adds_update_message() -> anyhow::Result<()> 
             service_tier: None,
             collaboration_mode: None,
             personality: Some(Personality::Friendly),
+            provider_id: None,
         })
         .await?;
 
@@ -768,6 +769,7 @@ async fn user_turn_personality_remote_model_template_includes_update_message() -
         supports_image_detail_original: false,
         context_window: Some(128_000),
         auto_compact_token_limit: None,
+        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
         input_modalities: default_input_modalities(),
@@ -835,6 +837,7 @@ async fn user_turn_personality_remote_model_template_includes_update_message() -
             service_tier: None,
             collaboration_mode: None,
             personality: Some(Personality::Friendly),
+            provider_id: None,
         })
         .await?;
 

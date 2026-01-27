@@ -36,6 +36,7 @@ async fn override_turn_context_does_not_persist_when_config_exists() {
             service_tier: None,
             collaboration_mode: None,
             personality: None,
+            provider_id: None,
         })
         .await
         .expect("submit override");
@@ -73,6 +74,7 @@ async fn override_turn_context_does_not_create_config_file() {
             service_tier: None,
             collaboration_mode: None,
             personality: None,
+            provider_id: None,
         })
         .await
         .expect("submit override");
