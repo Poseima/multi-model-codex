@@ -135,6 +135,7 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
     } else if slug.starts_with("ark-code") || slug.starts_with("ark/code") {
         model_info!(
             slug,
+            apply_patch_tool_type: Some(ApplyPatchToolType::Function),
             base_instructions: BASE_INSTRUCTIONS_WITH_APPLY_PATCH.to_string(),
             supports_reasoning_summaries: true,
             context_window: Some(200_000),
@@ -251,6 +252,14 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             context_window: Some(CONTEXT_WINDOW_272K),
             supported_reasoning_levels: supported_reasoning_level_low_medium_high_xhigh(),
         )
+    } else if slug.starts_with("codex-MiniMax") {
+        model_info!(
+            slug,
+            apply_patch_tool_type: Some(ApplyPatchToolType::Function),
+            context_window: Some(200_000),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None
+        )
     } else if (slug.starts_with("gpt-5-codex")
         || slug.starts_with("gpt-5.1-codex")
         || slug.starts_with("codex-"))
@@ -335,13 +344,6 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
         model_info!(
             slug,
             context_window: Some(128_000),
-            supported_reasoning_levels: Vec::new(),
-            default_reasoning_level: None
-        )
-    } else if slug.starts_with("codex-MiniMax") {
-        model_info!(
-            slug,
-            context_window: Some(200_000),
             supported_reasoning_levels: Vec::new(),
             default_reasoning_level: None
         )
