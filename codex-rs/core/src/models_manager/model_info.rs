@@ -336,6 +336,13 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             supported_reasoning_levels: Vec::new(),
             default_reasoning_level: None
         )
+    } else if slug.starts_with("codex-MiniMax") {
+        model_info!(
+            slug,
+            context_window: Some(200_000),
+            supported_reasoning_levels: Vec::new(),
+            default_reasoning_level: None
+        )
     } else if slug.starts_with("google/gemini-2") || slug.starts_with("google/gemini-3") {
         model_info!(
             slug,

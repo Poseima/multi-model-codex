@@ -58,8 +58,9 @@ impl<'a> ChatRequestBuilder<'a> {
     pub fn build(self, provider: &Provider) -> Result<ChatRequest, ApiError> {
         // Check if the provider supports the "developer" role
         let supports_developer_role = provider.supports_developer_role();
+        let system_role = provider.effective_system_role();
         let mut messages = Vec::<Value>::new();
-        messages.push(json!({"role": "system", "content": self.instructions}));
+        messages.push(json!({"role": system_role, "content": self.instructions}));
 
         let input = self.input;
         let mut reasoning_by_anchor_index: HashMap<usize, String> = HashMap::new();
@@ -191,9 +192,10 @@ impl<'a> ChatRequestBuilder<'a> {
                         json!(text)
                     };
 
-                    // Convert "developer" to "system" for providers that don't support it
+                    // Convert "developer" to the provider's system role for
+                    // providers that don't support the developer role.
                     let effective_role = if role == "developer" && !supports_developer_role {
-                        "system"
+                        system_role
                     } else {
                         role.as_str()
                     };
