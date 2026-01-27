@@ -4306,6 +4306,7 @@ model_verbosity = "high"
                 review_model: None,
                 model_context_window: None,
                 model_auto_compact_token_limit: None,
+                model_auto_compact_percent: None,
                 model_provider_id: "openai".to_string(),
                 model_provider: fixture.openai_provider.clone(),
                 permissions: Permissions {
@@ -4420,6 +4421,7 @@ model_verbosity = "high"
             review_model: None,
             model_context_window: None,
             model_auto_compact_token_limit: None,
+            model_auto_compact_percent: None,
             model_provider_id: "openai-custom".to_string(),
             model_provider: fixture.openai_custom_provider.clone(),
             permissions: Permissions {
@@ -4531,6 +4533,8 @@ model_verbosity = "high"
             model: Some("o3".to_string()),
             review_model: None,
             model_context_window: None,
+            model_auto_compact_token_limit: None,
+            model_auto_compact_percent: None,
             model_provider_id: "openai".to_string(),
             model_provider: fixture.openai_provider.clone(),
             permissions: Permissions {
@@ -4628,6 +4632,8 @@ model_verbosity = "high"
             model: Some("gpt-5.1".to_string()),
             review_model: None,
             model_context_window: None,
+            model_auto_compact_token_limit: None,
+            model_auto_compact_percent: None,
             model_provider_id: "openai".to_string(),
             model_provider: fixture.openai_provider.clone(),
             permissions: Permissions {
