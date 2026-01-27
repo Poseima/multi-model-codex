@@ -51,6 +51,9 @@ pub const OLLAMA_CHAT_PROVIDER_REMOVED_ERROR: &str = "`ollama-chat` is no longer
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum WireApi {
+    /// The Chat Completions API exposed by OpenAI-compatible providers at
+    /// `/v1/chat/completions`.
+    Chat,
     /// The Responses API exposed by OpenAI at `/v1/responses`.
     #[default]
     Responses,
@@ -59,6 +62,7 @@ pub enum WireApi {
 impl fmt::Display for WireApi {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
+            Self::Chat => "chat",
             Self::Responses => "responses",
         };
         f.write_str(value)
@@ -73,8 +77,11 @@ impl<'de> Deserialize<'de> for WireApi {
         let value = String::deserialize(deserializer)?;
         match value.as_str() {
             "responses" => Ok(Self::Responses),
-            "chat" => Err(serde::de::Error::custom(CHAT_WIRE_API_REMOVED_ERROR)),
-            _ => Err(serde::de::Error::unknown_variant(&value, &["responses"])),
+            "chat" => Ok(Self::Chat),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["chat", "responses"],
+            )),
         }
     }
 }
@@ -134,6 +141,10 @@ pub struct ModelProviderInfo {
     /// Whether this provider supports the Responses API WebSocket transport.
     #[serde(default)]
     pub supports_websockets: bool,
+    /// Override for the role name used in system/instruction messages in chat
+    /// completions. Most providers use `"system"` (the default). Set this if
+    /// the provider expects a different role name.
+    pub system_role: Option<String>,
 }
 
 /// AWS SigV4 auth configuration for a model provider.
@@ -269,6 +280,7 @@ impl ModelProviderInfo {
             headers,
             retry,
             stream_idle_timeout: self.stream_idle_timeout(),
+            system_role: self.system_role.clone(),
         })
     }
 
@@ -355,6 +367,7 @@ impl ModelProviderInfo {
             websocket_connect_timeout_ms: None,
             requires_openai_auth: true,
             supports_websockets: true,
+            system_role: None,
         }
     }
 
@@ -385,6 +398,7 @@ impl ModelProviderInfo {
             websocket_connect_timeout_ms: None,
             requires_openai_auth: false,
             supports_websockets: false,
+            system_role: None,
         }
     }
 
@@ -412,6 +426,7 @@ pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 pub const OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
 pub const OPENROUTER_PROVIDER_ID: &str = "openrouter";
+pub const MINIMAX_PROVIDER_ID: &str = "minimax";
 
 /// Built-in default provider list.
 pub fn built_in_model_providers(
@@ -437,6 +452,7 @@ pub fn built_in_model_providers(
             create_oss_provider(DEFAULT_LMSTUDIO_PORT, WireApi::Responses),
         ),
         (OPENROUTER_PROVIDER_ID, create_openrouter_provider()),
+        (MINIMAX_PROVIDER_ID, create_minimax_provider()),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
@@ -511,6 +527,31 @@ pub fn create_openrouter_provider() -> ModelProviderInfo {
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
         supports_websockets: false,
+        system_role: None,
+    }
+}
+
+/// Create a MiniMax provider configuration.
+pub fn create_minimax_provider() -> ModelProviderInfo {
+    ModelProviderInfo {
+        name: "MiniMax Chat Completions API".into(),
+        base_url: Some("https://api.minimaxi.com/v1".into()),
+        env_key: Some("MINIMAX_API_KEY".into()),
+        env_key_instructions: None,
+        experimental_bearer_token: None,
+        auth: None,
+        aws: None,
+        wire_api: WireApi::Chat,
+        query_params: None,
+        http_headers: None,
+        env_http_headers: None,
+        request_max_retries: Some(4),
+        stream_max_retries: Some(10),
+        stream_idle_timeout_ms: Some(300_000),
+        websocket_connect_timeout_ms: None,
+        requires_openai_auth: false,
+        supports_websockets: false,
+        system_role: Some("user".to_string()),
     }
 }
 
@@ -552,6 +593,7 @@ pub fn create_oss_provider_with_base_url(base_url: &str, wire_api: WireApi) -> M
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
         supports_websockets: false,
+        system_role: None,
     }
 }
 
