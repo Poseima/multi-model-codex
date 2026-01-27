@@ -6,6 +6,7 @@ use codex_client::StreamResponse;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ResponseItem;
+use codex_protocol::protocol::TokenUsage;
 use eventsource_stream::Eventsource;
 use futures::Stream;
 use futures::StreamExt;
@@ -73,12 +74,13 @@ pub async fn process_chat_sse<S>(
     let mut last_tool_call_index: Option<usize> = None;
     let mut assistant_item: Option<ResponseItem> = None;
     let mut reasoning_item: Option<ResponseItem> = None;
-    let mut completed_sent = false;
+    let mut stored_usage: Option<TokenUsage> = None;
 
     async fn flush_and_complete(
         tx_event: &mpsc::Sender<Result<ResponseEvent, ApiError>>,
         reasoning_item: &mut Option<ResponseItem>,
         assistant_item: &mut Option<ResponseItem>,
+        usage: Option<TokenUsage>,
     ) {
         if let Some(reasoning) = reasoning_item.take() {
             let _ = tx_event
@@ -95,7 +97,7 @@ pub async fn process_chat_sse<S>(
         let _ = tx_event
             .send(Ok(ResponseEvent::Completed {
                 response_id: String::new(),
-                token_usage: None,
+                token_usage: usage,
             }))
             .await;
     }
@@ -113,9 +115,7 @@ pub async fn process_chat_sse<S>(
                 return;
             }
             Ok(None) => {
-                if !completed_sent {
-                    flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item).await;
-                }
+                flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item, stored_usage.take()).await;
                 return;
             }
             Err(_) => {
@@ -135,9 +135,7 @@ pub async fn process_chat_sse<S>(
         }
 
         if data == "[DONE]" || data == "DONE" {
-            if !completed_sent {
-                flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item).await;
-            }
+            flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item, stored_usage.take()).await;
             return;
         }
 
@@ -152,9 +150,11 @@ pub async fn process_chat_sse<S>(
             }
         };
 
-        let Some(choices) = value.get("choices").and_then(|c| c.as_array()) else {
-            continue;
-        };
+        let empty_choices = vec![];
+        let choices = value
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .unwrap_or(&empty_choices);
 
         for choice in choices {
             if let Some(delta) = choice.get("delta") {
@@ -258,6 +258,9 @@ pub async fn process_chat_sse<S>(
 
             let finish_reason = choice.get("finish_reason").and_then(|r| r.as_str());
             if finish_reason == Some("stop") {
+                // Flush accumulated reasoning/assistant items.
+                // Do NOT send Completed yet — the usage chunk arrives as a
+                // separate SSE event after this one (with choices: []).
                 if let Some(reasoning) = reasoning_item.take() {
                     let _ = tx_event
                         .send(Ok(ResponseEvent::OutputItemDone(reasoning)))
@@ -268,15 +271,6 @@ pub async fn process_chat_sse<S>(
                     let _ = tx_event
                         .send(Ok(ResponseEvent::OutputItemDone(assistant)))
                         .await;
-                }
-                if !completed_sent {
-                    let _ = tx_event
-                        .send(Ok(ResponseEvent::Completed {
-                            response_id: String::new(),
-                            token_usage: None,
-                        }))
-                        .await;
-                    completed_sent = true;
                 }
                 continue;
             }
@@ -316,6 +310,38 @@ pub async fn process_chat_sse<S>(
                     let _ = tx_event.send(Ok(ResponseEvent::OutputItemDone(item))).await;
                 }
             }
+        }
+
+        // Extract top-level usage from any chunk (the final usage chunk has
+        // choices: [] and usage at the top level).
+        if let Some(usage_obj) = value.get("usage").and_then(|u| u.as_object()) {
+            let cached = usage_obj
+                .get("prompt_tokens_details")
+                .and_then(|d| d.get("cached_tokens"))
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0);
+            let reasoning = usage_obj
+                .get("completion_tokens_details")
+                .and_then(|d| d.get("reasoning_tokens"))
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0);
+            stored_usage = Some(TokenUsage {
+                input_tokens: usage_obj
+                    .get("prompt_tokens")
+                    .and_then(|t| t.as_i64())
+                    .unwrap_or(0),
+                cached_input_tokens: cached,
+                output_tokens: usage_obj
+                    .get("completion_tokens")
+                    .and_then(|t| t.as_i64())
+                    .unwrap_or(0),
+                reasoning_output_tokens: reasoning,
+                total_tokens: usage_obj
+                    .get("total_tokens")
+                    .and_then(|t| t.as_i64())
+                    .unwrap_or(0),
+            });
+            debug!(?stored_usage, "Extracted token usage from SSE chunk");
         }
     }
 }
@@ -712,5 +738,92 @@ mod tests {
             )
         }));
         assert_matches!(events.last(), Some(ResponseEvent::Completed { .. }));
+    }
+
+    #[tokio::test]
+    async fn extracts_usage_from_final_chunk_with_empty_choices() {
+        // Simulate the real OpenAI streaming flow:
+        // 1. Content chunk
+        // 2. finish_reason: "stop" chunk
+        // 3. Usage chunk with choices: [] and top-level usage
+        // 4. [DONE]
+        let content = json!({
+            "choices": [{
+                "delta": { "content": "hello" }
+            }]
+        });
+
+        let finish_stop = json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "delta": {}
+            }]
+        });
+
+        let usage_chunk = json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+                "prompt_tokens_details": {
+                    "cached_tokens": 20
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 10
+                }
+            }
+        });
+
+        let mut body = build_body(&[content, finish_stop, usage_chunk]);
+        body.push_str("event: message\ndata: [DONE]\n\n");
+
+        let events = collect_events(&body).await;
+
+        // Find the Completed event and verify usage
+        let completed = events.iter().find(|ev| matches!(ev, ResponseEvent::Completed { .. }));
+        assert!(completed.is_some(), "missing Completed event");
+        match completed.unwrap() {
+            ResponseEvent::Completed { token_usage, .. } => {
+                let usage = token_usage.as_ref().expect("missing token_usage");
+                assert_eq!(usage.input_tokens, 100);
+                assert_eq!(usage.output_tokens, 50);
+                assert_eq!(usage.total_tokens, 150);
+                assert_eq!(usage.cached_input_tokens, 20);
+                assert_eq!(usage.reasoning_output_tokens, 10);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[tokio::test]
+    async fn usage_is_none_when_no_usage_chunk() {
+        // Stream that ends with [DONE] but no usage chunk
+        let content = json!({
+            "choices": [{
+                "delta": { "content": "hi" }
+            }]
+        });
+
+        let finish_stop = json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "delta": {}
+            }]
+        });
+
+        let mut body = build_body(&[content, finish_stop]);
+        body.push_str("event: message\ndata: [DONE]\n\n");
+
+        let events = collect_events(&body).await;
+
+        let completed = events.iter().find(|ev| matches!(ev, ResponseEvent::Completed { .. }));
+        assert!(completed.is_some(), "missing Completed event");
+        match completed.unwrap() {
+            ResponseEvent::Completed { token_usage, .. } => {
+                assert!(token_usage.is_none(), "expected no token_usage");
+            }
+            _ => unreachable!(),
+        }
     }
 }

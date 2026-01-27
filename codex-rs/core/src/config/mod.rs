@@ -132,8 +132,6 @@ pub struct Config {
     /// (context_window * model_auto_compact_percent) / 100. Defaults to 90.
     pub model_auto_compact_percent: Option<i64>,
 
-
-
     /// Key into the model_providers map that specifies which provider to use.
     pub model_provider_id: String,
 
@@ -811,8 +809,6 @@ pub struct ConfigToml {
     /// When `model_auto_compact_token_limit` is unset, the threshold is calculated as
     /// (context_window * model_auto_compact_percent) / 100. Defaults to 90.
     pub model_auto_compact_percent: Option<i64>,
-
-
 
     /// Default approval policy for executing commands.
     pub approval_policy: Option<AskForApproval>,
@@ -3736,7 +3732,7 @@ model_verbosity = "high"
             stream_max_retries: Some(10),
             stream_idle_timeout_ms: Some(300_000),
             requires_openai_auth: false,
-            supports_websockets: false,
+            system_role: None,
         };
         let model_provider_map = {
             let mut model_provider_map = built_in_model_providers();

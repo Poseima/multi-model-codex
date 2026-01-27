@@ -152,9 +152,17 @@ impl ModelClient {
     pub fn get_model_context_window(&self) -> Option<i64> {
         let model_info = &self.state.model_info;
         let effective_context_window_percent = model_info.effective_context_window_percent;
-        model_info.context_window.map(|context_window| {
+        let result = model_info.context_window.map(|context_window| {
             context_window.saturating_mul(effective_context_window_percent) / 100
-        })
+        });
+        tracing::warn!(
+            "[ctx-window] slug={} raw_context_window={:?} effective_percent={} result={:?}",
+            model_info.slug,
+            model_info.context_window,
+            effective_context_window_percent,
+            result
+        );
+        result
     }
 
     pub fn config(&self) -> Arc<Config> {

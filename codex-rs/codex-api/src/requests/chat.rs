@@ -12,6 +12,7 @@ use http::HeaderMap;
 use serde_json::Value;
 use serde_json::json;
 use std::collections::HashMap;
+use tracing::warn;
 
 /// Assembled request body plus headers for Chat Completions streaming calls.
 pub struct ChatRequest {
@@ -301,10 +302,53 @@ impl<'a> ChatRequestBuilder<'a> {
             }
         }
 
+        // Sanitize messages for strict chat completions providers:
+        // 1. Merge adjacent assistant text + assistant tool_call messages
+        //    into a single message (some providers reject split messages).
+        // 2. Remove non-standard tool call types (local_shell_call, custom)
+        //    and their orphaned tool results.
+        if !provider.is_openai() {
+            messages = sanitize_chat_messages(messages);
+        }
+
+        // Debug: dump the messages array for non-OpenAI providers.
+        if !provider.is_openai() {
+            warn!(
+                "[chat-sanitize] total messages after sanitize: {}",
+                messages.len()
+            );
+            for (i, msg) in messages.iter().enumerate() {
+                let role = msg.get("role").and_then(Value::as_str).unwrap_or("?");
+                let tc_count = msg
+                    .get("tool_calls")
+                    .and_then(Value::as_array)
+                    .map(|a| a.len());
+                let tc_id = msg.get("tool_call_id").and_then(Value::as_str);
+                let content_preview = msg
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .map(|s| {
+                        let truncated: String = s.chars().take(80).collect();
+                        if truncated.len() < s.len() {
+                            format!("{truncated}...")
+                        } else {
+                            truncated
+                        }
+                    })
+                    .unwrap_or_else(|| "N/A".to_string());
+                warn!(
+                    "[chat-msg {i}] role={role} tool_calls={tc_count:?} tool_call_id={tc_id:?} content={content_preview}"
+                );
+            }
+        }
+
         let mut payload = json!({
             "model": self.model,
             "messages": messages,
             "stream": true,
+            "stream_options": {
+                "include_usage": true
+            },
             "tools": self.tools,
         });
 
@@ -365,6 +409,126 @@ fn push_tool_call_message(messages: &mut Vec<Value>, tool_call: Value, reasoning
     messages.push(msg);
 }
 
+/// Sanitize the chat messages array for strict chat completions providers.
+///
+/// 1. Merge consecutive assistant messages: if an assistant message with text
+///    content is immediately followed by another assistant message carrying
+///    `tool_calls`, merge the `tool_calls` into the first message so that the
+///    provider sees a single assistant turn.
+///
+/// 2. Collect the set of valid tool-call IDs from assistant messages and drop
+///    any `tool` role messages whose `tool_call_id` doesn't appear in that set
+///    (orphaned results from non-standard call types like `local_shell_call`).
+///
+/// 3. Strip non-standard entries from `tool_calls` arrays (keeping only
+///    `"type": "function"`) and remove assistant messages that end up with an
+///    empty `tool_calls` array after filtering.
+fn sanitize_chat_messages(messages: Vec<Value>) -> Vec<Value> {
+    use std::collections::HashSet;
+
+    // --- Pass 1: merge ALL adjacent assistant messages into one.
+    // MiniMax (and other strict providers) require that tool results immediately
+    // follow the assistant message containing tool_calls.  The codex conversation
+    // model can produce separate assistant messages for text, reasoning, and
+    // tool_calls which violates that constraint.
+    let mut merged: Vec<Value> = Vec::with_capacity(messages.len());
+    for msg in messages {
+        let dominated = if let Some(Value::Object(prev)) = merged.last_mut()
+            && prev.get("role").and_then(Value::as_str) == Some("assistant")
+            && let Some(cur) = msg.as_object()
+            && cur.get("role").and_then(Value::as_str) == Some("assistant")
+        {
+            // Merge tool_calls arrays
+            if let Some(Value::Array(incoming)) = cur.get("tool_calls") {
+                if let Some(Value::Array(existing)) = prev.get_mut("tool_calls") {
+                    existing.extend(incoming.iter().cloned());
+                } else {
+                    prev.insert("tool_calls".to_string(), Value::Array(incoming.clone()));
+                }
+            }
+
+            // Merge content: if cur has non-null content, set it on prev
+            // (prefer the first non-null content encountered)
+            let prev_has_content = prev
+                .get("content")
+                .is_some_and(|v| !v.is_null() && v.as_str() != Some(""));
+            if !prev_has_content {
+                if let Some(c) = cur.get("content")
+                    && !c.is_null()
+                    && c.as_str() != Some("")
+                {
+                    prev.insert("content".to_string(), c.clone());
+                }
+            }
+
+            true
+        } else {
+            false
+        };
+
+        if !dominated {
+            merged.push(msg);
+        }
+    }
+
+    // --- Pass 2: filter non-standard tool call types and collect valid IDs
+    let mut valid_tool_call_ids: HashSet<String> = HashSet::new();
+    let mut cleaned: Vec<Value> = Vec::with_capacity(merged.len());
+
+    for mut msg in merged {
+        let dominated = if let Some(obj) = msg.as_object_mut()
+            && obj.get("role").and_then(Value::as_str) == Some("assistant")
+            && let Some(Value::Array(tool_calls)) = obj.get_mut("tool_calls")
+        {
+            // Keep only "function" type tool calls
+            tool_calls.retain(|tc| {
+                let is_function = tc
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .is_some_and(|t| t == "function");
+                if is_function {
+                    if let Some(id) = tc.get("id").and_then(Value::as_str) {
+                        valid_tool_call_ids.insert(id.to_string());
+                    }
+                }
+                is_function
+            });
+            // If all tool calls were removed, drop the tool_calls key.
+            // If the message also has no meaningful content, skip it entirely.
+            if tool_calls.is_empty() {
+                obj.remove("tool_calls");
+                let has_content = obj
+                    .get("content")
+                    .is_some_and(|v| !v.is_null() && v.as_str() != Some(""));
+                !has_content
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if !dominated {
+            cleaned.push(msg);
+        }
+    }
+
+    // --- Pass 3: drop orphaned tool results
+    cleaned.retain(|msg| {
+        if let Some(obj) = msg.as_object()
+            && obj.get("role").and_then(Value::as_str) == Some("tool")
+        {
+            obj.get("tool_call_id")
+                .and_then(Value::as_str)
+                .is_some_and(|id| valid_tool_call_ids.contains(id))
+        } else {
+            true
+        }
+    });
+
+    cleaned
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -392,6 +556,7 @@ mod tests {
                 retry_transport: true,
             },
             stream_idle_timeout: Duration::from_secs(1),
+            system_role: None,
         }
     }
 
