@@ -91,6 +91,7 @@ async fn models_client_hits_models_endpoint() {
             context_window: Some(272_000),
             max_context_window: None,
             auto_compact_token_limit: None,
+            auto_compact_percent: None,
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: default_input_modalities(),
