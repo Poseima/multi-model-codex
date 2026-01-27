@@ -733,6 +733,10 @@ async fn drain_to_completed(
                 token_usage,
                 ..
             }) => {
+                tracing::debug!(
+                    ?token_usage,
+                    "Received ResponseEvent::Completed in compact::drain_to_completed"
+                );
                 sess.send_event(
                     turn_context,
                     EventMsg::RawResponseCompleted(RawResponseCompletedEvent {
