@@ -1077,6 +1077,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1093,6 +1094,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1109,6 +1111,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1125,6 +1128,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1141,6 +1145,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1157,6 +1162,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1173,6 +1179,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1189,6 +1196,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: Some(72),
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1205,6 +1213,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: Some(123_456),
+                context_window_total: None,
             },
         );
 
@@ -1221,6 +1230,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1237,6 +1247,7 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 context_window_percent: None,
                 context_window_used_tokens: None,
+                context_window_total: None,
             },
         );
 
@@ -1251,6 +1262,7 @@ mod tests {
             quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
             context_window_percent: None,
             context_window_used_tokens: None,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1278,6 +1290,7 @@ mod tests {
             quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
             context_window_percent: None,
             context_window_used_tokens: None,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(

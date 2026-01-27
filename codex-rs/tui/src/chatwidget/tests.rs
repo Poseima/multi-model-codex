@@ -3055,6 +3055,7 @@ async fn model_picker_hides_show_in_picker_false_models_from_cache() {
         upgrade: None,
         show_in_picker,
         supported_in_api: true,
+        provider_id: None,
     };
 
     chat.open_model_popup_with_presets(vec![
@@ -3293,6 +3294,7 @@ async fn single_reasoning_option_skips_selection() {
         upgrade: None,
         show_in_picker: true,
         supported_in_api: true,
+        provider_id: None,
     };
     chat.open_reasoning_popup(preset);
 

@@ -55,7 +55,9 @@ impl<'a> ChatRequestBuilder<'a> {
         self
     }
 
-    pub fn build(self, _provider: &Provider) -> Result<ChatRequest, ApiError> {
+    pub fn build(self, provider: &Provider) -> Result<ChatRequest, ApiError> {
+        // Check if the provider supports the "developer" role
+        let supports_developer_role = provider.supports_developer_role();
         let mut messages = Vec::<Value>::new();
         messages.push(json!({"role": "system", "content": self.instructions}));
 
@@ -189,7 +191,13 @@ impl<'a> ChatRequestBuilder<'a> {
                         json!(text)
                     };
 
-                    let mut msg = json!({"role": role, "content": content_value});
+                    // Convert "developer" to "system" for providers that don't support it
+                    let effective_role = if role == "developer" && !supports_developer_role {
+                        "system"
+                    } else {
+                        role.as_str()
+                    };
+                    let mut msg = json!({"role": effective_role, "content": content_value});
                     if role == "assistant"
                         && let Some(reasoning) = reasoning_by_anchor_index.get(&idx)
                         && let Some(obj) = msg.as_object_mut()
@@ -291,12 +299,19 @@ impl<'a> ChatRequestBuilder<'a> {
             }
         }
 
-        let payload = json!({
+        let mut payload = json!({
             "model": self.model,
             "messages": messages,
             "stream": true,
             "tools": self.tools,
         });
+
+        // Add thinking parameter for Volcengine provider
+        if provider.is_volcengine() {
+            if let Some(obj) = payload.as_object_mut() {
+                obj.insert("thinking".to_string(), json!({"type": "enabled"}));
+            }
+        }
 
         let mut headers = build_conversation_headers(self.conversation_id);
         if let Some(subagent) = subagent_header(&self.session_source) {
