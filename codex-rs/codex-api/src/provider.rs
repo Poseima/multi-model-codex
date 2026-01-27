@@ -47,6 +47,9 @@ pub struct Provider {
     pub headers: HeaderMap,
     pub retry: RetryConfig,
     pub stream_idle_timeout: Duration,
+    /// Role name to use for system/instruction messages in chat completions.
+    /// Defaults to `"system"` when `None`.
+    pub system_role: Option<String>,
 }
 
 impl Provider {
@@ -83,6 +86,29 @@ impl Provider {
             compression: RequestCompression::None,
             timeout: None,
         }
+    }
+
+    /// Role name to use for system/instruction messages in chat completions.
+    pub fn effective_system_role(&self) -> &str {
+        self.system_role.as_deref().unwrap_or("system")
+    }
+
+    /// Check if this provider is OpenAI (supports developer role).
+    pub fn is_openai(&self) -> bool {
+        self.name.eq_ignore_ascii_case("openai")
+            || self.base_url.contains("api.openai.com")
+    }
+
+    /// Check if this provider supports the "developer" role.
+    /// Only OpenAI's API supports this role; others need "system".
+    pub fn supports_developer_role(&self) -> bool {
+        self.is_openai()
+    }
+
+    /// Check if this provider is Volcengine (requires thinking parameter).
+    pub fn is_volcengine(&self) -> bool {
+        self.name.eq_ignore_ascii_case("volcengine")
+            || self.base_url.contains("volces.com")
     }
 
     pub fn is_azure_responses_endpoint(&self) -> bool {
