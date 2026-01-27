@@ -3019,6 +3019,7 @@ async fn azure_responses_request_does_not_store_and_preserves_prefixed_item_ids(
         requires_openai_auth: false,
         supports_websockets: false,
         supports_standalone_web_search: false,
+        system_role: None,
     };
 
     let codex_home = TempDir::new().unwrap();
@@ -3651,6 +3652,7 @@ async fn azure_overrides_assign_properties_used_for_responses_url() {
         requires_openai_auth: false,
         supports_websockets: false,
         supports_standalone_web_search: false,
+        system_role: None,
     };
 
     // Init session
@@ -3735,6 +3737,7 @@ async fn env_var_overrides_loaded_auth() {
         requires_openai_auth: false,
         supports_websockets: false,
         supports_standalone_web_search: false,
+        system_role: None,
     };
 
     // Init session
