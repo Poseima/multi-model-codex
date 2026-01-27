@@ -1706,13 +1706,18 @@ impl Config {
             additional_writable_roots,
         } = overrides;
 
+        // Merge built-in profiles with user-defined profiles.
+        let mut all_profiles = crate::config::profile::built_in_profiles();
+        for (key, profile) in cfg.profiles.iter() {
+            all_profiles.insert(key.clone(), profile.clone());
+        }
+
         let active_profile_name = config_profile_key
             .as_ref()
             .or(cfg.profile.as_ref())
             .cloned();
         let config_profile = match active_profile_name.as_ref() {
-            Some(key) => cfg
-                .profiles
+            Some(key) => all_profiles
                 .get(key)
                 .ok_or_else(|| {
                     std::io::Error::new(

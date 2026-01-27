@@ -59,6 +59,22 @@ pub struct ConfigProfile {
     pub oss_provider: Option<String>,
 }
 
+/// Built-in default profile list.
+pub fn built_in_profiles() -> std::collections::HashMap<String, ConfigProfile> {
+    [
+        (
+            "m21".to_string(),
+            ConfigProfile {
+                model: Some("codex-MiniMax-M2.1".to_string()),
+                model_provider: Some("minimax".to_string()),
+                ..Default::default()
+            },
+        ),
+    ]
+    .into_iter()
+    .collect()
+}
+
 impl From<ConfigProfile> for codex_app_server_protocol::Profile {
     fn from(config_profile: ConfigProfile) -> Self {
         Self {
