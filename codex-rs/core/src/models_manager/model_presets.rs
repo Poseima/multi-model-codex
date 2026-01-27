@@ -7,6 +7,7 @@ use codex_protocol::openai_models::default_input_modalities;
 use indoc::indoc;
 use once_cell::sync::Lazy;
 
+use crate::model_provider_info::MINIMAX_PROVIDER_ID;
 use crate::model_provider_info::OPENROUTER_PROVIDER_ID;
 
 pub const ARK_PROVIDER_ID: &str = "ark";
@@ -420,6 +421,21 @@ static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             supported_in_api: true,
             input_modalities: default_input_modalities(),
             provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
+        },
+        // MiniMax models.
+        ModelPreset {
+            id: "minimax/codex-MiniMax-M2.1".to_string(),
+            model: "codex-MiniMax-M2.1".to_string(),
+            display_name: "MiniMax M2.1".to_string(),
+            description: "MiniMax M2.1 model for coding tasks.".to_string(),
+            default_reasoning_effort: ReasoningEffort::None,
+            supported_reasoning_efforts: vec![],
+            supports_personality: false,
+            is_default: false,
+            upgrade: None,
+            show_in_picker: true,
+            supported_in_api: true,
+            provider_id: Some(MINIMAX_PROVIDER_ID.to_string()),
         },
         // Volcengine models.
         ModelPreset {
