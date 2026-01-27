@@ -2580,6 +2580,58 @@ impl App {
             AppEvent::RestartRealtimeAudioDevice { kind } => {
                 self.chat_widget.restart_realtime_audio_device(kind);
             }
+            AppEvent::UpdateProvider(provider_id) => {
+                // Update the provider in the runtime config
+                if let Some(provider_info) = self.config.model_providers.get(&provider_id).cloned() {
+                    self.config.model_provider_id = provider_id.clone();
+                    self.config.model_provider = provider_info.clone();
+                    self.chat_widget.set_provider(provider_id, provider_info);
+                } else {
+                    self.chat_widget.add_error_message(format!(
+                        "Provider `{provider_id}` not found in configuration"
+                    ));
+                }
+            }
+            AppEvent::PersistProviderSelection { provider } => {
+                let profile = self.active_profile.as_deref();
+                match ConfigEditsBuilder::new(&self.config.codex_home)
+                    .with_profile(profile)
+                    .set_model_provider(Some(provider.as_str()))
+                    .apply()
+                    .await
+                {
+                    Ok(()) => {
+                        let provider_name = self
+                            .config
+                            .model_providers
+                            .get(&provider)
+                            .map(|p| p.name.as_str())
+                            .unwrap_or(&provider);
+                        let mut message = format!("Provider changed to {provider_name}");
+                        if let Some(profile) = profile {
+                            message.push_str(" for ");
+                            message.push_str(profile);
+                            message.push_str(" profile");
+                        }
+                        self.chat_widget.add_info_message(message, None);
+                    }
+                    Err(err) => {
+                        tracing::error!(
+                            error = %err,
+                            "failed to persist provider selection"
+                        );
+                        if let Some(profile) = profile {
+                            self.chat_widget.add_error_message(format!(
+                                "Failed to save provider for profile `{profile}`: {err}"
+                            ));
+                        } else {
+                            self.chat_widget.add_error_message(format!(
+                                "Failed to save default provider: {err}"
+                            ));
+                        }
+                    }
+                }
+            }
             AppEvent::UpdateAskForApprovalPolicy(policy) => {
                 self.runtime_approval_policy_override = Some(policy);
                 if let Err(err) = self.config.permissions.approval_policy.set(policy) {

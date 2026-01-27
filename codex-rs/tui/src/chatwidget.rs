@@ -51,6 +51,7 @@ use crate::version::CODEX_CLI_VERSION;
 use codex_app_server_protocol::ConfigLayerSource;
 use codex_backend_client::Client as BackendClient;
 use codex_chatgpt::connectors;
+use codex_core::ModelProviderInfo;
 use codex_core::config::Config;
 use codex_core::config::Constrained;
 use codex_core::config::ConstraintResult;
@@ -3566,6 +3567,9 @@ impl ChatWidget {
                 }
                 self.open_realtime_audio_popup();
             }
+            SlashCommand::Provider => {
+                self.open_provider_popup();
+            }
             SlashCommand::Personality => {
                 self.open_personality_popup();
             }
@@ -5463,6 +5467,77 @@ impl ChatWidget {
         });
     }
 
+    /// Open a popup to select a model provider from the configured providers.
+    pub(crate) fn open_provider_popup(&mut self) {
+        if !self.is_session_configured() {
+            self.add_info_message(
+                "Provider selection is disabled until startup completes.".to_string(),
+                None,
+            );
+            return;
+        }
+
+        let current_provider_id = &self.config.model_provider_id;
+        let providers: Vec<(String, String)> = self
+            .config
+            .model_providers
+            .iter()
+            .map(|(id, info)| (id.clone(), info.name.clone()))
+            .collect();
+
+        if providers.is_empty() {
+            self.add_info_message("No providers configured.".to_string(), None);
+            return;
+        }
+
+        let items: Vec<SelectionItem> = providers
+            .into_iter()
+            .map(|(provider_id, provider_name)| {
+                let is_current = &provider_id == current_provider_id;
+                let id_for_action = provider_id.clone();
+                let actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
+                    tx.send(AppEvent::CodexOp(Op::OverrideTurnContext {
+                        cwd: None,
+                        approval_policy: None,
+                        sandbox_policy: None,
+                        model: None,
+                        effort: None,
+                        summary: None,
+                        collaboration_mode: None,
+                        personality: None,
+                        provider_id: Some(id_for_action.clone()),
+                    }));
+                    tx.send(AppEvent::UpdateProvider(id_for_action.clone()));
+                    tx.send(AppEvent::PersistProviderSelection {
+                        provider: id_for_action.clone(),
+                    });
+                })];
+                SelectionItem {
+                    name: provider_name,
+                    description: Some(provider_id.clone()),
+                    is_current,
+                    is_disabled: false,
+                    actions,
+                    dismiss_on_select: true,
+                    ..Default::default()
+                }
+            })
+            .collect();
+
+        let mut header = ColumnRenderable::new();
+        header.push(Line::from("Select Provider".bold()));
+        header.push(Line::from(
+            "Switch between configured model providers.".dim(),
+        ));
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            header: Box::new(header),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            ..Default::default()
+        });
+    }
+
     fn model_menu_header(&self, title: &str, subtitle: &str) -> Box<dyn Renderable> {
         let title = title.to_string();
         let subtitle = subtitle.to_string();
@@ -6858,6 +6933,12 @@ impl ChatWidget {
     /// Set the syntax theme override in the widget's config copy.
     pub(crate) fn set_tui_theme(&mut self, theme: Option<String>) {
         self.config.tui_theme = theme;
+    }
+
+    /// Set the provider in the widget's config copy.
+    pub(crate) fn set_provider(&mut self, provider_id: String, provider_info: ModelProviderInfo) {
+        self.config.model_provider_id = provider_id;
+        self.config.model_provider = provider_info;
     }
 
     /// Set the model in the widget's config copy and stored collaboration mode.
