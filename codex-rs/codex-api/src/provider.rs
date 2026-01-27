@@ -47,6 +47,9 @@ pub struct Provider {
     pub headers: HeaderMap,
     pub retry: RetryConfig,
     pub stream_idle_timeout: Duration,
+    /// Role name to use for system/instruction messages in chat completions.
+    /// Defaults to `"system"` when `None`.
+    pub system_role: Option<String>,
 }
 
 impl Provider {
@@ -83,6 +86,11 @@ impl Provider {
             compression: RequestCompression::None,
             timeout: None,
         }
+    }
+
+    /// Role name to use for system/instruction messages in chat completions.
+    pub fn effective_system_role(&self) -> &str {
+        self.system_role.as_deref().unwrap_or("system")
     }
 
     /// Check if this provider is OpenAI (supports developer role).
