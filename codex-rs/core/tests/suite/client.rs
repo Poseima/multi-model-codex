@@ -2165,7 +2165,7 @@ async fn azure_responses_request_includes_store_and_reasoning_ids() {
         stream_idle_timeout_ms: Some(5_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
-        supports_websockets: false,
+        system_role: None,
     };
 
     let codex_home = TempDir::new().unwrap();
@@ -2797,7 +2797,7 @@ async fn azure_overrides_assign_properties_used_for_responses_url() {
         stream_idle_timeout_ms: None,
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
-        supports_websockets: false,
+        system_role: None,
     };
 
     // Init session
@@ -2885,7 +2885,7 @@ async fn env_var_overrides_loaded_auth() {
         stream_idle_timeout_ms: None,
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
-        supports_websockets: false,
+        system_role: None,
     };
 
     // Init session

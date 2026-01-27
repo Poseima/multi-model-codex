@@ -65,7 +65,7 @@ async fn retries_on_early_close() {
         stream_idle_timeout_ms: Some(2000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
-        supports_websockets: false,
+        system_role: None,
     };
 
     let TestCodex { codex, .. } = test_codex()
