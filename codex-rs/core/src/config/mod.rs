@@ -202,6 +202,13 @@ pub struct Config {
     /// Token usage threshold triggering auto-compaction of conversation history.
     pub model_auto_compact_token_limit: Option<i64>,
 
+    /// Percentage of context window to use as default auto-compaction threshold (0-100).
+    /// When `model_auto_compact_token_limit` is unset, the threshold is calculated as
+    /// (context_window * model_auto_compact_percent) / 100. Defaults to 90.
+    pub model_auto_compact_percent: Option<i64>,
+
+
+
     /// Key into the model_providers map that specifies which provider to use.
     pub model_provider_id: String,
 
@@ -1025,6 +1032,13 @@ pub struct ConfigToml {
 
     /// Token usage threshold triggering auto-compaction of conversation history.
     pub model_auto_compact_token_limit: Option<i64>,
+
+    /// Percentage of context window to use as default auto-compaction threshold (0-100).
+    /// When `model_auto_compact_token_limit` is unset, the threshold is calculated as
+    /// (context_window * model_auto_compact_percent) / 100. Defaults to 90.
+    pub model_auto_compact_percent: Option<i64>,
+
+
 
     /// Default approval policy for executing commands.
     pub approval_policy: Option<AskForApproval>,
@@ -1857,7 +1871,6 @@ impl Config {
         for (key, provider) in cfg.model_providers.into_iter() {
             model_providers.entry(key).or_insert(provider);
         }
-
         let model_provider_id = model_provider
             .or(config_profile.model_provider)
             .or(cfg.model_provider)
@@ -2141,6 +2154,7 @@ impl Config {
             review_model,
             model_context_window: cfg.model_context_window,
             model_auto_compact_token_limit: cfg.model_auto_compact_token_limit,
+            model_auto_compact_percent: cfg.model_auto_compact_percent,
             model_provider_id,
             model_provider,
             cwd: resolved_cwd,

@@ -1213,6 +1213,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1230,6 +1231,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1247,6 +1249,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1264,6 +1267,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1281,6 +1285,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1298,6 +1303,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1315,6 +1321,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1332,6 +1339,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1349,6 +1357,7 @@ mod tests {
                 context_window_used_tokens: Some(123_456),
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1366,6 +1375,7 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_total: None,
             },
         );
 
@@ -1381,6 +1391,7 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: false,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1409,6 +1420,7 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: false,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
