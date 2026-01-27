@@ -95,8 +95,7 @@ impl Provider {
 
     /// Check if this provider is OpenAI (supports developer role).
     pub fn is_openai(&self) -> bool {
-        self.name.eq_ignore_ascii_case("openai")
-            || self.base_url.contains("api.openai.com")
+        self.name.eq_ignore_ascii_case("openai") || self.base_url.contains("api.openai.com")
     }
 
     /// Check if this provider supports the "developer" role.
@@ -107,8 +106,7 @@ impl Provider {
 
     /// Check if this provider is Volcengine (requires thinking parameter).
     pub fn is_volcengine(&self) -> bool {
-        self.name.eq_ignore_ascii_case("volcengine")
-            || self.base_url.contains("volces.com")
+        self.name.eq_ignore_ascii_case("volcengine") || self.base_url.contains("volces.com")
     }
 
     pub fn is_azure_responses_endpoint(&self) -> bool {

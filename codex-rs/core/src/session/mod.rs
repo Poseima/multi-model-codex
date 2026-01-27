@@ -3644,6 +3644,7 @@ impl Session {
         turn_context: &TurnContext,
         token_usage: Option<&TokenUsage>,
     ) -> CodexResult<()> {
+        tracing::debug!(?token_usage, "update_token_usage_info called");
         let result = self
             .record_token_usage_info(turn_context, token_usage)
             .await;
@@ -3764,6 +3765,7 @@ impl Session {
             let state = self.state.lock().await;
             state.token_info_and_rate_limits()
         };
+        tracing::debug!(?info, "Sending TokenCount event to TUI");
         let event = EventMsg::TokenCount(TokenCountEvent { info, rate_limits });
         self.send_event(turn_context, event).await;
     }
