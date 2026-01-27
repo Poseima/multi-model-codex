@@ -129,6 +129,9 @@ pub(crate) enum AppEvent {
     /// Update the current personality in the running app and widget.
     UpdatePersonality(Personality),
 
+    /// Update the current model provider in the running app and widget.
+    UpdateProvider(String),
+
     /// Persist the selected model and reasoning effort to the appropriate config.
     PersistModelSelection {
         model: String,
@@ -139,6 +142,11 @@ pub(crate) enum AppEvent {
     /// Persist the selected personality to the appropriate config.
     PersistPersonalitySelection {
         personality: Personality,
+    },
+
+    /// Persist the selected provider to the appropriate config.
+    PersistProviderSelection {
+        provider: String,
     },
 
     /// Open the reasoning selection popup after picking a model.

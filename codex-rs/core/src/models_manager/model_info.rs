@@ -65,6 +65,7 @@ macro_rules! model_info {
             supports_parallel_tool_calls: false,
             context_window: Some(CONTEXT_WINDOW_272K),
             auto_compact_token_limit: None,
+            auto_compact_percent: None,
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: default_input_modalities(),
@@ -86,6 +87,9 @@ pub(crate) fn with_config_overrides(mut model: ModelInfo, config: &Config) -> Mo
     }
     if let Some(auto_compact_token_limit) = config.model_auto_compact_token_limit {
         model.auto_compact_token_limit = Some(auto_compact_token_limit);
+    }
+    if let Some(auto_compact_percent) = config.model_auto_compact_percent {
+        model.auto_compact_percent = Some(auto_compact_percent);
     }
     if let Some(token_limit) = config.tool_output_token_limit {
         model.truncation_policy = match model.truncation_policy.mode {
@@ -125,6 +129,13 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             slug,
             base_instructions: BASE_INSTRUCTIONS_WITH_APPLY_PATCH.to_string(),
             shell_type: ConfigShellToolType::Local,
+            supports_reasoning_summaries: true,
+            context_window: Some(200_000),
+        )
+    } else if slug.starts_with("ark-code") || slug.starts_with("ark/code") {
+        model_info!(
+            slug,
+            base_instructions: BASE_INSTRUCTIONS_WITH_APPLY_PATCH.to_string(),
             supports_reasoning_summaries: true,
             context_window: Some(200_000),
         )

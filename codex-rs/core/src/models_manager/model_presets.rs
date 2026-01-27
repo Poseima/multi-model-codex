@@ -9,6 +9,9 @@ use once_cell::sync::Lazy;
 
 use crate::model_provider_info::OPENROUTER_PROVIDER_ID;
 
+pub const ARK_PROVIDER_ID: &str = "ark";
+pub const VOLCENGINE_PROVIDER_ID: &str = "volcengine";
+
 pub const HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG: &str = "hide_gpt5_1_migration_prompt";
 pub const HIDE_GPT_5_1_CODEX_MAX_MIGRATION_PROMPT_CONFIG: &str =
     "hide_gpt-5.1-codex-max_migration_prompt";
@@ -417,6 +420,21 @@ static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             supported_in_api: true,
             input_modalities: default_input_modalities(),
             provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
+        },
+        // Volcengine models.
+        ModelPreset {
+            id: "volcengine/ark-code-latest".to_string(),
+            model: "ark-code-latest".to_string(),
+            display_name: "Ark Code Latest".to_string(),
+            description: "Volcengine's Ark Code model for coding tasks.".to_string(),
+            default_reasoning_effort: ReasoningEffort::None,
+            supported_reasoning_efforts: vec![],
+            supports_personality: false,
+            is_default: false,
+            upgrade: None,
+            show_in_picker: true,
+            supported_in_api: true,
+            provider_id: Some(VOLCENGINE_PROVIDER_ID.to_string()),
         },
     ]
 });
