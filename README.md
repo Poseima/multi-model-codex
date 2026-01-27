@@ -8,6 +8,23 @@ If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="http
 </br>If you want the desktop app experience, run <code>codex app</code> or visit <a href="https://chatgpt.com/codex?app-landing-page=true">the Codex App page</a>.
 </br>If you are looking for the <em>cloud-based agent</em> from OpenAI, <strong>Codex Web</strong>, go to <a href="https://chatgpt.com/codex">chatgpt.com/codex</a>.</p>
 
+## About This Fork
+
+This is a fork of the official [OpenAI Codex CLI](https://github.com/openai/codex) that adds multi-provider model support through [OpenRouter](https://openrouter.ai/).
+
+### Key Features Added
+
+- **Multi provider Integration**: Use Codex with multiple AI providers including openrouter, minimax, z.ai
+- **Provider Selection UI**: Switch between model providers using the `/provider` slash command in the TUI
+- **Context Window Display**: View context window total tokens in the footer
+- **Token Usage Tracking**: Monitor token consumption during sessions
+
+This fork maintains full compatibility with upstream Codex while extending model provider flexibility for developers who need access to multiple AI models.
+
+### Upstream
+
+This repository tracks the official OpenAI Codex repository and periodically merges updates from upstream/main.
+
 ---
 
 ## Quickstart
