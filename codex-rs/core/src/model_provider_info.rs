@@ -108,9 +108,10 @@ pub struct ModelProviderInfo {
     #[serde(default)]
     pub requires_openai_auth: bool,
 
-    /// Whether this provider supports the Responses API WebSocket transport.
-    #[serde(default)]
-    pub supports_websockets: bool,
+    /// Override for the role name used in system/instruction messages in chat
+    /// completions. Most providers use `"system"` (the default). Set this if
+    /// the provider expects a different role name (e.g. `"user"`).
+    pub system_role: Option<String>,
 }
 
 impl ModelProviderInfo {
@@ -171,6 +172,7 @@ impl ModelProviderInfo {
             headers,
             retry,
             stream_idle_timeout: self.stream_idle_timeout(),
+            system_role: self.system_role.clone(),
         })
     }
 
@@ -252,7 +254,7 @@ impl ModelProviderInfo {
             stream_max_retries: None,
             stream_idle_timeout_ms: None,
             requires_openai_auth: true,
-            supports_websockets: true,
+            system_role: None,
         }
     }
 
@@ -268,6 +270,7 @@ pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 pub const OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
 pub const OPENROUTER_PROVIDER_ID: &str = "openrouter";
+pub const MINIMAX_PROVIDER_ID: &str = "minimax";
 
 /// Built-in default provider list.
 pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
@@ -288,6 +291,7 @@ pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
             create_oss_provider(DEFAULT_LMSTUDIO_PORT, WireApi::Responses),
         ),
         (OPENROUTER_PROVIDER_ID, create_openrouter_provider()),
+        (MINIMAX_PROVIDER_ID, create_minimax_provider()),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
@@ -320,6 +324,27 @@ pub fn create_openrouter_provider() -> ModelProviderInfo {
         stream_max_retries: None,
         stream_idle_timeout_ms: None,
         requires_openai_auth: false,
+        system_role: None,
+    }
+}
+
+/// Create a MiniMax provider configuration.
+pub fn create_minimax_provider() -> ModelProviderInfo {
+    ModelProviderInfo {
+        name: "MiniMax Chat Completions API".into(),
+        base_url: Some("https://api.minimaxi.com/v1".into()),
+        env_key: Some("MINIMAX_API_KEY".into()),
+        env_key_instructions: None,
+        experimental_bearer_token: None,
+        wire_api: WireApi::Chat,
+        query_params: None,
+        http_headers: None,
+        env_http_headers: None,
+        request_max_retries: Some(4),
+        stream_max_retries: Some(10),
+        stream_idle_timeout_ms: Some(300_000),
+        requires_openai_auth: false,
+        system_role: Some("user".to_string()),
     }
 }
 
@@ -357,7 +382,7 @@ pub fn create_oss_provider_with_base_url(base_url: &str, wire_api: WireApi) -> M
         stream_max_retries: None,
         stream_idle_timeout_ms: None,
         requires_openai_auth: false,
-        supports_websockets: false,
+        system_role: None,
     }
 }
 
