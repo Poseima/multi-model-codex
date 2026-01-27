@@ -121,6 +121,7 @@ async fn user_input_includes_collaboration_instructions_after_override() -> Resu
             summary: None,
             collaboration_mode: Some(collaboration_mode),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -211,6 +212,7 @@ async fn override_then_next_turn_uses_updated_collaboration_instructions() -> Re
             summary: None,
             collaboration_mode: Some(collaboration_mode),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -261,6 +263,7 @@ async fn user_turn_overrides_collaboration_instructions_after_override() -> Resu
             summary: None,
             collaboration_mode: Some(base_mode),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -324,6 +327,7 @@ async fn collaboration_mode_update_emits_new_instruction_message() -> Result<()>
             summary: None,
             collaboration_mode: Some(collab_mode_with_instructions(Some(first_text))),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -349,6 +353,7 @@ async fn collaboration_mode_update_emits_new_instruction_message() -> Result<()>
             summary: None,
             collaboration_mode: Some(collab_mode_with_instructions(Some(second_text))),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -403,6 +408,7 @@ async fn collaboration_mode_update_noop_does_not_append() -> Result<()> {
             summary: None,
             collaboration_mode: Some(collab_mode_with_instructions(Some(collab_text))),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -428,6 +434,7 @@ async fn collaboration_mode_update_noop_does_not_append() -> Result<()> {
             summary: None,
             collaboration_mode: Some(collab_mode_with_instructions(Some(collab_text))),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -657,6 +664,7 @@ async fn resume_replays_collaboration_instructions() -> Result<()> {
             summary: None,
             collaboration_mode: Some(collab_mode_with_instructions(Some(collab_text))),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -725,6 +733,7 @@ async fn empty_collaboration_instructions_are_ignored() -> Result<()> {
                 },
             }),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
