@@ -550,6 +550,7 @@ async fn remote_models_remote_model_uses_unified_exec() -> Result<()> {
         context_window: Some(272_000),
         max_context_window: None,
         auto_compact_token_limit: None,
+        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };
@@ -607,6 +608,7 @@ async fn remote_models_remote_model_uses_unified_exec() -> Result<()> {
             service_tier: None,
             collaboration_mode: None,
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -807,6 +809,7 @@ async fn remote_models_apply_remote_base_instructions() -> Result<()> {
         context_window: Some(272_000),
         max_context_window: None,
         auto_compact_token_limit: None,
+        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };
@@ -858,6 +861,7 @@ async fn remote_models_apply_remote_base_instructions() -> Result<()> {
             service_tier: None,
             collaboration_mode: None,
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -1298,6 +1302,7 @@ fn test_remote_model_with_policy(
         context_window: Some(272_000),
         max_context_window: None,
         auto_compact_token_limit: None,
+        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     }
