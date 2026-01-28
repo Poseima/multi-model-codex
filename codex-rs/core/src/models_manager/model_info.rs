@@ -19,6 +19,8 @@ use tracing::warn;
 pub const BASE_INSTRUCTIONS: &str = include_str!("../../prompt.md");
 const BASE_INSTRUCTIONS_WITH_APPLY_PATCH: &str =
     include_str!("../../prompt_with_apply_patch_instructions.md");
+const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
+    include_str!("../../prompt_with_text_editor_instructions.md");
 
 const GPT_5_CODEX_INSTRUCTIONS: &str = include_str!("../../gpt_5_codex_prompt.md");
 const GPT_5_1_INSTRUCTIONS: &str = include_str!("../../gpt_5_1_prompt.md");
@@ -135,8 +137,8 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
     } else if slug.starts_with("ark-code") || slug.starts_with("ark/code") {
         model_info!(
             slug,
-            apply_patch_tool_type: Some(ApplyPatchToolType::Function),
-            base_instructions: BASE_INSTRUCTIONS_WITH_APPLY_PATCH.to_string(),
+            apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+            base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
             supports_reasoning_summaries: true,
             context_window: Some(200_000),
         )
@@ -255,7 +257,10 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
     } else if slug.starts_with("codex-MiniMax") {
         model_info!(
             slug,
-            apply_patch_tool_type: Some(ApplyPatchToolType::Function),
+            base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
+            apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+            shell_type: ConfigShellToolType::ShellCommand,
+            supports_reasoning_summaries: true,
             context_window: Some(200_000),
             supported_reasoning_levels: Vec::new(),
             default_reasoning_level: None
