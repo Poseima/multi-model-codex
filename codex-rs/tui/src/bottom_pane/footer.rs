@@ -1031,6 +1031,7 @@ mod tests {
                 let context_line = context_window_line(
                     props.context_window_percent,
                     props.context_window_used_tokens,
+                    props.context_window_total,
                 );
                 let context_width = context_line.width() as u16;
                 let show_cycle_hint = !props.is_task_running;
@@ -1039,14 +1040,18 @@ mod tests {
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ShortcutOverlay
                     | FooterMode::EscHint
-                    | FooterMode::ComposerHasDraft => false,
+                    | FooterMode::ComposerHasDraft
+                    | FooterMode::ShortcutSummary
+                    | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match props.mode {
                     FooterMode::ComposerHasDraft => props.is_task_running && props.steer_enabled,
+                    FooterMode::ContextOnly => props.is_task_running && props.steer_enabled,
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary => false,
                 };
                 let left_width = footer_line_width(
                     props,
