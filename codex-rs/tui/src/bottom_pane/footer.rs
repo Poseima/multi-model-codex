@@ -69,6 +69,7 @@ pub(crate) struct FooterProps {
     pub(crate) context_window_used_tokens: Option<i64>,
     pub(crate) status_line_value: Option<Line<'static>>,
     pub(crate) status_line_enabled: bool,
+    pub(crate) context_window_total: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -128,6 +129,10 @@ pub(crate) enum FooterMode {
     /// The shortcuts hint is suppressed here; when a task is running, this
     /// mode can show the queue hint instead.
     ComposerHasDraft,
+    /// Context-only display showing token usage with shortcuts hint.
+    ShortcutSummary,
+    /// Context display with optional queue hint.
+    ContextOnly,
 }
 
 pub(crate) fn toggle_shortcut_mode(
@@ -164,7 +169,9 @@ pub(crate) fn reset_mode_after_activity(current: FooterMode) -> FooterMode {
         FooterMode::EscHint
         | FooterMode::ShortcutOverlay
         | FooterMode::QuitShortcutReminder
-        | FooterMode::ComposerHasDraft => FooterMode::ComposerEmpty,
+        | FooterMode::ComposerHasDraft
+        | FooterMode::ShortcutSummary
+        | FooterMode::ContextOnly => FooterMode::ComposerEmpty,
         other => other,
     }
 }
@@ -175,14 +182,17 @@ pub(crate) fn footer_height(props: &FooterProps) -> u16 {
         FooterMode::QuitShortcutReminder
         | FooterMode::ShortcutOverlay
         | FooterMode::EscHint
-        | FooterMode::ComposerHasDraft => false,
+        | FooterMode::ComposerHasDraft
+        | FooterMode::ShortcutSummary
+        | FooterMode::ContextOnly => false,
     };
     let show_queue_hint = match props.mode {
-        FooterMode::ComposerHasDraft => props.is_task_running,
+        FooterMode::ComposerHasDraft | FooterMode::ContextOnly => props.is_task_running,
         FooterMode::QuitShortcutReminder
         | FooterMode::ComposerEmpty
         | FooterMode::ShortcutOverlay
-        | FooterMode::EscHint => false,
+        | FooterMode::EscHint
+        | FooterMode::ShortcutSummary => false,
     };
     footer_from_props_lines(props, None, false, show_shortcuts_hint, show_queue_hint).len() as u16
 }
@@ -608,6 +618,32 @@ fn footer_from_props_lines(
             };
             vec![left_side_line(collaboration_mode_indicator, state)]
         }
+        FooterMode::ShortcutSummary => {
+            let mut line = context_window_line(
+                props.context_window_percent,
+                props.context_window_used_tokens,
+                props.context_window_total,
+            );
+            line.push_span(" · ".dim());
+            line.extend(vec![
+                key_hint::plain(KeyCode::Char('?')).into(),
+                " for shortcuts".dim(),
+            ]);
+            vec![line]
+        }
+        FooterMode::ContextOnly => {
+            let mut line = context_window_line(
+                props.context_window_percent,
+                props.context_window_used_tokens,
+                props.context_window_total,
+            );
+            if props.is_task_running {
+                line.push_span(" · ".dim());
+                line.push_span(key_hint::plain(KeyCode::Tab));
+                line.push_span(" to queue message".dim());
+            }
+            vec![line]
+        }
     }
 }
 
@@ -775,12 +811,28 @@ fn build_columns(entries: Vec<Line<'static>>) -> Vec<Line<'static>> {
         .collect()
 }
 
-pub(crate) fn context_window_line(percent: Option<i64>, used_tokens: Option<i64>) -> Line<'static> {
+pub(crate) fn context_window_line(
+    percent: Option<i64>,
+    used_tokens: Option<i64>,
+    total: Option<i64>,
+) -> Line<'static> {
+    // Best case: we have used tokens and total - show "12K / 256K (95%)"
+    if let (Some(used), Some(total_tokens)) = (used_tokens, total) {
+        let used_fmt = format_tokens_compact(used);
+        let total_fmt = format_tokens_compact(total_tokens);
+        let pct = percent.map(|p| p.clamp(0, 100)).unwrap_or(100);
+        return Line::from(vec![
+            Span::from(format!("{used_fmt} / {total_fmt} ({pct}%)")).dim(),
+        ]);
+    }
+
+    // Fallback: just percent
     if let Some(percent) = percent {
         let percent = percent.clamp(0, 100);
         return Line::from(vec![Span::from(format!("{percent}% context left")).dim()]);
     }
 
+    // Fallback: just used tokens
     if let Some(tokens) = used_tokens {
         let used_fmt = format_tokens_compact(tokens);
         return Line::from(vec![Span::from(format!("{used_fmt} used")).dim()]);
