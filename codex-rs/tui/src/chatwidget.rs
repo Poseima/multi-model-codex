@@ -5899,6 +5899,7 @@ impl ChatWidget {
                         cwd: None,
                         approval_policy: None,
                         sandbox_policy: None,
+                        windows_sandbox_level: None,
                         model: None,
                         effort: None,
                         summary: None,
