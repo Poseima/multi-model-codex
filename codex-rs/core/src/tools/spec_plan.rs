@@ -22,6 +22,7 @@ use crate::tools::handlers::ShellCommandHandlerOptions;
 use crate::tools::handlers::ShellHandler;
 use crate::tools::handlers::TestSyncHandler;
 use crate::tools::handlers::ToolSearchHandler;
+use crate::tools::handlers::StructuredEditHandler;
 use crate::tools::handlers::UpdateGoalHandler;
 use crate::tools::handlers::ViewImageHandler;
 use crate::tools::handlers::WriteStdinHandler;
@@ -355,7 +356,14 @@ fn collect_handler_tools(
         )));
     }
 
-    if config.environment_mode.has_environment() && config.apply_patch_tool_type.is_some() {
+    if config.environment_mode.has_environment()
+        && matches!(
+            config.apply_patch_tool_type,
+            Some(codex_protocol::openai_models::ApplyPatchToolType::Structured)
+        )
+    {
+        builder.register_handler(Arc::new(StructuredEditHandler));
+    } else if config.environment_mode.has_environment() && config.apply_patch_tool_type.is_some() {
         let include_environment_id =
             matches!(config.environment_mode, ToolEnvironmentMode::Multiple);
         handlers.push(Arc::new(ApplyPatchHandler::new(include_environment_id)));
