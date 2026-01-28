@@ -1072,17 +1072,22 @@ mod tests {
                 let show_cycle_hint = !props.is_task_running;
                 let show_shortcuts_hint = match props.mode {
                     FooterMode::ComposerEmpty => true,
-                    FooterMode::ComposerHasDraft => false,
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ComposerHasDraft
+                    | FooterMode::ShortcutSummary
+                    | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match props.mode {
-                    FooterMode::ComposerHasDraft => props.is_task_running,
+                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => {
+                        props.is_task_running
+                    }
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary => false,
                 };
                 let status_line_active = props.status_line_enabled
                     && match props.mode {
