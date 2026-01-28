@@ -175,6 +175,7 @@ pub enum ConfigShellToolType {
 pub enum ApplyPatchToolType {
     Freeform,
     Function,
+    Structured,
 }
 
 /// Server-provided truncation policy metadata for a model.
