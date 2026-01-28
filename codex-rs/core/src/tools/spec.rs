@@ -1,12 +1,14 @@
 use crate::shell::Shell;
 use crate::shell::ShellType;
 use crate::tools::handlers::agent_jobs::BatchJobHandler;
+use crate::tools::handlers::structured_edit::create_text_editor_tool;
 use crate::tools::handlers::multi_agents_common::DEFAULT_WAIT_TIMEOUT_MS;
 use crate::tools::handlers::multi_agents_common::MAX_WAIT_TIMEOUT_MS;
 use crate::tools::handlers::multi_agents_common::MIN_WAIT_TIMEOUT_MS;
 use crate::tools::registry::ToolRegistryBuilder;
 use codex_mcp::ToolInfo;
 use codex_protocol::dynamic_tools::DynamicToolSpec;
+use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_tools::AdditionalProperties;
 use codex_tools::DiscoverableTool;
 use codex_tools::JsonSchema;
@@ -184,6 +186,21 @@ pub(crate) fn build_specs_with_discoverable_tools(
         } else {
             builder.push_spec(spec.spec);
         }
+    }
+
+    if config.has_environment
+        && matches!(
+            config.apply_patch_tool_type,
+            Some(ApplyPatchToolType::Structured)
+        )
+    {
+        let text_editor_tool = if config.code_mode_enabled {
+            augment_tool_spec_for_code_mode(create_text_editor_tool())
+        } else {
+            create_text_editor_tool()
+        };
+        builder.push_spec(text_editor_tool);
+        builder.register_handler("text_editor", Arc::new(crate::tools::handlers::StructuredEditHandler));
     }
 
     for handler in plan.handlers {

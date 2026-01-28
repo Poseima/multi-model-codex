@@ -193,6 +193,7 @@ pub enum ConfigShellToolType {
 pub enum ApplyPatchToolType {
     Freeform,
     Function,
+    Structured,
 }
 
 #[derive(
