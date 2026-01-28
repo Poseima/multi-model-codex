@@ -2431,6 +2431,7 @@ impl ChatComposer {
             }
             FooterMode::QuitShortcutReminder => base_mode,
             FooterMode::ComposerEmpty | FooterMode::ComposerHasDraft => base_mode,
+            FooterMode::ShortcutSummary | FooterMode::ContextOnly => base_mode,
         }
     }
 
@@ -2887,20 +2888,24 @@ impl ChatComposer {
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ShortcutOverlay
                     | FooterMode::EscHint
-                    | FooterMode::ComposerHasDraft => false,
+                    | FooterMode::ComposerHasDraft
+                    | FooterMode::ShortcutSummary
+                    | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match footer_props.mode {
-                    FooterMode::ComposerHasDraft => {
+                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => {
                         footer_props.is_task_running && footer_props.steer_enabled
                     }
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary => false,
                 };
                 let context_line = context_window_line(
                     footer_props.context_window_percent,
                     footer_props.context_window_used_tokens,
+                    footer_props.context_window_total,
                 );
                 let context_width = context_line.width() as u16;
                 let custom_height = self.custom_footer_height();
@@ -2957,7 +2962,9 @@ impl ChatComposer {
                         }
                         FooterMode::EscHint
                         | FooterMode::QuitShortcutReminder
-                        | FooterMode::ShortcutOverlay => None,
+                        | FooterMode::ShortcutOverlay
+                        | FooterMode::ShortcutSummary
+                        | FooterMode::ContextOnly => None,
                     }
                 };
                 let show_context = if matches!(
