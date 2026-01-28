@@ -11,6 +11,7 @@ use crate::tools::handlers::SEARCH_TOOL_BM25_DEFAULT_LIMIT;
 use crate::tools::handlers::SEARCH_TOOL_BM25_TOOL_NAME;
 use crate::tools::handlers::apply_patch::create_apply_patch_freeform_tool;
 use crate::tools::handlers::apply_patch::create_apply_patch_json_tool;
+use crate::tools::handlers::structured_edit::create_text_editor_tool;
 use crate::tools::handlers::multi_agents::DEFAULT_WAIT_TIMEOUT_MS;
 use crate::tools::handlers::multi_agents::MAX_WAIT_TIMEOUT_MS;
 use crate::tools::handlers::multi_agents::MIN_WAIT_TIMEOUT_MS;
@@ -85,6 +86,7 @@ impl ToolsConfig {
         let apply_patch_tool_type = match model_info.apply_patch_tool_type {
             Some(ApplyPatchToolType::Freeform) => Some(ApplyPatchToolType::Freeform),
             Some(ApplyPatchToolType::Function) => Some(ApplyPatchToolType::Function),
+            Some(ApplyPatchToolType::Structured) => Some(ApplyPatchToolType::Structured),
             None => {
                 if include_apply_patch_tool {
                     Some(ApplyPatchToolType::Freeform)
@@ -1501,12 +1503,19 @@ pub(crate) fn build_specs(
         match apply_patch_tool_type {
             ApplyPatchToolType::Freeform => {
                 builder.push_spec(create_apply_patch_freeform_tool());
+                builder.register_handler("apply_patch", apply_patch_handler);
             }
             ApplyPatchToolType::Function => {
                 builder.push_spec(create_apply_patch_json_tool());
+                builder.register_handler("apply_patch", apply_patch_handler);
+            }
+            ApplyPatchToolType::Structured => {
+                let structured_edit_handler =
+                    Arc::new(crate::tools::handlers::StructuredEditHandler);
+                builder.push_spec(create_text_editor_tool());
+                builder.register_handler("text_editor", structured_edit_handler);
             }
         }
-        builder.register_handler("apply_patch", apply_patch_handler);
     }
 
     if config
