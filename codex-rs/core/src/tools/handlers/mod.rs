@@ -11,6 +11,7 @@ mod read_file;
 mod request_user_input;
 mod search_tool_bm25;
 mod shell;
+pub(crate) mod structured_edit;
 mod test_sync;
 mod unified_exec;
 mod view_image;
@@ -36,6 +37,7 @@ pub(crate) use search_tool_bm25::DEFAULT_LIMIT as SEARCH_TOOL_BM25_DEFAULT_LIMIT
 pub use search_tool_bm25::SearchToolBm25Handler;
 pub use shell::ShellCommandHandler;
 pub use shell::ShellHandler;
+pub use structured_edit::StructuredEditHandler;
 pub use test_sync::TestSyncHandler;
 pub use unified_exec::UnifiedExecHandler;
 pub use view_image::ViewImageHandler;
