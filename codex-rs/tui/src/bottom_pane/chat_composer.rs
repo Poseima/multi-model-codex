@@ -3174,7 +3174,13 @@ impl ChatComposer {
     /// modes (Esc hint, overlay, quit reminder) can override that base when
     /// their conditions are active.
     fn footer_mode(&self) -> FooterMode {
-        let base_mode = if self.is_empty() {
+        let base_mode = if self.is_task_running {
+            if self.is_empty() {
+                FooterMode::ShortcutSummary
+            } else {
+                FooterMode::ContextOnly
+            }
+        } else if self.is_empty() {
             FooterMode::ComposerEmpty
         } else {
             FooterMode::ComposerHasDraft
