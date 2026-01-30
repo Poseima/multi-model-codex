@@ -109,6 +109,10 @@ pub struct ModelProviderInfo {
     #[serde(default)]
     pub requires_openai_auth: bool,
 
+    /// Whether this provider supports the Responses API WebSocket transport.
+    #[serde(default)]
+    pub supports_websockets: bool,
+
     /// Override for the role name used in system/instruction messages in chat
     /// completions. Most providers use `"system"` (the default). Set this if
     /// the provider expects a different role name (e.g. `"user"`).
@@ -258,6 +262,7 @@ impl ModelProviderInfo {
             stream_max_retries: None,
             stream_idle_timeout_ms: None,
             requires_openai_auth: true,
+            supports_websockets: true,
             system_role: None,
         }
     }
@@ -328,6 +333,7 @@ pub fn create_openrouter_provider() -> ModelProviderInfo {
         stream_max_retries: None,
         stream_idle_timeout_ms: None,
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     }
 }
@@ -348,6 +354,7 @@ pub fn create_minimax_provider() -> ModelProviderInfo {
         stream_max_retries: Some(10),
         stream_idle_timeout_ms: Some(300_000),
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: Some("user".to_string()),
     }
 }
@@ -387,6 +394,7 @@ pub fn create_oss_provider_with_base_url(base_url: &str, wire_api: WireApi) -> M
         stream_max_retries: None,
         stream_idle_timeout_ms: None,
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     }
 }
@@ -416,6 +424,7 @@ base_url = "http://localhost:11434/v1"
             stream_max_retries: None,
             stream_idle_timeout_ms: None,
             requires_openai_auth: false,
+            supports_websockets: false,
             system_role: None,
         };
 
@@ -447,6 +456,7 @@ query_params = { api-version = "2025-04-01-preview" }
             stream_max_retries: None,
             stream_idle_timeout_ms: None,
             requires_openai_auth: false,
+            supports_websockets: false,
             system_role: None,
         };
 
@@ -481,6 +491,7 @@ env_http_headers = { "X-Example-Env-Header" = "EXAMPLE_ENV_VAR" }
             stream_max_retries: None,
             stream_idle_timeout_ms: None,
             requires_openai_auth: false,
+            supports_websockets: false,
             system_role: None,
         };
 
@@ -526,6 +537,7 @@ wire_api = "chat"
                 stream_max_retries: None,
                 stream_idle_timeout_ms: None,
                 requires_openai_auth: false,
+                supports_websockets: false,
                 system_role: None,
             };
             let api = provider.to_api_provider(None).expect("api provider");
@@ -549,6 +561,7 @@ wire_api = "chat"
             stream_max_retries: None,
             stream_idle_timeout_ms: None,
             requires_openai_auth: false,
+            supports_websockets: false,
             system_role: None,
         };
         let named_api = named_provider.to_api_provider(None).expect("api provider");
@@ -574,6 +587,7 @@ wire_api = "chat"
                 stream_max_retries: None,
                 stream_idle_timeout_ms: None,
                 requires_openai_auth: false,
+                supports_websockets: false,
                 system_role: None,
             };
             let api = provider.to_api_provider(None).expect("api provider");
