@@ -55,6 +55,7 @@ async fn responses_stream_includes_subagent_header_on_review() {
         stream_max_retries: Some(0),
         stream_idle_timeout_ms: Some(5_000),
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     };
 
@@ -166,6 +167,7 @@ async fn responses_stream_includes_subagent_header_on_other() {
         stream_max_retries: Some(0),
         stream_idle_timeout_ms: Some(5_000),
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     };
 
@@ -272,6 +274,7 @@ async fn responses_respects_model_info_overrides_from_config() {
         stream_max_retries: Some(0),
         stream_idle_timeout_ms: Some(5_000),
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     };
 
