@@ -356,6 +356,9 @@ pub fn create_openrouter_provider() -> ModelProviderInfo {
         stream_max_retries: None,
         stream_idle_timeout_ms: None,
         requires_openai_auth: false,
+        supports_websockets: false,
+        system_role: None,
+    }
     }
 }
 
