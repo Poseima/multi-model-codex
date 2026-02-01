@@ -307,7 +307,6 @@ impl ModelInfo {
         config_limit
     }
 
-
     pub fn supports_personality(&self) -> bool {
         self.model_messages
             .as_ref()
