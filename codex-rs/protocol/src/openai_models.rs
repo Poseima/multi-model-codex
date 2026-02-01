@@ -263,14 +263,12 @@ pub struct ModelInfo {
 impl ModelInfo {
     pub fn auto_compact_token_limit(&self) -> Option<i64> {
         self.auto_compact_token_limit.or_else(|| {
-            self.context_window
-                .map(|context_window| {
-                    let percent = self.auto_compact_percent.unwrap_or(90);
-                    (context_window * percent) / 100
-                })
+            self.context_window.map(|context_window| {
+                let percent = self.auto_compact_percent.unwrap_or(90);
+                (context_window * percent) / 100
+            })
         })
     }
-
 
     pub fn supports_personality(&self) -> bool {
         self.model_messages
