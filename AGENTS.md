@@ -1,5 +1,8 @@
 # Repo Objective and Implementation Guideline
 - This is a fork of the Codex repository that syncs with upstream daily. The objective is to add powerful new features while making minimal changes to the current codebase. When modifications are absolutely necessary, they are implemented cleanly to facilitate easy rebasing, as large changes can create tedious conflicts during synchronization.
+- Prefer additive, well-isolated changes; avoid modifying upstream files unless necessary.
+- Keep fork commits atomic and easy to drop if upstream converges.
+- If upstream implements a similar feature, drop the fork version or rebase onto upstream’s foundation rather than maintaining duplicates.
 - Simple & Effective > Complex & Perfect
 - Consistency is the king
 
