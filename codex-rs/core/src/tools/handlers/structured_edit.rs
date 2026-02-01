@@ -6,7 +6,6 @@ use crate::apply_patch::convert_apply_patch_to_protocol;
 use crate::client_common::tools::ResponsesApiTool;
 use crate::client_common::tools::ToolSpec;
 use crate::function_tool::FunctionCallError;
-use crate::tools::spec::JsonSchema;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
@@ -19,6 +18,7 @@ use crate::tools::registry::ToolKind;
 use crate::tools::runtimes::apply_patch::ApplyPatchRequest;
 use crate::tools::runtimes::apply_patch::ApplyPatchRuntime;
 use crate::tools::sandboxing::ToolCtx;
+use crate::tools::spec::JsonSchema;
 use async_trait::async_trait;
 use codex_apply_patch::ApplyPatchFileChange;
 use codex_utils_absolute_path::AbsolutePathBuf;
@@ -259,9 +259,7 @@ impl ToolHandler for StructuredEditHandler {
     }
 }
 
-fn file_paths_for_action(
-    action: &codex_apply_patch::ApplyPatchAction,
-) -> Vec<AbsolutePathBuf> {
+fn file_paths_for_action(action: &codex_apply_patch::ApplyPatchAction) -> Vec<AbsolutePathBuf> {
     let cwd = action.cwd.as_path();
     let mut keys = Vec::new();
     for (path, change) in action.changes() {
@@ -482,8 +480,7 @@ mod tests {
 
     #[test]
     fn str_replace_includes_context_lines() {
-        let file_content =
-            "aaa\nbbb\nccc\nddd\nTARGET\neee\nfff\nggg\nhhh\n";
+        let file_content = "aaa\nbbb\nccc\nddd\nTARGET\neee\nfff\nggg\nhhh\n";
         let patch =
             generate_str_replace_patch("f.txt", "TARGET", "REPLACED", file_content).unwrap();
         // Should have 3 pre-context lines (bbb, ccc, ddd) and 3 post-context (eee, fff, ggg).
@@ -512,8 +509,7 @@ mod tests {
     #[test]
     fn str_replace_near_file_start() {
         let file_content = "first\nsecond\nthird\nfourth\n";
-        let patch =
-            generate_str_replace_patch("f.txt", "first", "FIRST", file_content).unwrap();
+        let patch = generate_str_replace_patch("f.txt", "first", "FIRST", file_content).unwrap();
         // Should not have pre-context lines since match is at line 0.
         assert!(patch.contains("-first\n"));
         assert!(patch.contains("+FIRST\n"));
@@ -523,8 +519,7 @@ mod tests {
     #[test]
     fn str_replace_near_file_end() {
         let file_content = "aaa\nbbb\nccc\nlast\n";
-        let patch =
-            generate_str_replace_patch("f.txt", "last", "LAST", file_content).unwrap();
+        let patch = generate_str_replace_patch("f.txt", "last", "LAST", file_content).unwrap();
         assert!(patch.contains("-last\n"));
         assert!(patch.contains("+LAST\n"));
         assert!(patch.contains(" ccc\n"));
