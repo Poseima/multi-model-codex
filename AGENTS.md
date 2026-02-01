@@ -1,3 +1,8 @@
+# Repo Objective and Implementation Guideline
+- This is a fork of the Codex repository that syncs with upstream daily. The objective is to add powerful new features while making minimal changes to the current codebase. When modifications are absolutely necessary, they are implemented cleanly to facilitate easy rebasing, as large changes can create tedious conflicts during synchronization.
+- Simple & Effective > Complex & Perfect
+- Consistency is the king
+
 # Rust/codex-rs
 
 In the codex-rs folder where the rust code lives:
