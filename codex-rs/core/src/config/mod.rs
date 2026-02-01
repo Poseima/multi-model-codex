@@ -4821,6 +4821,7 @@ model_verbosity = "high"
             stream_max_retries: Some(10),
             stream_idle_timeout_ms: Some(300_000),
             requires_openai_auth: false,
+            supports_websockets: false,
             system_role: None,
         };
         let model_provider_map = {

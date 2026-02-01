@@ -740,6 +740,10 @@
           "description": "Whether this provider supports the Responses API WebSocket transport.",
           "type": "boolean"
         },
+        "system_role": {
+          "description": "Override for the role name used in system/instruction messages in chat completions. Most providers use `\"system\"` (the default). Set this if the provider expects a different role name (e.g. `\"user\"`).",
+          "type": "string"
+        },
         "wire_api": {
           "allOf": [
             {

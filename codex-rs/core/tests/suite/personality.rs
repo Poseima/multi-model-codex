@@ -524,6 +524,7 @@ async fn user_turn_personality_skips_if_feature_disabled() -> anyhow::Result<()>
             summary: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
+            provider_id: None,
         })
         .await?;
 
@@ -609,6 +610,7 @@ async fn remote_model_friendly_personality_instructions_with_feature() -> anyhow
         supports_parallel_tool_calls: false,
         context_window: Some(128_000),
         auto_compact_token_limit: None,
+        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
         input_modalities: default_input_modalities(),
