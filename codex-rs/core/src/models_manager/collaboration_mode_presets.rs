@@ -6,6 +6,7 @@ use codex_protocol::openai_models::ReasoningEffort;
 const COLLABORATION_MODE_PLAN: &str = include_str!("../../templates/collaboration_mode/plan.md");
 const COLLABORATION_MODE_DEFAULT: &str =
     include_str!("../../templates/collaboration_mode/default.md");
+const COLLABORATION_MODE_DAWN: &str = include_str!("../../templates/collaboration_mode/dawn.md");
 const KNOWN_MODE_NAMES_PLACEHOLDER: &str = "{{KNOWN_MODE_NAMES}}";
 const REQUEST_USER_INPUT_AVAILABILITY_PLACEHOLDER: &str = "{{REQUEST_USER_INPUT_AVAILABILITY}}";
 const ASKING_QUESTIONS_GUIDANCE_PLACEHOLDER: &str = "{{ASKING_QUESTIONS_GUIDANCE}}";
@@ -24,7 +25,7 @@ pub struct CollaborationModesConfig {
 pub(crate) fn builtin_collaboration_mode_presets(
     collaboration_modes_config: CollaborationModesConfig,
 ) -> Vec<CollaborationModeMask> {
-    vec![plan_preset(), default_preset(collaboration_modes_config)]
+    vec![plan_preset(), default_preset(collaboration_modes_config), dawn_preset()]
 }
 
 fn plan_preset() -> CollaborationModeMask {
@@ -155,5 +156,15 @@ mod tests {
             default_instructions
                 .contains("ask the user directly with a concise plain-text question")
         );
+    }
+}
+
+fn dawn_preset() -> CollaborationModeMask {
+    CollaborationModeMask {
+        name: "Dawn".to_string(),
+        mode: Some(ModeKind::Dawn),
+        model: None,
+        reasoning_effort: Some(Some(ReasoningEffort::High)),
+        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
     }
 }

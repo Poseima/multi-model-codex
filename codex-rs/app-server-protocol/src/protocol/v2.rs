@@ -1456,6 +1456,39 @@ pub struct ModelListResponse {
     pub next_cursor: Option<String>,
 }
 
+/// List configured model providers.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ProviderListParams {}
+
+/// Summary of a configured model provider.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ProviderInfo {
+    /// Key in the providers map (e.g. `"openai"`, `"ollama"`).
+    pub id: String,
+    /// Friendly display name.
+    pub name: String,
+    /// Base URL for the provider's API.
+    pub base_url: Option<String>,
+    /// Wire protocol: `"responses"` or `"chat"`.
+    pub wire_api: String,
+    /// Environment variable that stores the API key.
+    pub env_key: Option<String>,
+    /// Whether this provider requires OpenAI authentication.
+    pub requires_openai_auth: bool,
+}
+
+/// Response for `provider/list`.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ProviderListResponse {
+    pub data: Vec<ProviderInfo>,
+}
+
 /// EXPERIMENTAL - list collaboration mode presets.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
@@ -2857,6 +2890,9 @@ pub struct TurnStartParams {
     #[experimental("turn/start.collaborationMode")]
     #[ts(optional = nullable)]
     pub collaboration_mode: Option<CollaborationMode>,
+
+    /// Override the model provider for this turn and subsequent turns.
+    pub provider_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]

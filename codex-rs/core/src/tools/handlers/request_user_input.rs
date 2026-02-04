@@ -134,6 +134,7 @@ mod tests {
         assert!(!ModeKind::Default.allows_request_user_input());
         assert!(!ModeKind::Execute.allows_request_user_input());
         assert!(!ModeKind::PairProgramming.allows_request_user_input());
+        assert!(!ModeKind::Dawn.allows_request_user_input());
     }
 
     #[test]
@@ -157,6 +158,10 @@ mod tests {
         assert_eq!(
             request_user_input_unavailable_message(ModeKind::PairProgramming, false),
             Some("request_user_input is unavailable in Pair Programming mode".to_string())
+        );
+        assert_eq!(
+            request_user_input_unavailable_message(ModeKind::Dawn),
+            Some("request_user_input is unavailable in Dawn mode".to_string())
         );
     }
 
