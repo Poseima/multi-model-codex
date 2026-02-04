@@ -884,14 +884,13 @@ impl SessionConfiguration {
         if let Some(app_server_client_name) = updates.app_server_client_name.clone() {
             next_configuration.app_server_client_name = Some(app_server_client_name);
         }
-        if let Some(ref provider_id) = updates.provider_id {
-            if let Some(new_provider) = self
+        if let Some(ref provider_id) = updates.provider_id
+            && let Some(new_provider) = self
                 .original_config_do_not_use
                 .model_providers
                 .get(provider_id)
-            {
-                next_configuration.provider = new_provider.clone();
-            }
+        {
+            next_configuration.provider = new_provider.clone();
         }
         Ok(next_configuration)
     }

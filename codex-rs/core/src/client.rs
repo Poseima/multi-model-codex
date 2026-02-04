@@ -35,6 +35,7 @@ use crate::api_bridge::CoreAuthProvider;
 use crate::api_bridge::auth_provider_from_auth;
 use crate::api_bridge::map_api_error;
 use crate::auth::UnauthorizedRecovery;
+use codex_api::ChatCompatClient as ApiChatCompatClient; // Fork: chat-api
 use codex_api::CompactClient as ApiCompactClient;
 use codex_api::CompactionInput as ApiCompactionInput;
 use codex_api::MemoriesClient as ApiMemoriesClient;
@@ -97,6 +98,7 @@ use crate::error::Result;
 use crate::flags::CODEX_RS_SSE_FIXTURE;
 use crate::model_provider_info::ModelProviderInfo;
 use crate::model_provider_info::WireApi;
+use crate::tools::spec::create_tools_json_for_chat_completions_api; // Fork: chat-api
 use crate::tools::spec::create_tools_json_for_responses_api;
 
 pub const OPENAI_BETA_HEADER: &str = "OpenAI-Beta";
@@ -848,6 +850,72 @@ impl ModelClientSession {
         }
     }
 
+    /// Streams a turn via the Chat Completions API (`/chat/completions`).
+    /// Fork: chat-api — entire method is fork-specific.
+    async fn stream_chat_completions(
+        &self,
+        prompt: &Prompt,
+        model_info: &ModelInfo,
+        otel_manager: &OtelManager,
+    ) -> Result<ResponseStream> {
+        if prompt.output_schema.is_some() {
+            return Err(CodexErr::UnsupportedOperation(
+                "output_schema is not supported for Chat Completions API".to_string(),
+            ));
+        }
+
+        let auth_manager = self.client.state.auth_manager.clone();
+        let instructions = prompt.base_instructions.text.clone();
+        let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
+        let api_prompt = build_api_prompt(prompt, instructions, tools_json);
+        let conversation_id = self.client.state.conversation_id.to_string();
+        let session_source = self.client.state.session_source.clone();
+
+        let mut auth_recovery = auth_manager
+            .as_ref()
+            .map(super::auth::AuthManager::unauthorized_recovery);
+        loop {
+            let auth = match auth_manager.as_ref() {
+                Some(manager) => manager.auth().await,
+                None => None,
+            };
+            let api_provider = self
+                .client
+                .state
+                .provider
+                .to_api_provider(auth.as_ref().map(CodexAuth::auth_mode))?;
+            let api_auth =
+                auth_provider_from_auth(auth.clone(), &self.client.state.provider)?;
+            let transport = ReqwestTransport::new(build_reqwest_client());
+            let (request_telemetry, sse_telemetry) =
+                Self::build_streaming_telemetry(otel_manager);
+            let client = ApiChatCompatClient::new(transport, api_provider, api_auth)
+                .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
+
+            let stream_result = client
+                .stream_prompt(
+                    &model_info.slug,
+                    &api_prompt,
+                    Some(conversation_id.clone()),
+                    Some(session_source.clone()),
+                )
+                .await;
+
+            match stream_result {
+                Ok(stream) => {
+                    return Ok(map_response_stream(stream, otel_manager.clone()));
+                }
+                Err(ApiError::Transport(
+                    unauthorized_transport @ TransportError::Http { status, .. },
+                )) if status == StatusCode::UNAUTHORIZED => {
+                    handle_unauthorized(unauthorized_transport, &mut auth_recovery).await?;
+                    continue;
+                }
+                Err(err) => return Err(map_api_error(err)),
+            }
+        }
+    }
+
     /// Streams a turn via the Responses API over WebSocket transport.
     #[allow(clippy::too_many_arguments)]
     async fn stream_responses_websocket(
@@ -1056,6 +1124,7 @@ impl ModelClientSession {
                 )
                 .await
             }
+            WireApi::Chat => self.stream_chat_completions(prompt, model_info, otel_manager).await, // Fork: chat-api
         }
     }
 
