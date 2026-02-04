@@ -1,3 +1,4 @@
+pub mod chat_compat; // Fork: chat-api
 pub mod responses;
 
 pub use responses::process_sse;
