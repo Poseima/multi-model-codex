@@ -105,6 +105,24 @@ pub async fn update_thread_settings(
     sess.send_event_raw(Event { id: sub_id, msg }).await;
 }
 
+async fn update_provider(sess: &Arc<Session>, sub_id: String, provider_id: String) {
+    let updates = SessionSettingsUpdate {
+        provider_id: Some(provider_id),
+        ..Default::default()
+    };
+    let msg = match sess.update_settings(updates).await {
+        Ok(()) => {
+            sess.rebuild_model_client_for_current_provider().await;
+            thread_settings_applied_event(sess).await
+        }
+        Err(err) => EventMsg::Error(ErrorEvent {
+            message: format!("invalid provider override: {err}"),
+            codex_error_info: Some(CodexErrorInfo::BadRequest),
+        }),
+    };
+    sess.send_event_raw(Event { id: sub_id, msg }).await;
+}
+
 async fn thread_settings_update(
     sess: &Session,
     thread_settings: ThreadSettingsOverrides,
@@ -764,6 +782,10 @@ pub(super) async fn submission_loop(
                 }
                 Op::ThreadSettings { thread_settings } => {
                     update_thread_settings(&sess, sub.id.clone(), thread_settings).await;
+                    false
+                }
+                Op::OverrideProvider { provider_id } => {
+                    update_provider(&sess, sub.id.clone(), provider_id).await;
                     false
                 }
                 Op::InterAgentCommunication { communication } => {
