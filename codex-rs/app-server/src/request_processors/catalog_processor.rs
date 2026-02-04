@@ -162,6 +162,15 @@ impl CatalogRequestProcessor {
             .map(|response| Some(response.into()))
     }
 
+    pub(crate) async fn provider_list(
+        &self,
+        params: ProviderListParams,
+    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
+        Self::list_providers(self.config.as_ref(), params)
+            .await
+            .map(|response| Some(response.into()))
+    }
+
     pub(crate) async fn experimental_feature_list(
         &self,
         params: ExperimentalFeatureListParams,
@@ -304,6 +313,27 @@ impl CatalogRequestProcessor {
             .collect();
         let response = CollaborationModeListResponse { data: items };
         Ok(response)
+    }
+
+    async fn list_providers(
+        config: &Config,
+        params: ProviderListParams,
+    ) -> Result<ProviderListResponse, JSONRPCErrorError> {
+        let ProviderListParams {} = params;
+        let mut providers = config
+            .model_providers
+            .iter()
+            .map(|(id, info)| ProviderInfo {
+                id: id.clone(),
+                name: info.name.clone(),
+                base_url: info.base_url.clone(),
+                wire_api: info.wire_api.to_string(),
+                env_key: info.env_key.clone(),
+                requires_openai_auth: info.requires_openai_auth,
+            })
+            .collect::<Vec<_>>();
+        providers.sort_by(|left, right| left.id.cmp(&right.id));
+        Ok(ProviderListResponse { data: providers })
     }
 
     async fn experimental_feature_list_response(
