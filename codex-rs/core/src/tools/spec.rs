@@ -13,6 +13,8 @@ use codex_tool_api::ToolBundle as ExtensionToolBundle;
 use codex_tools::DiscoverableTool;
 use codex_tools::ToolUserShellType;
 use codex_tools::ToolsConfig;
+use codex_tools::create_tools_json_for_responses_api;
+use serde_json::json;
 
 pub(crate) fn tool_user_shell_type(user_shell: &Shell) -> ToolUserShellType {
     match user_shell.shell_type {
@@ -22,6 +24,30 @@ pub(crate) fn tool_user_shell_type(user_shell: &Shell) -> ToolUserShellType {
         ShellType::Sh => ToolUserShellType::Sh,
         ShellType::Cmd => ToolUserShellType::Cmd,
     }
+}
+
+/// Converts Responses API tool definitions into the Chat Completions API
+/// wrapper shape and drops non-function tools.
+pub(crate) fn create_tools_json_for_chat_completions_api(
+    tools: &[codex_tools::ToolSpec],
+) -> codex_protocol::error::Result<Vec<serde_json::Value>> {
+    let responses_api_tools_json = create_tools_json_for_responses_api(tools)?;
+    Ok(responses_api_tools_json
+        .into_iter()
+        .filter_map(|mut tool| {
+            if tool.get("type") != Some(&serde_json::Value::String("function".to_string())) {
+                return None;
+            }
+            let map = tool.as_object_mut()?;
+            let name = map
+                .get("name")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_string();
+            map.remove("type");
+            Some(json!({ "type": "function", "name": name, "function": map }))
+        })
+        .collect())
 }
 
 pub(crate) fn build_specs_with_discoverable_tools(
