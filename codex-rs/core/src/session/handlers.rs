@@ -11,6 +11,7 @@ use tracing::debug_span;
 use tracing::info_span;
 
 use crate::session::session::Session;
+use crate::session::session::SessionSettingsUpdate;
 use crate::session::thread_settings;
 use crate::session::turn_input;
 
@@ -75,6 +76,25 @@ pub async fn realtime_conversation_list_voices(sess: &Session, sub_id: String) {
         ),
     })
     .await;
+}
+
+async fn update_provider(sess: &Arc<Session>, sub_id: String, provider_id: String) {
+    let updates = SessionSettingsUpdate {
+        provider_id: Some(provider_id),
+        ..Default::default()
+    };
+    if let Err(error) = thread_settings::apply_update(sess, sub_id.clone(), updates).await {
+        sess.send_event_raw(Event {
+            id: sub_id,
+            msg: EventMsg::Error(ErrorEvent {
+                message: format!("invalid provider override: {error}"),
+                codex_error_info: Some(CodexErrorInfo::BadRequest),
+            }),
+        })
+        .await;
+        return;
+    }
+    sess.rebuild_model_client_for_current_provider().await;
 }
 
 /// Queues an inter-agent message, then lets the shared pending-work scheduler
@@ -587,6 +607,10 @@ pub(super) async fn submission_loop(
                 }
                 Op::ThreadSettings { thread_settings } => {
                     thread_settings::update(&sess, sub.id.clone(), thread_settings).await;
+                    false
+                }
+                Op::OverrideProvider { provider_id } => {
+                    update_provider(&sess, sub.id.clone(), provider_id).await;
                     false
                 }
                 Op::InterAgentCommunication { communication } => {
