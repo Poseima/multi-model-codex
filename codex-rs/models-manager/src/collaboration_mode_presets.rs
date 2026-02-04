@@ -1,11 +1,12 @@
 use codex_collaboration_mode_templates::DEFAULT as COLLABORATION_MODE_DEFAULT;
+use codex_collaboration_mode_templates::DAWN as COLLABORATION_MODE_DAWN;
 use codex_collaboration_mode_templates::PLAN as COLLABORATION_MODE_PLAN;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::openai_models::ReasoningEffort;
 
 pub fn builtin_collaboration_mode_presets() -> Vec<CollaborationModeMask> {
-    vec![plan_preset(), default_preset()]
+    vec![plan_preset(), default_preset(), dawn_preset()]
 }
 
 fn plan_preset() -> CollaborationModeMask {
@@ -25,6 +26,16 @@ fn default_preset() -> CollaborationModeMask {
         model: None,
         reasoning_effort: None,
         developer_instructions: Some(Some(COLLABORATION_MODE_DEFAULT.to_string())),
+    }
+}
+
+fn dawn_preset() -> CollaborationModeMask {
+    CollaborationModeMask {
+        name: ModeKind::Dawn.display_name().to_string(),
+        mode: Some(ModeKind::Dawn),
+        model: None,
+        reasoning_effort: Some(Some(ReasoningEffort::High)),
+        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
     }
 }
 

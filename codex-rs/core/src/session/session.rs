@@ -485,6 +485,14 @@ impl SessionConfiguration {
         if let Some(app_server_client_version) = updates.app_server_client_version.clone() {
             next_configuration.app_server_client_version = Some(app_server_client_version);
         }
+        if let Some(ref provider_id) = updates.provider_id
+            && let Some(new_provider) = self
+                .original_config_do_not_use
+                .model_providers
+                .get(provider_id)
+        {
+            next_configuration.provider = new_provider.clone();
+        }
         let next_environments = updates
             .environments
             .as_ref()
@@ -556,6 +564,7 @@ pub(crate) struct SessionSettingsUpdate {
     pub(crate) service_tier_for_turn: Option<String>,
     pub(crate) app_server_client_name: Option<String>,
     pub(crate) app_server_client_version: Option<String>,
+    pub(crate) provider_id: Option<String>,
 }
 
 pub(crate) struct AppServerClientMetadata {

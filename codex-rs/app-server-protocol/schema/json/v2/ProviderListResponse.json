@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ProviderInfo": {
+      "description": "Summary of a configured model provider.",
+      "properties": {
+        "baseUrl": {
+          "description": "Base URL for the provider's API.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "envKey": {
+          "description": "Environment variable that stores the API key.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "description": "Key in the providers map (e.g. `\"openai\"`, `\"ollama\"`).",
+          "type": "string"
+        },
+        "name": {
+          "description": "Friendly display name.",
+          "type": "string"
+        },
+        "requiresOpenaiAuth": {
+          "description": "Whether this provider requires OpenAI authentication.",
+          "type": "boolean"
+        },
+        "wireApi": {
+          "description": "Wire protocol: `\"responses\"` or `\"chat\"`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "requiresOpenaiAuth",
+        "wireApi"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Response for `provider/list`.",
+  "properties": {
+    "data": {
+      "items": {
+        "$ref": "#/definitions/ProviderInfo"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "data"
+  ],
+  "title": "ProviderListResponse",
+  "type": "object"
+}
