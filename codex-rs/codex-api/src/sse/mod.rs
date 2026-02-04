@@ -1,3 +1,4 @@
+pub(crate) mod chat_compat; // Fork: chat-api
 pub(crate) mod responses;
 
 pub(crate) use responses::ResponsesStreamEvent;
