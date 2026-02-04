@@ -2340,6 +2340,13 @@
             "responses"
           ],
           "type": "string"
+        },
+        {
+          "description": "The Chat Completions API at `/v1/chat/completions`.",
+          "enum": [
+            "chat"
+          ],
+          "type": "string"
         }
       ]
     }

@@ -24,9 +24,13 @@ use codex_tools::ToolsConfig;
 use codex_tools::WaitAgentTimeoutOptions;
 use codex_tools::augment_tool_spec_for_code_mode;
 use codex_tools::build_tool_registry_plan;
+use codex_tools::create_tools_json_for_responses_api;
+use serde_json::json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+pub type JsonSchema = codex_tools::JsonSchema;
 
 pub(crate) fn tool_user_shell_type(user_shell: &Shell) -> ToolUserShellType {
     match user_shell.shell_type {
@@ -68,6 +72,30 @@ fn map_mcp_tools_for_plan(mcp_tools: &HashMap<String, ToolInfo>) -> McpToolPlanI
             })
             .collect(),
     }
+}
+
+/// Converts Responses API tool definitions into the Chat Completions API
+/// wrapper shape and drops non-function tools.
+pub(crate) fn create_tools_json_for_chat_completions_api(
+    tools: &[codex_tools::ToolSpec],
+) -> codex_protocol::error::Result<Vec<serde_json::Value>> {
+    let responses_api_tools_json = create_tools_json_for_responses_api(tools)?;
+    Ok(responses_api_tools_json
+        .into_iter()
+        .filter_map(|mut tool| {
+            if tool.get("type") != Some(&serde_json::Value::String("function".to_string())) {
+                return None;
+            }
+            let map = tool.as_object_mut()?;
+            let name = map
+                .get("name")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .to_string();
+            map.remove("type");
+            Some(json!({ "type": "function", "name": name, "function": map }))
+        })
+        .collect())
 }
 
 pub(crate) fn build_specs_with_discoverable_tools(

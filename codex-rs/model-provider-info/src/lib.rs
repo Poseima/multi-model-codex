@@ -44,19 +44,19 @@ pub const OLLAMA_CHAT_PROVIDER_REMOVED_ERROR: &str = "`ollama-chat` is no longer
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum WireApi {
-    /// The Chat Completions API exposed by OpenAI-compatible providers at
-    /// `/v1/chat/completions`.
-    Chat,
     /// The Responses API exposed by OpenAI at `/v1/responses`.
     #[default]
     Responses,
+    /// The Chat Completions API exposed by OpenAI-compatible providers at
+    /// `/v1/chat/completions`.
+    Chat, // Fork: chat-api
 }
 
 impl fmt::Display for WireApi {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
-            Self::Chat => "chat",
             Self::Responses => "responses",
+            Self::Chat => "chat",
         };
         f.write_str(value)
     }
@@ -70,10 +70,10 @@ impl<'de> Deserialize<'de> for WireApi {
         let value = String::deserialize(deserializer)?;
         match value.as_str() {
             "responses" => Ok(Self::Responses),
-            "chat" => Ok(Self::Chat),
+            "chat" => Ok(Self::Chat), // Fork: chat-api
             _ => Err(serde::de::Error::unknown_variant(
                 &value,
-                &["chat", "responses"],
+                &["responses", "chat"],
             )),
         }
     }
@@ -518,7 +518,7 @@ pub fn create_openrouter_provider() -> ModelProviderInfo {
 /// Create a MiniMax provider configuration.
 pub fn create_minimax_provider() -> ModelProviderInfo {
     ModelProviderInfo {
-        name: "MiniMax Chat Completions API".into(),
+        name: "MiniMax".into(),
         base_url: Some("https://api.minimaxi.com/v1".into()),
         env_key: Some("MINIMAX_API_KEY".into()),
         env_key_instructions: None,
