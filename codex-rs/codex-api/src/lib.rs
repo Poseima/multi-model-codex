@@ -42,6 +42,7 @@ pub use crate::common::WS_REQUEST_HEADER_TRACEPARENT_CLIENT_METADATA_KEY;
 pub use crate::common::WS_REQUEST_HEADER_TRACESTATE_CLIENT_METADATA_KEY;
 pub use crate::common::create_text_param_for_request;
 pub use crate::common::response_create_client_metadata;
+pub use crate::endpoint::ChatCompatClient; // Fork: chat-api
 pub use crate::endpoint::CompactClient;
 pub use crate::endpoint::ImagesClient;
 pub use crate::endpoint::MemoriesClient;
@@ -78,6 +79,7 @@ pub use crate::provider::Provider;
 pub use crate::provider::RetryConfig;
 pub use crate::provider::is_azure_responses_provider;
 pub use crate::requests::Compression;
+pub use crate::requests::chat_compat::ChatRequestBuilder; // Fork: chat-api
 pub use crate::search::AllowedCaller;
 pub use crate::search::ApproximateLocation;
 pub use crate::search::ClickOperation;
