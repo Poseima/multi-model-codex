@@ -1,3 +1,4 @@
+pub(crate) mod chat_compat; // Fork: chat-api
 pub(crate) mod compact;
 pub(crate) mod images;
 pub(crate) mod memories;
@@ -9,6 +10,7 @@ pub(crate) mod responses_websocket;
 pub(crate) mod search;
 mod session;
 
+pub use chat_compat::ChatCompatClient; // Fork: chat-api
 pub use compact::CompactClient;
 pub use images::ImagesClient;
 pub use memories::MemoriesClient;
