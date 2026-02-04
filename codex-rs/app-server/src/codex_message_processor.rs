@@ -4154,7 +4154,6 @@ impl CodexMessageProcessor {
                 base_url: info.base_url.clone(),
                 wire_api: match info.wire_api {
                     codex_core::WireApi::Responses => "responses".to_string(),
-                    codex_core::WireApi::Chat => "chat".to_string(),
                 },
                 env_key: info.env_key.clone(),
                 requires_openai_auth: info.requires_openai_auth,
