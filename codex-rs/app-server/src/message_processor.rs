@@ -1140,6 +1140,9 @@ impl MessageProcessor {
             ClientRequest::ModelList { params, .. } => {
                 self.catalog_processor.model_list(params).await
             }
+            ClientRequest::ProviderList { params, .. } => {
+                self.catalog_processor.provider_list(params).await
+            }
             ClientRequest::ExperimentalFeatureList { params, .. } => {
                 self.catalog_processor
                     .experimental_feature_list(params)
