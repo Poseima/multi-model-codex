@@ -263,7 +263,7 @@ fn file_paths_for_action(action: &codex_apply_patch::ApplyPatchAction) -> Vec<Ab
     let cwd = action.cwd.as_path();
     let mut keys = Vec::new();
     for (path, change) in action.changes() {
-        if let Some(key) = AbsolutePathBuf::resolve_path_against_base(path, cwd).ok() {
+        if let Ok(key) = AbsolutePathBuf::resolve_path_against_base(path, cwd) {
             keys.push(key);
         }
         if let ApplyPatchFileChange::Update { move_path, .. } = change
