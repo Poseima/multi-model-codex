@@ -435,6 +435,7 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             upgrade: None,
             show_in_picker: true,
             supported_in_api: true,
+            input_modalities: default_input_modalities(),
             provider_id: Some(MINIMAX_PROVIDER_ID.to_string()),
         },
         // Volcengine models.
@@ -450,6 +451,7 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             upgrade: None,
             show_in_picker: true,
             supported_in_api: true,
+            input_modalities: default_input_modalities(),
             provider_id: Some(VOLCENGINE_PROVIDER_ID.to_string()),
         },
     ]
