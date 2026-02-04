@@ -337,12 +337,12 @@ pub fn create_openrouter_provider() -> ModelProviderInfo {
 /// Create a MiniMax provider configuration.
 pub fn create_minimax_provider() -> ModelProviderInfo {
     ModelProviderInfo {
-        name: "MiniMax Chat Completions API".into(),
+        name: "MiniMax Responses API".into(),
         base_url: Some("https://api.minimaxi.com/v1".into()),
         env_key: Some("MINIMAX_API_KEY".into()),
         env_key_instructions: None,
         experimental_bearer_token: None,
-        wire_api: WireApi::Chat,
+        wire_api: WireApi::Responses,
         query_params: None,
         http_headers: None,
         env_http_headers: None,
