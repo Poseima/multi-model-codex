@@ -668,6 +668,11 @@ pub enum Op {
         start_options: TurnStartOptions,
     },
 
+    /// Fork: switch the active model provider for subsequent turns.
+    /// Separate from `ThreadSettings` to avoid adding fork-specific fields to
+    /// upstream thread-settings payloads.
+    OverrideProvider { provider_id: String },
+
     /// Approve a command execution
     ExecApproval {
         /// The id of the submission we are approving
@@ -947,6 +952,7 @@ impl Op {
             Self::ThreadSettings { .. } => "thread_settings",
             Self::TurnSettings { .. } => "turn_settings",
             Self::InterAgentCommunication { .. } => "inter_agent_communication",
+            Self::OverrideProvider { .. } => "override_provider",
             Self::ExecApproval { .. } => "exec_approval",
             Self::PatchApproval { .. } => "patch_approval",
             Self::ResolveElicitation { .. } => "resolve_elicitation",
