@@ -281,6 +281,10 @@ client_request_definitions! {
         params: v2::ExperimentalFeatureListParams,
         response: v2::ExperimentalFeatureListResponse,
     },
+    ProviderList => "provider/list" {
+        params: v2::ProviderListParams,
+        response: v2::ProviderListResponse,
+    },
     #[experimental("collaborationMode/list")]
     /// Lists collaboration mode presets.
     CollaborationModeList => "collaborationMode/list" {
@@ -1278,5 +1282,22 @@ mod tests {
         };
         let reason = crate::experimental_api::ExperimentalApi::experimental_reason(&request);
         assert_eq!(reason, Some("thread/start.mockExperimentalField"));
+    }
+
+    #[test]
+    fn serialize_list_providers() -> Result<()> {
+        let request = ClientRequest::ProviderList {
+            request_id: RequestId::Integer(8),
+            params: v2::ProviderListParams::default(),
+        };
+        assert_eq!(
+            json!({
+                "method": "provider/list",
+                "id": 8,
+                "params": {}
+            }),
+            serde_json::to_value(&request)?,
+        );
+        Ok(())
     }
 }

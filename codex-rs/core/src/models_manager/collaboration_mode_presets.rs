@@ -6,11 +6,12 @@ use codex_protocol::openai_models::ReasoningEffort;
 const COLLABORATION_MODE_PLAN: &str = include_str!("../../templates/collaboration_mode/plan.md");
 const COLLABORATION_MODE_DEFAULT: &str =
     include_str!("../../templates/collaboration_mode/default.md");
+const COLLABORATION_MODE_DAWN: &str = include_str!("../../templates/collaboration_mode/dawn.md");
 const KNOWN_MODE_NAMES_PLACEHOLDER: &str = "{{KNOWN_MODE_NAMES}}";
 const REQUEST_USER_INPUT_AVAILABILITY_PLACEHOLDER: &str = "{{REQUEST_USER_INPUT_AVAILABILITY}}";
 
 pub(crate) fn builtin_collaboration_mode_presets() -> Vec<CollaborationModeMask> {
-    vec![plan_preset(), default_preset()]
+    vec![plan_preset(), default_preset(), dawn_preset()]
 }
 
 fn plan_preset() -> CollaborationModeMask {
@@ -94,5 +95,15 @@ mod tests {
         let expected_availability_message =
             request_user_input_availability_message(ModeKind::Default);
         assert!(default_instructions.contains(&expected_availability_message));
+    }
+}
+
+fn dawn_preset() -> CollaborationModeMask {
+    CollaborationModeMask {
+        name: "Dawn".to_string(),
+        mode: Some(ModeKind::Dawn),
+        model: None,
+        reasoning_effort: Some(Some(ReasoningEffort::High)),
+        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
     }
 }
