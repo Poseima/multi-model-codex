@@ -1409,6 +1409,10 @@ impl ModelClientSession {
                 self.stream_chat_completions(prompt, model_info, session_telemetry)
                     .await
             } // Fork: chat-api
+            WireApi::Chat => {
+                self.stream_chat_completions(prompt, model_info, session_telemetry)
+                    .await
+            } // Fork: chat-api
         }
     }
 
