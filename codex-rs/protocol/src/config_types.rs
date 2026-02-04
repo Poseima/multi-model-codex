@@ -315,6 +315,7 @@ pub enum ModeKind {
     #[schemars(skip)]
     #[ts(skip)]
     Execute,
+    Dawn,
 }
 
 pub const TUI_VISIBLE_COLLABORATION_MODES: [ModeKind; 2] = [ModeKind::Default, ModeKind::Plan];
