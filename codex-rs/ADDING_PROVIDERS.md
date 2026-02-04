@@ -36,7 +36,7 @@ pub fn create_myprovider() -> ModelProviderInfo {
         env_key: Some("MY_PROVIDER_API_KEY".into()),
         env_key_instructions: None,
         experimental_bearer_token: None,
-        wire_api: WireApi::Chat,          // or WireApi::Responses
+        wire_api: WireApi::Responses,
         query_params: None,
         http_headers: None,
         env_http_headers: None,
@@ -51,7 +51,7 @@ pub fn create_myprovider() -> ModelProviderInfo {
 
 **Key fields:**
 
-- `wire_api` — Use `WireApi::Chat` for OpenAI Chat Completions compatible APIs (`/v1/chat/completions`). Use `WireApi::Responses` for the OpenAI Responses API (`/v1/responses`).
+- `wire_api` — Use `WireApi::Responses` for the OpenAI Responses API (`/v1/responses`). Chat Completions API was removed upstream.
 - `env_key` — The environment variable the user must set with their API key.
 - `requires_openai_auth` — Set to `true` only for providers that use OpenAI/ChatGPT login. Almost always `false` for third-party providers.
 - `system_role` — If the provider rejects the `"system"` message role, set this to the role it expects (e.g. `Some("user".to_string())`). Leave `None` for standard providers.
