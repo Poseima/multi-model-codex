@@ -171,6 +171,7 @@ pub(super) async fn user_input_or_turn_inner(
                     personality,
                     app_server_client_name: None,
                     app_server_client_version: None,
+                    provider_id: None,
                 },
                 None,
                 environments,
@@ -221,6 +222,7 @@ pub(super) async fn user_input_or_turn_inner(
                     personality,
                     app_server_client_name: None,
                     app_server_client_version: None,
+                    provider_id: None,
                 },
                 responsesapi_client_metadata,
                 environments,
@@ -1146,6 +1148,18 @@ pub(super) async fn submission_loop(
                             reasoning_summary: summary,
                             service_tier,
                             personality,
+                            ..Default::default()
+                        },
+                    )
+                    .await;
+                    false
+                }
+                Op::OverrideProvider { provider_id } => {
+                    override_turn_context(
+                        &sess,
+                        sub.id.clone(),
+                        SessionSettingsUpdate {
+                            provider_id: Some(provider_id),
                             ..Default::default()
                         },
                     )

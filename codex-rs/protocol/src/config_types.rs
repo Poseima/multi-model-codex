@@ -445,6 +445,7 @@ pub enum ModeKind {
     #[schemars(skip)]
     #[ts(skip)]
     Execute,
+    Dawn,
 }
 
 pub const TUI_VISIBLE_COLLABORATION_MODES: [ModeKind; 2] = [ModeKind::Default, ModeKind::Plan];
@@ -456,6 +457,7 @@ impl ModeKind {
             Self::Default => "Default",
             Self::PairProgramming => "Pair Programming",
             Self::Execute => "Execute",
+            Self::Dawn => "Dawn",
         }
     }
 
@@ -636,6 +638,7 @@ mod tests {
 
         assert!(!ModeKind::PairProgramming.is_tui_visible());
         assert!(!ModeKind::Execute.is_tui_visible());
+        assert!(!ModeKind::Dawn.is_tui_visible());
     }
 
     #[test]

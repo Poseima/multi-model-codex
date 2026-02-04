@@ -1,4 +1,5 @@
 use codex_collaboration_mode_templates::DEFAULT as COLLABORATION_MODE_DEFAULT;
+use codex_collaboration_mode_templates::DAWN as COLLABORATION_MODE_DAWN;
 use codex_collaboration_mode_templates::PLAN as COLLABORATION_MODE_PLAN;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::config_types::ModeKind;
@@ -10,26 +11,25 @@ use std::sync::LazyLock;
 const KNOWN_MODE_NAMES_TEMPLATE_KEY: &str = "KNOWN_MODE_NAMES";
 const REQUEST_USER_INPUT_AVAILABILITY_TEMPLATE_KEY: &str = "REQUEST_USER_INPUT_AVAILABILITY";
 const ASKING_QUESTIONS_GUIDANCE_TEMPLATE_KEY: &str = "ASKING_QUESTIONS_GUIDANCE";
+
 static COLLABORATION_MODE_DEFAULT_TEMPLATE: LazyLock<Template> = LazyLock::new(|| {
     Template::parse(COLLABORATION_MODE_DEFAULT)
         .unwrap_or_else(|err| panic!("collaboration mode default template must parse: {err}"))
 });
 
-/// Stores feature flags that control collaboration-mode behavior.
-///
-/// Keep mode-related flags here so new collaboration-mode capabilities can be
-/// added without large cross-cutting diffs to constructor and call-site
-/// signatures.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CollaborationModesConfig {
-    /// Enables `request_user_input` availability in Default mode.
     pub default_mode_request_user_input: bool,
 }
 
 pub fn builtin_collaboration_mode_presets(
     collaboration_modes_config: CollaborationModesConfig,
 ) -> Vec<CollaborationModeMask> {
-    vec![plan_preset(), default_preset(collaboration_modes_config)]
+    vec![
+        plan_preset(),
+        default_preset(collaboration_modes_config),
+        dawn_preset(),
+    ]
 }
 
 fn plan_preset() -> CollaborationModeMask {
@@ -107,6 +107,16 @@ fn asking_questions_guidance_message(default_mode_request_user_input: bool) -> S
         "In Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, prefer using the `request_user_input` tool rather than writing a multiple choice question as a textual assistant message. Never write a multiple choice question as a textual assistant message.".to_string()
     } else {
         "In Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, ask the user directly with a concise plain-text question. Never write a multiple choice question as a textual assistant message.".to_string()
+    }
+}
+
+fn dawn_preset() -> CollaborationModeMask {
+    CollaborationModeMask {
+        name: "Dawn".to_string(),
+        mode: Some(ModeKind::Dawn),
+        model: None,
+        reasoning_effort: Some(Some(ReasoningEffort::High)),
+        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
     }
 }
 

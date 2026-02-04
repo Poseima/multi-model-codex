@@ -8,10 +8,12 @@ fn preset_names_use_mode_display_names() {
         default_preset(CollaborationModesConfig::default()).name,
         ModeKind::Default.display_name()
     );
+    assert_eq!(dawn_preset().name, ModeKind::Dawn.display_name());
     assert_eq!(
         plan_preset().reasoning_effort,
         Some(Some(ReasoningEffort::Medium))
     );
+    assert_eq!(dawn_preset().reasoning_effort, Some(Some(ReasoningEffort::High)));
 }
 
 #[test]

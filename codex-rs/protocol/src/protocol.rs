@@ -647,6 +647,12 @@ pub enum Op {
         personality: Option<Personality>,
     },
 
+    /// Fork: switch the active model provider for subsequent turns.
+    /// Separate from `OverrideTurnContext` to avoid adding fork-specific
+    /// fields to the upstream struct (which would require changes in every
+    /// test that constructs `OverrideTurnContext`).
+    OverrideProvider { provider_id: String },
+
     /// Approve a command execution
     ExecApproval {
         /// The id of the submission we are approving
@@ -882,6 +888,7 @@ impl Op {
             Self::UserTurn { .. } => "user_turn",
             Self::InterAgentCommunication { .. } => "inter_agent_communication",
             Self::OverrideTurnContext { .. } => "override_turn_context",
+            Self::OverrideProvider { .. } => "override_provider",
             Self::ExecApproval { .. } => "exec_approval",
             Self::PatchApproval { .. } => "patch_approval",
             Self::ResolveElicitation { .. } => "resolve_elicitation",

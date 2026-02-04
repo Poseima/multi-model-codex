@@ -485,6 +485,10 @@ client_request_definitions! {
         params: v2::ExperimentalFeatureEnablementSetParams,
         response: v2::ExperimentalFeatureEnablementSetResponse,
     },
+    ProviderList => "provider/list" {
+        params: v2::ProviderListParams,
+        response: v2::ProviderListResponse,
+    },
     #[experimental("collaborationMode/list")]
     /// Lists collaboration mode presets.
     CollaborationModeList => "collaborationMode/list" {
@@ -2117,5 +2121,48 @@ mod tests {
             reason,
             Some("item/commandExecution/requestApproval.additionalPermissions")
         );
+    }
+    #[test]
+    fn command_execution_request_approval_skill_metadata_is_marked_experimental() {
+        let params = v2::CommandExecutionRequestApprovalParams {
+            thread_id: "thr_123".to_string(),
+            turn_id: "turn_123".to_string(),
+            item_id: "call_123".to_string(),
+            approval_id: None,
+            reason: None,
+            network_approval_context: None,
+            command: Some("cat file".to_string()),
+            cwd: None,
+            command_actions: None,
+            additional_permissions: None,
+            skill_metadata: Some(v2::CommandExecutionRequestApprovalSkillMetadata {
+                path_to_skills_md: PathBuf::from("/tmp/SKILLS.md"),
+            }),
+            proposed_execpolicy_amendment: None,
+            proposed_network_policy_amendments: None,
+            available_decisions: None,
+        };
+        let reason = crate::experimental_api::ExperimentalApi::experimental_reason(&params);
+        assert_eq!(
+            reason,
+            Some("item/commandExecution/requestApproval.skillMetadata")
+        );
+    }
+
+    #[test]
+    fn serialize_list_providers() -> Result<()> {
+        let request = ClientRequest::ProviderList {
+            request_id: RequestId::Integer(8),
+            params: v2::ProviderListParams::default(),
+        };
+        assert_eq!(
+            json!({
+                "method": "provider/list",
+                "id": 8,
+                "params": {}
+            }),
+            serde_json::to_value(&request)?,
+        );
+        Ok(())
     }
 }

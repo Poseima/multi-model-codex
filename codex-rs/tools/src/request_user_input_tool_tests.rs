@@ -90,6 +90,15 @@ fn request_user_input_tool_includes_questions_schema() {
 }
 
 #[test]
+fn request_user_input_mode_availability_defaults_to_plan_only() {
+    assert!(ModeKind::Plan.allows_request_user_input());
+    assert!(!ModeKind::Default.allows_request_user_input());
+    assert!(!ModeKind::Execute.allows_request_user_input());
+    assert!(!ModeKind::PairProgramming.allows_request_user_input());
+    assert!(!ModeKind::Dawn.allows_request_user_input());
+}
+
+#[test]
 fn request_user_input_unavailable_messages_respect_default_mode_feature_flag() {
     assert_eq!(
         request_user_input_unavailable_message(
@@ -125,6 +134,10 @@ fn request_user_input_unavailable_messages_respect_default_mode_feature_flag() {
             /*default_mode_request_user_input*/ false
         ),
         Some("request_user_input is unavailable in Pair Programming mode".to_string())
+    );
+    assert_eq!(
+        request_user_input_unavailable_message(ModeKind::Dawn, false),
+        Some("request_user_input is unavailable in Dawn mode".to_string())
     );
 }
 

@@ -117,6 +117,12 @@ use codex_app_server_protocol::PluginSource;
 use codex_app_server_protocol::PluginSummary;
 use codex_app_server_protocol::PluginUninstallParams;
 use codex_app_server_protocol::PluginUninstallResponse;
+use codex_app_server_protocol::ProductSurface as ApiProductSurface;
+use codex_app_server_protocol::ProviderInfo;
+use codex_app_server_protocol::ProviderListParams;
+use codex_app_server_protocol::ProviderListResponse;
+use codex_app_server_protocol::RemoveConversationListenerParams;
+use codex_app_server_protocol::RemoveConversationSubscriptionResponse;
 use codex_app_server_protocol::RequestId;
 use codex_app_server_protocol::ReviewDelivery as ApiReviewDelivery;
 use codex_app_server_protocol::ReviewStartParams;
@@ -1062,6 +1068,9 @@ impl CodexMessageProcessor {
             ClientRequest::ExperimentalFeatureList { request_id, params } => {
                 self.experimental_feature_list(to_connection_request_id(request_id), params)
                     .await;
+            }
+            ClientRequest::ProviderList { request_id, params } => {
+                self.list_providers(request_id, params).await;
             }
             ClientRequest::CollaborationModeList { request_id, params } => {
                 let outgoing = self.outgoing.clone();
@@ -5606,6 +5615,28 @@ impl CodexMessageProcessor {
         self.outgoing.send_response(request_id, response).await;
     }
 
+    async fn list_providers(&self, request_id: ConnectionRequestId, _params: ProviderListParams) {
+        let mut providers: Vec<ProviderInfo> = self
+            .config
+            .model_providers
+            .iter()
+            .map(|(id, info)| ProviderInfo {
+                id: id.clone(),
+                name: info.name.clone(),
+                base_url: info.base_url.clone(),
+                wire_api: match info.wire_api {
+                    codex_core::WireApi::Responses => "responses".to_string(),
+                    codex_core::WireApi::Chat => "chat".to_string(),
+                },
+                env_key: info.env_key.clone(),
+                requires_openai_auth: info.requires_openai_auth,
+            })
+            .collect();
+        providers.sort_by(|a, b| a.id.cmp(&b.id));
+        let response = ProviderListResponse { data: providers };
+        self.outgoing.send_response(request_id, response).await;
+    }
+
     async fn mcp_server_refresh(&self, request_id: ConnectionRequestId, _params: Option<()>) {
         let config = match self.load_latest_config(/*fallback_cwd*/ None).await {
             Ok(config) => config,
@@ -6826,6 +6857,8 @@ impl CodexMessageProcessor {
             .map(V2UserInput::into_core)
             .collect();
 
+        let provider_id = params.provider_id.clone();
+
         let has_any_overrides = params.cwd.is_some()
             || params.approval_policy.is_some()
             || params.approvals_reviewer.is_some()
@@ -6836,7 +6869,8 @@ impl CodexMessageProcessor {
             || params.effort.is_some()
             || params.summary.is_some()
             || collaboration_mode.is_some()
-            || params.personality.is_some();
+            || params.personality.is_some()
+            || provider_id.is_some();
 
         if params.sandbox_policy.is_some() && params.permission_profile.is_some() {
             self.send_invalid_request_error(
@@ -6887,6 +6921,10 @@ impl CodexMessageProcessor {
                 )
                 .await;
                 return;
+            }
+
+            if let Some(provider_id) = provider_id {
+                let _ = thread.submit(Op::OverrideProvider { provider_id }).await;
             }
         }
 
