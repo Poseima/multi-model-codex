@@ -4,6 +4,7 @@ use crate::requests::headers::build_conversation_headers;
 use crate::requests::headers::insert_header;
 use crate::requests::headers::subagent_header;
 use codex_protocol::models::ContentItem;
+use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputContentItem;
 use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ResponseItem;
@@ -242,21 +243,22 @@ impl<'a> ChatRequestBuilder<'a> {
                     push_tool_call_message(&mut messages, tool_call, reasoning);
                 }
                 ResponseItem::FunctionCallOutput { call_id, output } => {
-                    let content_value = if let Some(items) = &output.content_items {
-                        let mapped: Vec<Value> = items
-                            .iter()
-                            .map(|it| match it {
-                                FunctionCallOutputContentItem::InputText { text } => {
-                                    json!({"type":"text","text": text})
-                                }
-                                FunctionCallOutputContentItem::InputImage { image_url } => {
-                                    json!({"type":"image_url","image_url": {"url": image_url}})
-                                }
-                            })
-                            .collect();
-                        json!(mapped)
-                    } else {
-                        json!(output.content)
+                    let content_value = match &output.body {
+                        FunctionCallOutputBody::ContentItems(items) => {
+                            let mapped: Vec<Value> = items
+                                .iter()
+                                .map(|it| match it {
+                                    FunctionCallOutputContentItem::InputText { text } => {
+                                        json!({"type":"text","text": text})
+                                    }
+                                    FunctionCallOutputContentItem::InputImage { image_url } => {
+                                        json!({"type":"image_url","image_url": {"url": image_url}})
+                                    }
+                                })
+                                .collect();
+                            json!(mapped)
+                        }
+                        FunctionCallOutputBody::Text(text) => json!(text),
                     };
 
                     messages.push(json!({
