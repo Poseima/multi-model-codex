@@ -5515,7 +5515,7 @@ impl ChatWidget {
                 })];
                 SelectionItem {
                     name: provider_name,
-                    description: Some(provider_id.clone()),
+                    description: Some(provider_id),
                     is_current,
                     is_disabled: false,
                     actions,

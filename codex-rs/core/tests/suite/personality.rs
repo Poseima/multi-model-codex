@@ -418,6 +418,7 @@ async fn user_turn_personality_same_value_does_not_add_update_message() -> anyho
             summary: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
+            provider_id: None,
         })
         .await?;
 
