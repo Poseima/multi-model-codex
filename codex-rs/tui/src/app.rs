@@ -1945,6 +1945,7 @@ impl App {
                                         summary: None,
                                         collaboration_mode: None,
                                         personality: None,
+                                        provider_id: None,
                                     },
                                 ));
                                 self.app_event_tx.send(
@@ -2245,6 +2246,7 @@ impl App {
                                 summary: None,
                                 collaboration_mode: None,
                                 personality: None,
+                                provider_id: None,
                             }));
                     }
                 }
