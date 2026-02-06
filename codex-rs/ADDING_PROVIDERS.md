@@ -70,10 +70,17 @@ In `built_in_model_providers()`, add an entry to the array:
 
 This makes the model appear in the `/model` slash command picker.
 
-### 2a. Import the provider ID
+### 2a. Register the provider prefix in `fork_provider_mapping.rs`
+
+The provider is derived automatically from the preset `id` prefix. In
+`core/src/models_manager/fork_provider_mapping.rs`, add your provider prefix
+to the match arm in `provider_for_preset()`:
 
 ```rust
-use crate::model_provider_info::MY_PROVIDER_ID;
+match prefix {
+    "openrouter" | "minimax" | "volcengine" | "myprovider" => Some(prefix),
+    _ => None,
+}
 ```
 
 ### 2b. Add a `ModelPreset` entry to the `PRESETS` static
@@ -91,18 +98,16 @@ ModelPreset {
     upgrade: None,
     show_in_picker: true,
     supported_in_api: true,
-    provider_id: Some(MY_PROVIDER_ID.to_string()),
 },
 ```
 
 **Key fields:**
 
-- `id` — Unique identifier, conventionally `"provider/model"`.
+- `id` — Unique identifier, conventionally `"provider/model"`. The prefix before the first `/` must match a provider key in `built_in_model_providers()` and `fork_provider_mapping.rs`.
 - `model` — The model slug sent to the API in the request body.
 - `show_in_picker` — Set to `true` to show in the `/model` UI. Set to `false` for hidden/deprecated models.
 - `is_default` — Only one preset across the entire list may be `true`.
 - `supported_reasoning_efforts` — Leave empty (`vec![]`) if the model does not support configurable reasoning effort. Otherwise list `ReasoningEffortPreset` entries.
-- `provider_id` — Must match the key used in `built_in_model_providers()`.
 
 ---
 
