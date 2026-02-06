@@ -6857,7 +6857,45 @@ impl CodexMessageProcessor {
             .map(V2UserInput::into_core)
             .collect();
 
-        let provider_id = params.provider_id.clone();
+<<<<<<< HEAD
+        // Resolve provider_id: use explicit param, or infer from model presets.
+        let provider_id = params.provider_id.or_else(|| {
+            let model_slug = collaboration_mode
+                .as_ref()
+                .map(|cm| &cm.settings.model)
+                .or(params.model.as_ref());
+            model_slug.and_then(|slug| {
+                codex_core::models_manager::model_presets::all_model_presets()
+                    .iter()
+                    .find(|p| p.model == *slug)
+                    .and_then(|p| {
+                        codex_core::models_manager::fork_provider_mapping::provider_for_preset(
+                            &p.id,
+                        )
+                        .map(String::from)
+                    })
+            })
+        });
+=======
+        // Resolve provider_id: use explicit param, or infer from model presets
+        let provider_id = params.provider_id.or_else(|| {
+            let model_slug = collaboration_mode
+                .as_ref()
+                .map(|cm| &cm.settings.model)
+                .or(params.model.as_ref());
+            model_slug.and_then(|slug| {
+                codex_core::models_manager::model_presets::all_model_presets()
+                    .iter()
+                    .find(|p| p.model == *slug)
+                    .and_then(|p| {
+                        codex_core::models_manager::fork_provider_mapping::provider_for_preset(
+                            &p.id,
+                        )
+                        .map(String::from)
+                    })
+            })
+        });
+>>>>>>> bd932e85dd (refactor: extract provider_id from ModelPreset into fork_provider_mapping)
 
         let has_any_overrides = params.cwd.is_some()
             || params.approval_policy.is_some()
