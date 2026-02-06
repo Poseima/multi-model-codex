@@ -67,6 +67,16 @@ fn request_user_input_availability_message(mode: ModeKind) -> String {
     }
 }
 
+fn dawn_preset() -> CollaborationModeMask {
+    CollaborationModeMask {
+        name: "Dawn".to_string(),
+        mode: Some(ModeKind::Dawn),
+        model: None,
+        reasoning_effort: Some(Some(ReasoningEffort::High)),
+        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,15 +105,5 @@ mod tests {
         let expected_availability_message =
             request_user_input_availability_message(ModeKind::Default);
         assert!(default_instructions.contains(&expected_availability_message));
-    }
-}
-
-fn dawn_preset() -> CollaborationModeMask {
-    CollaborationModeMask {
-        name: "Dawn".to_string(),
-        mode: Some(ModeKind::Dawn),
-        model: None,
-        reasoning_effort: Some(Some(ReasoningEffort::High)),
-        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
     }
 }
