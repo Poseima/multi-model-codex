@@ -448,7 +448,8 @@ pub enum ModeKind {
     Dawn,
 }
 
-pub const TUI_VISIBLE_COLLABORATION_MODES: [ModeKind; 2] = [ModeKind::Default, ModeKind::Plan];
+pub const TUI_VISIBLE_COLLABORATION_MODES: [ModeKind; 3] =
+    [ModeKind::Default, ModeKind::Plan, ModeKind::Dawn];
 
 impl ModeKind {
     pub const fn display_name(self) -> &'static str {
@@ -462,7 +463,7 @@ impl ModeKind {
     }
 
     pub const fn is_tui_visible(self) -> bool {
-        matches!(self, Self::Plan | Self::Default)
+        matches!(self, Self::Plan | Self::Default | Self::Dawn)
     }
 
     pub const fn allows_request_user_input(self) -> bool {
