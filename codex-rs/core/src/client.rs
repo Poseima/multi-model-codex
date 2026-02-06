@@ -884,11 +884,9 @@ impl ModelClientSession {
                 .state
                 .provider
                 .to_api_provider(auth.as_ref().map(CodexAuth::auth_mode))?;
-            let api_auth =
-                auth_provider_from_auth(auth.clone(), &self.client.state.provider)?;
+            let api_auth = auth_provider_from_auth(auth.clone(), &self.client.state.provider)?;
             let transport = ReqwestTransport::new(build_reqwest_client());
-            let (request_telemetry, sse_telemetry) =
-                Self::build_streaming_telemetry(otel_manager);
+            let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(otel_manager);
             let client = ApiChatCompatClient::new(transport, api_provider, api_auth)
                 .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
 
@@ -1124,7 +1122,10 @@ impl ModelClientSession {
                 )
                 .await
             }
-            WireApi::Chat => self.stream_chat_completions(prompt, model_info, otel_manager).await, // Fork: chat-api
+            WireApi::Chat => {
+                self.stream_chat_completions(prompt, model_info, otel_manager)
+                    .await
+            } // Fork: chat-api
         }
     }
 
