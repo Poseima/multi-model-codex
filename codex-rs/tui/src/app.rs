@@ -2563,6 +2563,7 @@ impl App {
                                         service_tier: None,
                                         collaboration_mode: None,
                                         personality: None,
+                                        provider_id: None,
                                     },
                                 ));
                                 self.app_event_tx.send(
@@ -2958,6 +2959,7 @@ impl App {
                                 service_tier: None,
                                 collaboration_mode: None,
                                 personality: None,
+                                provider_id: None,
                             }));
                     }
                 }

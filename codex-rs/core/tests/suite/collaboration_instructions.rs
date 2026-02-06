@@ -509,6 +509,7 @@ async fn collaboration_mode_update_emits_new_instruction_message_when_mode_chang
                 Some(default_text),
             )),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -538,6 +539,7 @@ async fn collaboration_mode_update_emits_new_instruction_message_when_mode_chang
                 Some(plan_text),
             )),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -596,6 +598,7 @@ async fn collaboration_mode_update_noop_does_not_append_when_mode_is_unchanged()
                 Some(collab_text),
             )),
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -625,6 +628,7 @@ async fn collaboration_mode_update_noop_does_not_append_when_mode_is_unchanged()
                 Some(collab_text),
             )),
             personality: None,
+            provider_id: None,
         })
         .await?;
 

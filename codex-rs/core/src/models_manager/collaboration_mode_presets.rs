@@ -103,6 +103,16 @@ fn asking_questions_guidance_message(default_mode_request_user_input: bool) -> S
     }
 }
 
+fn dawn_preset() -> CollaborationModeMask {
+    CollaborationModeMask {
+        name: "Dawn".to_string(),
+        mode: Some(ModeKind::Dawn),
+        model: None,
+        reasoning_effort: Some(Some(ReasoningEffort::High)),
+        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,15 +166,5 @@ mod tests {
             default_instructions
                 .contains("ask the user directly with a concise plain-text question")
         );
-    }
-}
-
-fn dawn_preset() -> CollaborationModeMask {
-    CollaborationModeMask {
-        name: "Dawn".to_string(),
-        mode: Some(ModeKind::Dawn),
-        model: None,
-        reasoning_effort: Some(Some(ReasoningEffort::High)),
-        developer_instructions: Some(Some(COLLABORATION_MODE_DAWN.to_string())),
     }
 }
