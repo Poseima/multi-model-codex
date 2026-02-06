@@ -6115,13 +6115,18 @@ impl CodexMessageProcessor {
                         service_tier: params.service_tier,
                         collaboration_mode,
                         personality: params.personality,
-                        provider_id,
                     },
                 )
                 .await;
 
             if let Some(provider_id) = provider_id {
-                let _ = thread.submit(Op::OverrideProvider { provider_id }).await;
+                let _ = self
+                    .submit_core_op(
+                        &request_id,
+                        thread.as_ref(),
+                        Op::OverrideProvider { provider_id },
+                    )
+                    .await;
             }
         }
 

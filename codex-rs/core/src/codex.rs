@@ -4396,7 +4396,6 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                     service_tier,
                     collaboration_mode,
                     personality,
-                    provider_id,
                 } => {
                     let collaboration_mode = if let Some(collab_mode) = collaboration_mode {
                         collab_mode
@@ -4421,7 +4420,6 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                             reasoning_summary: summary,
                             service_tier,
                             personality,
-                            provider_id,
                             ..Default::default()
                         },
                     )

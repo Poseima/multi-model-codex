@@ -452,7 +452,6 @@ async fn user_turn_personality_same_value_does_not_add_update_message() -> anyho
             service_tier: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
-            provider_id: None,
         })
         .await?;
 
@@ -569,7 +568,6 @@ async fn user_turn_personality_skips_if_feature_disabled() -> anyhow::Result<()>
             service_tier: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
-            provider_id: None,
         })
         .await?;
 
