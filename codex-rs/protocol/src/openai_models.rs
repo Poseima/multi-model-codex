@@ -135,9 +135,6 @@ pub struct ModelPreset {
     /// Input modalities accepted when composing user turns for this preset.
     #[serde(default = "default_input_modalities")]
     pub input_modalities: Vec<InputModality>,
-    /// Optional provider ID. When set, selecting this model also switches to this provider.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider_id: Option<String>,
 }
 
 /// Visibility of a model in the picker or APIs.
@@ -430,7 +427,6 @@ impl From<ModelInfo> for ModelPreset {
             availability_nux: info.availability_nux,
             supported_in_api: info.supported_in_api,
             input_modalities: info.input_modalities,
-            provider_id: None,
         }
     }
 }

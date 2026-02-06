@@ -5852,7 +5852,12 @@ impl CodexMessageProcessor {
                 codex_core::models_manager::model_presets::all_model_presets()
                     .iter()
                     .find(|p| p.model == *slug)
-                    .and_then(|p| p.provider_id.clone())
+                    .and_then(|p| {
+                        codex_core::models_manager::fork_provider_mapping::provider_for_preset(
+                            &p.id,
+                        )
+                        .map(String::from)
+                    })
             })
         });
 

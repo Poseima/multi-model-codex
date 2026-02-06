@@ -64,6 +64,7 @@ use codex_core::find_thread_name_by_id;
 use codex_core::git_info::current_branch_name;
 use codex_core::git_info::get_git_repo_root;
 use codex_core::git_info::local_git_branches;
+use codex_core::models_manager::fork_provider_mapping;
 use codex_core::models_manager::manager::ModelsManager;
 use codex_core::project_doc::DEFAULT_PROJECT_DOC_FILENAME;
 use codex_core::skills::model::SkillMetadata;
@@ -5149,7 +5150,8 @@ impl ChatWidget {
         let switch_model = preset.model;
         let switch_model_for_events = switch_model.clone();
         let default_effort: ReasoningEffortConfig = preset.default_reasoning_effort;
-        let switch_provider_id = preset.provider_id.clone();
+        let switch_provider_id =
+            fork_provider_mapping::provider_for_preset(&preset.id).map(String::from);
 
         let switch_actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
             tx.send(AppEvent::CodexOp(Op::OverrideTurnContext {
@@ -5618,7 +5620,7 @@ impl ChatWidget {
                     model.clone(),
                     Some(preset.default_reasoning_effort),
                     should_prompt_plan_mode_scope,
-                    preset.provider_id.clone(),
+                    fork_provider_mapping::provider_for_preset(&preset.id).map(String::from),
                 );
                 SelectionItem {
                     name: model.clone(),
@@ -5915,6 +5917,7 @@ impl ChatWidget {
     /// Open a popup to choose the reasoning effort (stage 2) for the given model.
     pub(crate) fn open_reasoning_popup(&mut self, preset: ModelPreset) {
         let default_effort: ReasoningEffortConfig = preset.default_reasoning_effort;
+        let provider_id = fork_provider_mapping::provider_for_preset(&preset.id).map(String::from);
         let supported = preset.supported_reasoning_efforts;
         let in_plan_mode =
             self.collaboration_modes_enabled() && self.active_mode_kind() == ModeKind::Plan;
@@ -5970,7 +5973,7 @@ impl ChatWidget {
                         effort: selected_effort,
                     });
             } else {
-                self.apply_model_and_effort(selected_model, selected_effort, preset.provider_id);
+                self.apply_model_and_effort(selected_model, selected_effort, provider_id);
             }
             return;
         }
@@ -5984,7 +5987,6 @@ impl ChatWidget {
             .or(Some(default_effort));
 
         let model_slug = preset.model.to_string();
-        let provider_id = preset.provider_id.clone();
         let is_current_model = self.current_model() == preset.model.as_str();
         let highlight_choice = if is_current_model {
             if in_plan_mode {
