@@ -1146,6 +1146,7 @@ mod tests {
                     Some(context_window_line(
                         props.context_window_percent,
                         props.context_window_used_tokens,
+                        props.context_window_total,
                     ))
                 };
                 let right_width = right_line
@@ -1502,6 +1503,7 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: Some(Line::from("Status line content".to_string())),
             status_line_enabled: true,
+            context_window_total: None,
         };
 
         snapshot_footer("footer_status_line_overrides_shortcuts", props);
@@ -1550,6 +1552,7 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None, // command timed out / empty
             status_line_enabled: true,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1571,6 +1574,7 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: false,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1592,6 +1596,7 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: true,
+            context_window_total: None,
         };
 
         // has status line and no collaboration mode
@@ -1616,6 +1621,7 @@ mod tests {
                 "Status line content that should truncate before the mode indicator".to_string(),
             )),
             status_line_enabled: true,
+            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1643,6 +1649,7 @@ mod tests {
                     .to_string(),
             )),
             status_line_enabled: true,
+            context_window_total: None,
         };
 
         let screen =
