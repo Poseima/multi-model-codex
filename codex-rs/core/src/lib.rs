@@ -39,6 +39,7 @@ pub mod external_agent_config;
 pub mod features;
 mod file_watcher;
 mod flags;
+mod fork_providers;
 pub mod git_info;
 pub mod instructions;
 pub mod landlock;

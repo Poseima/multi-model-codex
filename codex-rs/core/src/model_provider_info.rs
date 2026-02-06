@@ -277,8 +277,6 @@ pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 
 pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
-pub const OPENROUTER_PROVIDER_ID: &str = "openrouter";
-pub const MINIMAX_PROVIDER_ID: &str = "minimax";
 
 /// Built-in default provider list.
 pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
@@ -288,7 +286,7 @@ pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
     // providers are bundled with Codex CLI, so we only include the OpenAI and
     // open source ("oss") providers by default. Users are encouraged to add to
     // `model_providers` in config.toml to add their own providers.
-    [
+    let mut providers: HashMap<String, ModelProviderInfo> = [
         ("openai", P::create_openai_provider()),
         (
             OLLAMA_OSS_PROVIDER_ID,
@@ -298,64 +296,13 @@ pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
             LMSTUDIO_OSS_PROVIDER_ID,
             create_oss_provider(DEFAULT_LMSTUDIO_PORT, WireApi::Responses),
         ),
-        (OPENROUTER_PROVIDER_ID, create_openrouter_provider()),
-        (MINIMAX_PROVIDER_ID, create_minimax_provider()),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
-    .collect()
-}
+    .collect();
 
-/// Create an OpenRouter provider configuration.
-pub fn create_openrouter_provider() -> ModelProviderInfo {
-    ModelProviderInfo {
-        name: "OpenRouter".into(),
-        base_url: Some("https://openrouter.ai/api/v1".into()),
-        env_key: Some("OPENROUTER_API_KEY".into()),
-        env_key_instructions: Some("Get your API key at https://openrouter.ai/keys".into()),
-        experimental_bearer_token: None,
-        wire_api: WireApi::Responses,
-        query_params: None,
-        http_headers: Some(
-            [
-                (
-                    "HTTP-Referer".to_string(),
-                    "https://github.com/openai/codex".to_string(),
-                ),
-                ("X-Title".to_string(), "Codex CLI".to_string()),
-            ]
-            .into_iter()
-            .collect(),
-        ),
-        env_http_headers: None,
-        request_max_retries: None,
-        stream_max_retries: None,
-        stream_idle_timeout_ms: None,
-        requires_openai_auth: false,
-        supports_websockets: false,
-        system_role: None,
-    }
-}
-
-/// Create a MiniMax provider configuration.
-pub fn create_minimax_provider() -> ModelProviderInfo {
-    ModelProviderInfo {
-        name: "MiniMax".into(),
-        base_url: Some("https://api.minimaxi.com/v1".into()),
-        env_key: Some("MINIMAX_API_KEY".into()),
-        env_key_instructions: None,
-        experimental_bearer_token: None,
-        wire_api: WireApi::Chat,
-        query_params: None,
-        http_headers: None,
-        env_http_headers: None,
-        request_max_retries: Some(4),
-        stream_max_retries: Some(10),
-        stream_idle_timeout_ms: Some(300_000),
-        requires_openai_auth: false,
-        supports_websockets: false,
-        system_role: Some("user".to_string()),
-    }
+    crate::fork_providers::register_fork_providers(&mut providers); // Fork: multi-provider
+    providers
 }
 
 pub fn create_oss_provider(default_provider_port: u16, wire_api: WireApi) -> ModelProviderInfo {
