@@ -532,22 +532,22 @@ mod tests {
             ResponseItem::FunctionCallOutput {
                 call_id: "call-a".to_string(),
                 output: FunctionCallOutputPayload {
-                    content: "A".to_string(),
-                    ..Default::default()
+                    body: FunctionCallOutputBody::Text("A".to_string()),
+                    success: None,
                 },
             },
             ResponseItem::FunctionCallOutput {
                 call_id: "call-b".to_string(),
                 output: FunctionCallOutputPayload {
-                    content: "B".to_string(),
-                    ..Default::default()
+                    body: FunctionCallOutputBody::Text("B".to_string()),
+                    success: None,
                 },
             },
             ResponseItem::FunctionCallOutput {
                 call_id: "call-c".to_string(),
                 output: FunctionCallOutputPayload {
-                    content: "C".to_string(),
-                    ..Default::default()
+                    body: FunctionCallOutputBody::Text("C".to_string()),
+                    success: None,
                 },
             },
         ];
@@ -619,8 +619,8 @@ mod tests {
             ResponseItem::FunctionCallOutput {
                 call_id: "call-1".to_string(),
                 output: FunctionCallOutputPayload {
-                    content: "file.txt".to_string(),
-                    ..Default::default()
+                    body: FunctionCallOutputBody::Text("file.txt".to_string()),
+                    success: None,
                 },
             },
         ];
