@@ -40,6 +40,7 @@ pub mod external_agent_config;
 pub mod features;
 mod file_watcher;
 mod flags;
+mod fork_providers;
 pub mod git_info;
 mod guardian;
 pub mod instructions;
