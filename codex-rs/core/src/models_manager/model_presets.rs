@@ -7,12 +7,6 @@ use codex_protocol::openai_models::default_input_modalities;
 use indoc::indoc;
 use once_cell::sync::Lazy;
 
-use crate::model_provider_info::MINIMAX_PROVIDER_ID;
-use crate::model_provider_info::OPENROUTER_PROVIDER_ID;
-
-pub const ARK_PROVIDER_ID: &str = "ark";
-pub const VOLCENGINE_PROVIDER_ID: &str = "volcengine";
-
 pub const HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG: &str = "hide_gpt5_1_migration_prompt";
 pub const HIDE_GPT_5_1_CODEX_MAX_MIGRATION_PROMPT_CONFIG: &str =
     "hide_gpt-5.1-codex-max_migration_prompt";
@@ -49,7 +43,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5.1-codex-max".to_string(),
@@ -81,7 +74,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5.1-codex-mini".to_string(),
@@ -106,7 +98,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5.2".to_string(),
@@ -138,7 +129,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "bengalfox".to_string(),
@@ -170,7 +160,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "boomslang".to_string(),
@@ -202,7 +191,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         // Deprecated models.
         ModelPreset {
@@ -231,7 +219,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5-codex-mini".to_string(),
@@ -255,7 +242,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5.1-codex".to_string(),
@@ -284,7 +270,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5".to_string(),
@@ -316,7 +301,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         ModelPreset {
             id: "gpt-5.1".to_string(),
@@ -344,7 +328,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: false,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: None,
         },
         // OpenRouter models.
         ModelPreset {
@@ -360,7 +343,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
         },
         ModelPreset {
             id: "openrouter/xiaomi/mimo-v2-flash:free".to_string(),
@@ -375,7 +357,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
         },
         ModelPreset {
             id: "openrouter/google/gemini-2.0-flash-001".to_string(),
@@ -390,7 +371,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
         },
         ModelPreset {
             id: "openrouter/google/gemini-3-flash-preview".to_string(),
@@ -405,7 +385,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
         },
         ModelPreset {
             id: "openrouter/openai/gpt-5.1-codex-mini".to_string(),
@@ -420,7 +399,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(OPENROUTER_PROVIDER_ID.to_string()),
         },
         // MiniMax models.
         ModelPreset {
@@ -436,7 +414,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(MINIMAX_PROVIDER_ID.to_string()),
         },
         // Volcengine models.
         ModelPreset {
@@ -452,7 +429,6 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             show_in_picker: true,
             supported_in_api: true,
             input_modalities: default_input_modalities(),
-            provider_id: Some(VOLCENGINE_PROVIDER_ID.to_string()),
         },
     ]
 });
