@@ -1190,7 +1190,6 @@ mod tests {
                     Some(context_window_line(
                         props.context_window_percent,
                         props.context_window_used_tokens,
-                        props.context_window_total,
                     ))
                 };
                 let right_width = right_line
@@ -1547,7 +1546,6 @@ mod tests {
             status_line_value: Some(Line::from("Status line content".to_string())),
             status_line_enabled: true,
             active_agent_label: None,
-            context_window_total: None,
         };
 
         snapshot_footer("footer_status_line_overrides_shortcuts", props);
@@ -1599,7 +1597,6 @@ mod tests {
             status_line_value: None, // command timed out / empty
             status_line_enabled: true,
             active_agent_label: None,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1622,7 +1619,6 @@ mod tests {
             status_line_value: None,
             status_line_enabled: false,
             active_agent_label: None,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1645,7 +1641,6 @@ mod tests {
             status_line_value: None,
             status_line_enabled: true,
             active_agent_label: None,
-            context_window_total: None,
         };
 
         // has status line and no collaboration mode
@@ -1671,7 +1666,6 @@ mod tests {
             )),
             status_line_enabled: true,
             active_agent_label: None,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1734,7 +1728,6 @@ mod tests {
             )),
             status_line_enabled: true,
             active_agent_label: None,
-            context_window_total: None,
         };
 
         let screen =
