@@ -150,6 +150,7 @@ async fn model_change_appends_model_instructions_developer_message() -> Result<(
             service_tier: None,
             collaboration_mode: None,
             personality: None,
+            provider_id: None,
         })
         .await?;
 
@@ -245,6 +246,7 @@ async fn model_and_personality_change_only_appends_model_instructions() -> Resul
             service_tier: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
+            provider_id: None,
         })
         .await?;
 
