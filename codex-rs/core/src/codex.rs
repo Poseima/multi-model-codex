@@ -3753,7 +3753,6 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                     service_tier,
                     collaboration_mode,
                     personality,
-                    provider_id,
                 } => {
                     let collaboration_mode = if let Some(collab_mode) = collaboration_mode {
                         collab_mode
@@ -3777,7 +3776,19 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                             reasoning_summary: summary,
                             service_tier,
                             personality,
-                            provider_id,
+                            ..Default::default()
+                        },
+                    )
+                    .await;
+                    false
+                }
+                // Fork: separate variant to avoid adding provider_id to OverrideTurnContext
+                Op::OverrideProvider { provider_id } => {
+                    handlers::override_turn_context(
+                        &sess,
+                        sub.id.clone(),
+                        SessionSettingsUpdate {
+                            provider_id: Some(provider_id),
                             ..Default::default()
                         },
                     )

@@ -5189,9 +5189,12 @@ impl CodexMessageProcessor {
                     service_tier: params.service_tier,
                     collaboration_mode,
                     personality: params.personality,
-                    provider_id,
                 })
                 .await;
+
+            if let Some(provider_id) = provider_id {
+                let _ = thread.submit(Op::OverrideProvider { provider_id }).await;
+            }
         }
 
         // Start the turn by submitting the user input. Return its submission id as turn_id.
