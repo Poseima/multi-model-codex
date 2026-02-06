@@ -21,6 +21,7 @@ use crate::tools::sandboxing::ToolCtx;
 use crate::tools::spec::JsonSchema;
 use async_trait::async_trait;
 use codex_apply_patch::ApplyPatchFileChange;
+use codex_protocol::models::FunctionCallOutputBody;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use serde::Deserialize;
 
@@ -186,8 +187,7 @@ impl ToolHandler for StructuredEditHandler {
                     InternalApplyPatchInvocation::Output(item) => {
                         let content = item?;
                         Ok(ToolOutput::Function {
-                            content,
-                            content_items: None,
+                            body: FunctionCallOutputBody::Text(content),
                             success: Some(true),
                         })
                     }
@@ -232,8 +232,7 @@ impl ToolHandler for StructuredEditHandler {
                         );
                         let content = emitter.finish(event_ctx, out).await?;
                         Ok(ToolOutput::Function {
-                            content,
-                            content_items: None,
+                            body: FunctionCallOutputBody::Text(content),
                             success: Some(true),
                         })
                     }
