@@ -3201,6 +3201,7 @@ impl ChatComposer {
             }
             FooterMode::QuitShortcutReminder => base_mode,
             FooterMode::ComposerEmpty | FooterMode::ComposerHasDraft => base_mode,
+            FooterMode::ShortcutSummary | FooterMode::ContextOnly => base_mode,
         }
     }
 
@@ -4112,14 +4113,19 @@ impl ChatComposer {
                     FooterMode::ComposerHasDraft => false,
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary
+                    | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match footer_props.mode {
-                    FooterMode::ComposerHasDraft => footer_props.is_task_running,
+                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => {
+                        footer_props.is_task_running
+                    }
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary => false,
                 };
                 let custom_height = self.custom_footer_height();
                 let footer_hint_height =
@@ -4197,6 +4203,7 @@ impl ChatComposer {
                     Some(context_window_line(
                         footer_props.context_window_percent,
                         footer_props.context_window_used_tokens,
+                        footer_props.context_window_total,
                     ))
                 };
                 let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
@@ -4234,7 +4241,9 @@ impl ChatComposer {
                         }
                         FooterMode::EscHint
                         | FooterMode::QuitShortcutReminder
-                        | FooterMode::ShortcutOverlay => None,
+                        | FooterMode::ShortcutOverlay
+                        | FooterMode::ShortcutSummary
+                        | FooterMode::ContextOnly => None,
                     }
                 };
                 let show_right = if matches!(
