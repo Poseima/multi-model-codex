@@ -321,7 +321,6 @@ async fn user_turn_personality_some_adds_update_message() -> anyhow::Result<()> 
             summary: None,
             collaboration_mode: None,
             personality: Some(Personality::Friendly),
-            provider_id: None,
         })
         .await?;
 
@@ -418,7 +417,6 @@ async fn user_turn_personality_same_value_does_not_add_update_message() -> anyho
             summary: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
-            provider_id: None,
         })
         .await?;
 
@@ -525,7 +523,6 @@ async fn user_turn_personality_skips_if_feature_disabled() -> anyhow::Result<()>
             summary: None,
             collaboration_mode: None,
             personality: Some(Personality::Pragmatic),
-            provider_id: None,
         })
         .await?;
 
@@ -784,7 +781,6 @@ async fn user_turn_personality_remote_model_template_includes_update_message() -
             summary: None,
             collaboration_mode: None,
             personality: Some(Personality::Friendly),
-            provider_id: None,
         })
         .await?;
 

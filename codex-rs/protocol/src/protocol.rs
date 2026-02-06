@@ -250,12 +250,13 @@ pub enum Op {
         /// Updated personality preference.
         #[serde(skip_serializing_if = "Option::is_none")]
         personality: Option<Personality>,
-
-        /// Updated model provider ID. When set, switches to the specified provider
-        /// for API calls (e.g., "openrouter", "ollama").
-        #[serde(skip_serializing_if = "Option::is_none")]
-        provider_id: Option<String>,
     },
+
+    /// Fork: switch the active model provider for subsequent turns.
+    /// Separate from `OverrideTurnContext` to avoid adding fork-specific
+    /// fields to the upstream struct (which would require changes in every
+    /// test that constructs `OverrideTurnContext`).
+    OverrideProvider { provider_id: String },
 
     /// Approve a command execution
     ExecApproval {
