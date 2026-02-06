@@ -154,7 +154,6 @@ use super::footer::FooterMode;
 use super::footer::FooterProps;
 use super::footer::SummaryLeft;
 use super::footer::can_show_left_with_context;
-use super::footer::context_window_line;
 use super::footer::esc_hint_mode;
 use super::footer::footer_height;
 use super::footer::footer_hint_items_width;
@@ -3163,7 +3162,6 @@ impl ChatComposer {
             context_window_used_tokens: self.context_window_used_tokens,
             status_line_value: self.status_line_value.clone(),
             status_line_enabled: self.status_line_enabled,
-            context_window_total: self.context_window_total,
         }
     }
 
@@ -4209,10 +4207,10 @@ impl ChatComposer {
                         compact
                     }
                 } else {
-                    Some(context_window_line(
+                    Some(super::fork_footer::context_window_line_with_total(
                         footer_props.context_window_percent,
                         footer_props.context_window_used_tokens,
-                        footer_props.context_window_total,
+                        self.context_window_total,
                     ))
                 };
                 let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);

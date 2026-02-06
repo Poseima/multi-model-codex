@@ -69,7 +69,6 @@ pub(crate) struct FooterProps {
     pub(crate) context_window_used_tokens: Option<i64>,
     pub(crate) status_line_value: Option<Line<'static>>,
     pub(crate) status_line_enabled: bool,
-    pub(crate) context_window_total: Option<i64>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -625,7 +624,6 @@ fn footer_from_props_lines(
             let mut line = context_window_line(
                 props.context_window_percent,
                 props.context_window_used_tokens,
-                props.context_window_total,
             );
             line.push_span(" · ".dim());
             line.extend(vec![
@@ -638,7 +636,6 @@ fn footer_from_props_lines(
             let mut line = context_window_line(
                 props.context_window_percent,
                 props.context_window_used_tokens,
-                props.context_window_total,
             );
             if props.is_task_running {
                 line.push_span(" · ".dim());
@@ -814,22 +811,8 @@ fn build_columns(entries: Vec<Line<'static>>) -> Vec<Line<'static>> {
         .collect()
 }
 
-pub(crate) fn context_window_line(
-    percent: Option<i64>,
-    used_tokens: Option<i64>,
-    total: Option<i64>,
-) -> Line<'static> {
-    // Best case: we have used tokens and total - show "12K / 256K (95%)"
-    if let (Some(used), Some(total_tokens)) = (used_tokens, total) {
-        let used_fmt = format_tokens_compact(used);
-        let total_fmt = format_tokens_compact(total_tokens);
-        let pct = percent.map(|p| p.clamp(0, 100)).unwrap_or(100);
-        return Line::from(vec![
-            Span::from(format!("{used_fmt} / {total_fmt} ({pct}%)")).dim(),
-        ]);
-    }
-
-    // Fallback: just percent
+pub(crate) fn context_window_line(percent: Option<i64>, used_tokens: Option<i64>) -> Line<'static> {
+    // Percent
     if let Some(percent) = percent {
         let percent = percent.clamp(0, 100);
         return Line::from(vec![Span::from(format!("{percent}% context left")).dim()]);
@@ -1131,7 +1114,6 @@ mod tests {
                     Some(context_window_line(
                         props.context_window_percent,
                         props.context_window_used_tokens,
-                        props.context_window_total,
                     ))
                 };
                 let right_width = right_line
@@ -1256,7 +1238,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1274,7 +1255,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1292,7 +1272,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1310,7 +1289,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1328,7 +1306,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1346,7 +1323,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1364,7 +1340,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1382,7 +1357,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1400,7 +1374,6 @@ mod tests {
                 context_window_used_tokens: Some(123_456),
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1418,7 +1391,6 @@ mod tests {
                 context_window_used_tokens: None,
                 status_line_value: None,
                 status_line_enabled: false,
-                context_window_total: None,
             },
         );
 
@@ -1434,7 +1406,6 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: false,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1463,7 +1434,6 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: false,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1485,7 +1455,6 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: Some(Line::from("Status line content".to_string())),
             status_line_enabled: true,
-            context_window_total: None,
         };
 
         snapshot_footer("footer_status_line_overrides_shortcuts", props);
@@ -1502,7 +1471,6 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None, // command timed out / empty
             status_line_enabled: true,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1524,7 +1492,6 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: false,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1546,7 +1513,6 @@ mod tests {
             context_window_used_tokens: None,
             status_line_value: None,
             status_line_enabled: true,
-            context_window_total: None,
         };
 
         // has status line and no collaboration mode
@@ -1571,7 +1537,6 @@ mod tests {
                 "Status line content that should truncate before the mode indicator".to_string(),
             )),
             status_line_enabled: true,
-            context_window_total: None,
         };
 
         snapshot_footer_with_mode_indicator(
@@ -1599,7 +1564,6 @@ mod tests {
                     .to_string(),
             )),
             status_line_enabled: true,
-            context_window_total: None,
         };
 
         let screen =
