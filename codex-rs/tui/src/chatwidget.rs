@@ -4579,8 +4579,10 @@ impl ChatWidget {
                 summary: None,
                 collaboration_mode: None,
                 personality: None,
-                provider_id: switch_provider_id.clone(),
             }));
+            if let Some(id) = switch_provider_id.clone() {
+                tx.send(AppEvent::CodexOp(Op::OverrideProvider { provider_id: id }));
+            }
             tx.send(AppEvent::UpdateModel(switch_model.clone()));
             tx.send(AppEvent::UpdateReasoningEffort(Some(default_effort)));
         })];
@@ -4700,7 +4702,6 @@ impl ChatWidget {
                         collaboration_mode: None,
                         windows_sandbox_level: None,
                         personality: Some(personality),
-                        provider_id: None,
                     }));
                     tx.send(AppEvent::UpdatePersonality(personality));
                     tx.send(AppEvent::PersistPersonalitySelection { personality });
@@ -4768,7 +4769,9 @@ impl ChatWidget {
                         summary: None,
                         collaboration_mode: None,
                         personality: None,
-                        provider_id: Some(id_for_action.clone()),
+                    }));
+                    tx.send(AppEvent::CodexOp(Op::OverrideProvider {
+                        provider_id: id_for_action.clone(),
                     }));
                     tx.send(AppEvent::UpdateProvider(id_for_action.clone()));
                     tx.send(AppEvent::PersistProviderSelection {
@@ -5044,8 +5047,10 @@ impl ChatWidget {
                 summary: None,
                 collaboration_mode: None,
                 personality: None,
-                provider_id: provider_id.clone(),
             }));
+            if let Some(id) = provider_id.clone() {
+                tx.send(AppEvent::CodexOp(Op::OverrideProvider { provider_id: id }));
+            }
             tx.send(AppEvent::UpdateModel(model_for_action.clone()));
             tx.send(AppEvent::UpdateReasoningEffort(effort_for_action));
             tx.send(AppEvent::PersistModelSelection {
@@ -5227,8 +5232,11 @@ impl ChatWidget {
                 summary: None,
                 collaboration_mode: None,
                 personality: None,
-                provider_id: provider_id.clone(),
             }));
+        if let Some(id) = provider_id.clone() {
+            self.app_event_tx
+                .send(AppEvent::CodexOp(Op::OverrideProvider { provider_id: id }));
+        }
         self.app_event_tx.send(AppEvent::UpdateModel(model.clone()));
         self.app_event_tx
             .send(AppEvent::UpdateReasoningEffort(effort));
@@ -5418,7 +5426,6 @@ impl ChatWidget {
                 summary: None,
                 collaboration_mode: None,
                 personality: None,
-                provider_id: None,
             }));
             tx.send(AppEvent::UpdateAskForApprovalPolicy(approval));
             tx.send(AppEvent::UpdateSandboxPolicy(sandbox_clone));
