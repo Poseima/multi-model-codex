@@ -24,7 +24,7 @@ There are five files to modify:
 pub const MY_PROVIDER_ID: &str = "myprovider";
 ```
 
-Place it next to the existing constants (`OPENROUTER_PROVIDER_ID`, `MINIMAX_PROVIDER_ID`, etc.).
+Place it in `core/src/fork_providers.rs` next to the existing constants (`OPENROUTER_PROVIDER_ID`, `MINIMAX_PROVIDER_ID`).
 
 ### 1b. Create a factory function
 
@@ -58,10 +58,10 @@ pub fn create_myprovider() -> ModelProviderInfo {
 
 ### 1c. Register in the built-in provider map
 
-In `built_in_model_providers()`, add an entry to the array:
+In `register_fork_providers()` in `core/src/fork_providers.rs`, add an entry:
 
 ```rust
-(MY_PROVIDER_ID, create_myprovider()),
+providers.insert(MY_PROVIDER_ID.into(), create_myprovider());
 ```
 
 ---
@@ -192,7 +192,7 @@ Built-in providers and profiles take precedence when keys collide. User-defined 
 
 The MiniMax provider (`minimax`) and model (`codex-MiniMax-M2.1`) were added following this exact process. Use them as a reference:
 
-- Provider: `create_minimax_provider()` in `model_provider_info.rs`
+- Provider: `create_minimax_provider()` in `fork_providers.rs`
 - Preset: `minimax/codex-MiniMax-M2.1` in `model_presets.rs`
 - Model info: `slug.starts_with("codex-MiniMax")` branch in `model_info.rs`
 - Profile: `m21` in `built_in_profiles()` in `profile.rs`
