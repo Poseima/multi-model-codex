@@ -309,6 +309,7 @@ impl<'a> ChatRequestBuilder<'a> {
             "model": self.model,
             "messages": messages,
             "stream": true,
+            "stream_options": {"include_usage": true},
             "tools": self.tools,
         });
 
