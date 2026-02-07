@@ -1,6 +1,8 @@
 use crate::common::ResponseEvent;
 use crate::common::ResponseStream;
 use crate::error::ApiError;
+use crate::sse::chat_compat_fork::ContentSegment;
+use crate::sse::chat_compat_fork::ThinkTagStreamSplitter;
 use crate::telemetry::SseTelemetry;
 use codex_client::StreamResponse;
 use codex_protocol::models::ContentItem;
@@ -20,15 +22,25 @@ use tokio::time::timeout;
 use tracing::debug;
 use tracing::trace;
 
+pub(crate) use crate::sse::chat_compat_fork::ChatReasoningFormat;
+
 pub(crate) fn spawn_chat_stream(
     stream_response: StreamResponse,
     idle_timeout: Duration,
     telemetry: Option<Arc<dyn SseTelemetry>>,
+    reasoning_format: ChatReasoningFormat,
     _turn_state: Option<Arc<OnceLock<String>>>,
 ) -> ResponseStream {
     let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent, ApiError>>(1600);
     tokio::spawn(async move {
-        process_chat_sse(stream_response.bytes, tx_event, idle_timeout, telemetry).await;
+        process_chat_sse_with_format(
+            stream_response.bytes,
+            tx_event,
+            idle_timeout,
+            telemetry,
+            reasoning_format,
+        )
+        .await;
     });
     ResponseStream { rx_event }
 }
@@ -42,6 +54,25 @@ pub async fn process_chat_sse<S>(
     tx_event: mpsc::Sender<Result<ResponseEvent, ApiError>>,
     idle_timeout: Duration,
     telemetry: Option<std::sync::Arc<dyn SseTelemetry>>,
+) where
+    S: Stream<Item = Result<bytes::Bytes, codex_client::TransportError>> + Unpin,
+{
+    process_chat_sse_with_format(
+        stream,
+        tx_event,
+        idle_timeout,
+        telemetry,
+        ChatReasoningFormat::Standard,
+    )
+    .await;
+}
+
+async fn process_chat_sse_with_format<S>(
+    stream: S,
+    tx_event: mpsc::Sender<Result<ResponseEvent, ApiError>>,
+    idle_timeout: Duration,
+    telemetry: Option<std::sync::Arc<dyn SseTelemetry>>,
+    reasoning_format: ChatReasoningFormat,
 ) where
     S: Stream<Item = Result<bytes::Bytes, codex_client::TransportError>> + Unpin,
 {
@@ -62,13 +93,23 @@ pub async fn process_chat_sse<S>(
     let mut last_tool_call_index: Option<usize> = None;
     let mut assistant_item: Option<ResponseItem> = None;
     let mut reasoning_item: Option<ResponseItem> = None;
+    let mut content_splitter = ThinkTagStreamSplitter::new(reasoning_format);
     let mut completed_sent = false;
 
     async fn flush_and_complete(
         tx_event: &mpsc::Sender<Result<ResponseEvent, ApiError>>,
+        content_splitter: &mut ThinkTagStreamSplitter,
         reasoning_item: &mut Option<ResponseItem>,
         assistant_item: &mut Option<ResponseItem>,
     ) {
+        append_content_segments(
+            tx_event,
+            assistant_item,
+            reasoning_item,
+            content_splitter.flush_remaining(),
+        )
+        .await;
+
         if let Some(reasoning) = reasoning_item.take() {
             let _ = tx_event
                 .send(Ok(ResponseEvent::OutputItemDone(reasoning)))
@@ -103,7 +144,13 @@ pub async fn process_chat_sse<S>(
             }
             Ok(None) => {
                 if !completed_sent {
-                    flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item).await;
+                    flush_and_complete(
+                        &tx_event,
+                        &mut content_splitter,
+                        &mut reasoning_item,
+                        &mut assistant_item,
+                    )
+                    .await;
                 }
                 return;
             }
@@ -125,7 +172,13 @@ pub async fn process_chat_sse<S>(
 
         if data == "[DONE]" || data == "DONE" {
             if !completed_sent {
-                flush_and_complete(&tx_event, &mut reasoning_item, &mut assistant_item).await;
+                flush_and_complete(
+                    &tx_event,
+                    &mut content_splitter,
+                    &mut reasoning_item,
+                    &mut assistant_item,
+                )
+                .await;
             }
             return;
         }
@@ -164,17 +217,23 @@ pub async fn process_chat_sse<S>(
                     if content.is_array() {
                         for item in content.as_array().unwrap_or(&vec![]) {
                             if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
-                                append_assistant_text(
+                                append_content_segments(
                                     &tx_event,
                                     &mut assistant_item,
-                                    text.to_string(),
+                                    &mut reasoning_item,
+                                    content_splitter.split_chunk(text),
                                 )
                                 .await;
                             }
                         }
                     } else if let Some(text) = content.as_str() {
-                        append_assistant_text(&tx_event, &mut assistant_item, text.to_string())
-                            .await;
+                        append_content_segments(
+                            &tx_event,
+                            &mut assistant_item,
+                            &mut reasoning_item,
+                            content_splitter.split_chunk(text),
+                        )
+                        .await;
                     }
                 }
 
@@ -247,6 +306,14 @@ pub async fn process_chat_sse<S>(
 
             let finish_reason = choice.get("finish_reason").and_then(|r| r.as_str());
             if finish_reason == Some("stop") {
+                append_content_segments(
+                    &tx_event,
+                    &mut assistant_item,
+                    &mut reasoning_item,
+                    content_splitter.flush_remaining(),
+                )
+                .await;
+
                 if let Some(reasoning) = reasoning_item.take() {
                     let _ = tx_event
                         .send(Ok(ResponseEvent::OutputItemDone(reasoning)))
@@ -276,6 +343,14 @@ pub async fn process_chat_sse<S>(
             }
 
             if finish_reason == Some("tool_calls") {
+                append_content_segments(
+                    &tx_event,
+                    &mut assistant_item,
+                    &mut reasoning_item,
+                    content_splitter.flush_remaining(),
+                )
+                .await;
+
                 if let Some(reasoning) = reasoning_item.take() {
                     let _ = tx_event
                         .send(Ok(ResponseEvent::OutputItemDone(reasoning)))
@@ -309,6 +384,24 @@ pub async fn process_chat_sse<S>(
     }
 }
 
+async fn append_content_segments(
+    tx_event: &mpsc::Sender<Result<ResponseEvent, ApiError>>,
+    assistant_item: &mut Option<ResponseItem>,
+    reasoning_item: &mut Option<ResponseItem>,
+    segments: Vec<ContentSegment>,
+) {
+    for segment in segments {
+        match segment {
+            ContentSegment::Assistant(text) => {
+                append_assistant_text(tx_event, assistant_item, text).await;
+            }
+            ContentSegment::Reasoning(text) => {
+                append_reasoning_text(tx_event, reasoning_item, text).await;
+            }
+        }
+    }
+}
+
 async fn append_assistant_text(
     tx_event: &mpsc::Sender<Result<ResponseEvent, ApiError>>,
     assistant_item: &mut Option<ResponseItem>,
@@ -329,7 +422,11 @@ async fn append_assistant_text(
     }
 
     if let Some(ResponseItem::Message { content, .. }) = assistant_item {
-        content.push(ContentItem::OutputText { text: text.clone() });
+        if let Some(ContentItem::OutputText { text: existing }) = content.last_mut() {
+            existing.push_str(&text);
+        } else {
+            content.push(ContentItem::OutputText { text: text.clone() });
+        }
         let _ = tx_event
             .send(Ok(ResponseEvent::OutputTextDelta(text.clone())))
             .await;
@@ -359,8 +456,20 @@ async fn append_reasoning_text(
         ..
     }) = reasoning_item
     {
-        let content_index = content.len() as i64;
-        content.push(ReasoningItemContent::ReasoningText { text: text.clone() });
+        let content_index = if let Some(last_entry) = content.last_mut() {
+            match last_entry {
+                ReasoningItemContent::ReasoningText {
+                    text: existing_text,
+                }
+                | ReasoningItemContent::Text {
+                    text: existing_text,
+                } => existing_text.push_str(&text),
+            }
+            (content.len() - 1) as i64
+        } else {
+            content.push(ReasoningItemContent::ReasoningText { text: text.clone() });
+            0
+        };
 
         let _ = tx_event
             .send(Ok(ResponseEvent::ReasoningContentDelta {
@@ -377,6 +486,7 @@ mod tests {
     use assert_matches::assert_matches;
     use codex_protocol::models::ResponseItem;
     use futures::TryStreamExt;
+    use pretty_assertions::assert_eq;
     use serde_json::json;
     use tokio::sync::mpsc;
     use tokio_util::io::ReaderStream;
@@ -397,14 +507,22 @@ mod tests {
     }
 
     async fn collect_events(body: &str) -> Vec<ResponseEvent> {
+        collect_events_with_format(body, ChatReasoningFormat::Standard).await
+    }
+
+    async fn collect_events_with_format(
+        body: &str,
+        reasoning_format: ChatReasoningFormat,
+    ) -> Vec<ResponseEvent> {
         let reader = ReaderStream::new(std::io::Cursor::new(body.to_string()))
             .map_err(|err| codex_client::TransportError::Network(err.to_string()));
         let (tx, mut rx) = mpsc::channel::<Result<ResponseEvent, ApiError>>(16);
-        tokio::spawn(process_chat_sse(
+        tokio::spawn(process_chat_sse_with_format(
             reader,
             tx,
             Duration::from_millis(1000),
             None,
+            reasoning_format,
         ));
 
         let mut out = Vec::new();
@@ -412,6 +530,48 @@ mod tests {
             out.push(ev.expect("stream error"));
         }
         out
+    }
+
+    fn assistant_text_deltas(events: &[ResponseEvent]) -> Vec<String> {
+        events
+            .iter()
+            .filter_map(|ev| match ev {
+                ResponseEvent::OutputTextDelta(delta) => Some(delta.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn reasoning_text_deltas(events: &[ResponseEvent]) -> Vec<String> {
+        events
+            .iter()
+            .filter_map(|ev| match ev {
+                ResponseEvent::ReasoningContentDelta { delta, .. } => Some(delta.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn assistant_output_text_parts(events: &[ResponseEvent]) -> Vec<Vec<String>> {
+        events
+            .iter()
+            .filter_map(|ev| match ev {
+                ResponseEvent::OutputItemDone(ResponseItem::Message { role, content, .. })
+                    if role == "assistant" =>
+                {
+                    Some(
+                        content
+                            .iter()
+                            .filter_map(|item| match item {
+                                ContentItem::OutputText { text } => Some(text.clone()),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>(),
+                    )
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     #[tokio::test]
@@ -667,6 +827,158 @@ mod tests {
                 ResponseEvent::OutputItemDone(ResponseItem::Message { .. }),
                 ResponseEvent::Completed { .. }
             ] if delta == "hi" && call_id == "call_a" && name == "do_a"
+        );
+    }
+
+    #[tokio::test]
+    async fn minimax_think_tags_are_split_from_content() {
+        let delta = json!({
+            "choices": [{
+                "delta": {
+                    "content": "<think>internal</think>visible"
+                }
+            }]
+        });
+        let finish = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+        let body = build_body(&[delta, finish]);
+
+        let events = collect_events_with_format(&body, ChatReasoningFormat::MinimaxThinkTags).await;
+        assert_eq!(assistant_text_deltas(&events), vec!["visible".to_string()]);
+        assert_eq!(reasoning_text_deltas(&events), vec!["internal".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn minimax_think_tags_split_across_chunks_are_handled() {
+        let chunk_1 = json!({
+            "choices": [{
+                "delta": {
+                    "content": "<th"
+                }
+            }]
+        });
+        let chunk_2 = json!({
+            "choices": [{
+                "delta": {
+                    "content": "ink>alpha</thi"
+                }
+            }]
+        });
+        let chunk_3 = json!({
+            "choices": [{
+                "delta": {
+                    "content": "nk>done"
+                }
+            }]
+        });
+        let finish = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+        let body = build_body(&[chunk_1, chunk_2, chunk_3, finish]);
+
+        let events = collect_events_with_format(&body, ChatReasoningFormat::MinimaxThinkTags).await;
+        assert_eq!(assistant_text_deltas(&events), vec!["done".to_string()]);
+        assert_eq!(reasoning_text_deltas(&events), vec!["alpha".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn standard_mode_keeps_think_tags_in_assistant_content() {
+        let delta = json!({
+            "choices": [{
+                "delta": {
+                    "content": "<think>x</think>y"
+                }
+            }]
+        });
+        let finish = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+        let body = build_body(&[delta, finish]);
+
+        let events = collect_events_with_format(&body, ChatReasoningFormat::Standard).await;
+        assert_eq!(
+            assistant_text_deltas(&events),
+            vec!["<think>x</think>y".to_string()]
+        );
+        assert_eq!(reasoning_text_deltas(&events), Vec::<String>::new());
+    }
+
+    #[tokio::test]
+    async fn coalesces_assistant_output_item_content_when_streaming_multiple_chunks() {
+        let chunk_1 = json!({
+            "choices": [{
+                "delta": {
+                    "content": "Hey! What "
+                }
+            }]
+        });
+        let chunk_2 = json!({
+            "choices": [{
+                "delta": {
+                    "content": "are you working on today?"
+                }
+            }]
+        });
+        let finish = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+        let body = build_body(&[chunk_1, chunk_2, finish]);
+
+        let events = collect_events(&body).await;
+        assert_eq!(
+            assistant_output_text_parts(&events),
+            vec![vec!["Hey! What are you working on today?".to_string()]]
+        );
+    }
+
+    #[tokio::test]
+    async fn coalesces_reasoning_output_item_content_when_streaming_multiple_chunks() {
+        let chunk_1 = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": "thinking "
+                }
+            }]
+        });
+        let chunk_2 = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": "more"
+                }
+            }]
+        });
+        let finish = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+        let body = build_body(&[chunk_1, chunk_2, finish]);
+
+        let events = collect_events(&body).await;
+        let reasoning_contents = events
+            .iter()
+            .find_map(|ev| match ev {
+                ResponseEvent::OutputItemDone(ResponseItem::Reasoning {
+                    content: Some(content),
+                    ..
+                }) => Some(content.clone()),
+                _ => None,
+            })
+            .expect("expected reasoning output item");
+        assert_eq!(
+            reasoning_contents,
+            vec![ReasoningItemContent::ReasoningText {
+                text: "thinking more".to_string()
+            }]
         );
     }
 

@@ -54,5 +54,7 @@ pub(crate) struct SessionServices {
     pub(crate) network_approval: Arc<NetworkApprovalService>,
     pub(crate) state_db: Option<StateDbHandle>,
     /// Session-scoped model client shared across turns.
-    pub(crate) model_client: ModelClient,
+    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
+    /// when the user switches to a different model provider mid-session.
+    pub(crate) model_client: RwLock<ModelClient>,
 }

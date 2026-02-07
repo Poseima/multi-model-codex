@@ -1469,7 +1469,7 @@ impl Session {
             network_proxy,
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
-            model_client: ModelClient::new(
+            model_client: tokio::sync::RwLock::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -1479,7 +1479,7 @@ impl Session {
                 config.features.enabled(Feature::EnableRequestCompression),
                 config.features.enabled(Feature::RuntimeMetrics),
                 Self::build_model_client_beta_features_header(config.as_ref()),
-            ),
+            )),
         };
         let js_repl = Arc::new(JsReplHandle::with_node_path(
             config.js_repl_node_path.clone(),
@@ -1964,6 +1964,34 @@ impl Session {
                 Err(err)
             }
         }
+    }
+
+    /// Fork: rebuild the session-scoped `ModelClient` from the current
+    /// `SessionConfiguration.provider`.  Called after `Op::OverrideProvider`
+    /// so that subsequent turns stream to the new provider's endpoint.
+    async fn rebuild_model_client_for_current_provider(&self) {
+        let (provider, session_source, model_verbosity, beta_header) = {
+            let state = self.state.lock().await;
+            let cfg = &state.session_configuration;
+            (
+                cfg.provider.clone(),
+                cfg.session_source.clone(),
+                cfg.original_config_do_not_use.model_verbosity,
+                Self::build_model_client_beta_features_header(&cfg.original_config_do_not_use),
+            )
+        };
+        let new_client = ModelClient::new(
+            Some(Arc::clone(&self.services.auth_manager)),
+            self.conversation_id,
+            provider,
+            session_source,
+            model_verbosity,
+            self.features.enabled(Feature::ResponsesWebsockets),
+            self.features.enabled(Feature::EnableRequestCompression),
+            self.features.enabled(Feature::RuntimeMetrics),
+            beta_header,
+        );
+        *self.services.model_client.write().await = new_client;
     }
 
     pub(crate) async fn new_turn_with_sub_id(
@@ -3619,6 +3647,9 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                     },
                 )
                 .await;
+                // Fork: rebuild session-scoped ModelClient so subsequent turns
+                // stream to the new provider's endpoint.
+                sess.rebuild_model_client_for_current_provider().await;
             }
             Op::UserInput { .. } | Op::UserTurn { .. } => {
                 handlers::user_input_or_turn(&sess, sub.id.clone(), sub.op).await;
@@ -8193,7 +8224,7 @@ mod tests {
             network_proxy: None,
             network_approval: Arc::clone(&network_approval),
             state_db: None,
-            model_client: ModelClient::new(
+            model_client: tokio::sync::RwLock::new(ModelClient::new(
                 Some(auth_manager.clone()),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -8203,7 +8234,7 @@ mod tests {
                 config.features.enabled(Feature::EnableRequestCompression),
                 config.features.enabled(Feature::RuntimeMetrics),
                 Session::build_model_client_beta_features_header(config.as_ref()),
-            ),
+            )),
         };
         let js_repl = Arc::new(JsReplHandle::with_node_path(
             config.js_repl_node_path.clone(),
@@ -8353,7 +8384,7 @@ mod tests {
             network_proxy: None,
             network_approval: Arc::clone(&network_approval),
             state_db: None,
-            model_client: ModelClient::new(
+            model_client: tokio::sync::RwLock::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -8363,7 +8394,7 @@ mod tests {
                 config.features.enabled(Feature::EnableRequestCompression),
                 config.features.enabled(Feature::RuntimeMetrics),
                 Session::build_model_client_beta_features_header(config.as_ref()),
-            ),
+            )),
         };
         let js_repl = Arc::new(JsReplHandle::with_node_path(
             config.js_repl_node_path.clone(),
