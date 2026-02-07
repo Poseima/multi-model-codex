@@ -1552,7 +1552,7 @@ async fn handle_start_inner(
         codex_response_handoff_channel_prefixes,
         realtime_call_api_provider,
         session_config,
-        model_client: sess.services.model_client.clone(),
+        model_client: sess.services.model_client.read().await.clone(),
         sdp,
         existing_call_id,
     };

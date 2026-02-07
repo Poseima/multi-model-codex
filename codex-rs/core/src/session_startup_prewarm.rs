@@ -316,7 +316,8 @@ async fn schedule_startup_prewarm_inner(
     let responses_metadata = session
         .responses_metadata(&startup_turn_context, CodexResponsesRequestKind::Prewarm)
         .await;
-    let mut client_session = session.services.model_client.new_session();
+    let model_client = session.services.model_client.read().await.clone();
+    let mut client_session = model_client.new_session();
     let websocket_warmup_started_at = Instant::now();
     client_session
         .prewarm_websocket(

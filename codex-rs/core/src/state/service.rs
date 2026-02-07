@@ -43,6 +43,7 @@ use codex_thread_store::ThreadStore;
 use codex_utils_git_discovery::GitRootDiscovery;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 pub(crate) struct SessionServices {
     /// The single owner of live MCP connections for this thread.
@@ -94,7 +95,9 @@ pub(crate) struct SessionServices {
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
     pub(crate) time_provider: Arc<dyn TimeProvider>,
     /// Session-scoped model client shared across turns.
-    pub(crate) model_client: ModelClient,
+    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
+    /// when the user switches to a different model provider mid-session.
+    pub(crate) model_client: RwLock<ModelClient>,
     pub(crate) executed_tool_calls: Option<Arc<ExecutedToolCallRecorder>>,
     pub(crate) code_mode_service: CodeModeService,
     pub(crate) tool_search_handler_cache: ToolSearchHandlerCache,
