@@ -131,6 +131,7 @@ use crate::error::CodexErr;
 use crate::error::Result as CodexResult;
 #[cfg(test)]
 use crate::exec::StreamOutput;
+use crate::swappable_model_client::SwappableModelClient;
 
 #[derive(Debug, PartialEq)]
 pub enum SteerInputError {
@@ -1320,7 +1321,7 @@ impl Session {
             network_proxy,
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -1835,7 +1836,7 @@ impl Session {
             self.features.enabled(Feature::RuntimeMetrics),
             beta_header,
         );
-        *self.services.model_client.write().await = new_client;
+        self.services.model_client.replace(new_client);
     }
 
     pub(crate) async fn new_turn_with_sub_id(
@@ -7455,7 +7456,7 @@ mod tests {
             network_proxy: None,
             network_approval: Arc::clone(&network_approval),
             state_db: None,
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(auth_manager.clone()),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -7604,7 +7605,7 @@ mod tests {
             network_proxy: None,
             network_approval: Arc::clone(&network_approval),
             state_db: None,
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
