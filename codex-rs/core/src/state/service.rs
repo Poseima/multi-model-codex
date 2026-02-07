@@ -4,7 +4,6 @@ use std::sync::Arc;
 use crate::agent::AgentControl;
 use crate::agents_md_manager::AgentsMdManager;
 use crate::attestation::AttestationProvider;
-use crate::client::ModelClient;
 use crate::config::NetworkProxyAuditMetadata;
 use crate::config::StartedNetworkProxy;
 use crate::current_time::TimeProvider;
@@ -14,6 +13,7 @@ use crate::exec_policy::ExecPolicyManager;
 use crate::guardian::GuardianRejectionCircuitBreaker;
 use crate::mcp::McpManager;
 use crate::mcp_tool_exposure::McpHandlerCache;
+use crate::swappable_model_client::SwappableModelClient;
 use crate::tools::ExecutedToolCallRecorder;
 use crate::tools::code_mode::CodeModeService;
 use crate::tools::handlers::ToolSearchHandlerCache;
@@ -43,7 +43,6 @@ use codex_thread_store::ThreadStore;
 use codex_utils_git_discovery::GitRootDiscovery;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
-use tokio::sync::RwLock;
 
 pub(crate) struct SessionServices {
     /// The single owner of live MCP connections for this thread.
@@ -95,9 +94,9 @@ pub(crate) struct SessionServices {
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
     pub(crate) time_provider: Arc<dyn TimeProvider>,
     /// Session-scoped model client shared across turns.
-    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
-    /// when the user switches to a different model provider mid-session.
-    pub(crate) model_client: RwLock<ModelClient>,
+    /// Fork: wrapped in `SwappableModelClient` so `Op::OverrideProvider` can
+    /// rebuild it when the user switches providers mid-session.
+    pub(crate) model_client: SwappableModelClient,
     pub(crate) executed_tool_calls: Option<Arc<ExecutedToolCallRecorder>>,
     pub(crate) code_mode_service: CodeModeService,
     pub(crate) tool_search_handler_cache: ToolSearchHandlerCache,
