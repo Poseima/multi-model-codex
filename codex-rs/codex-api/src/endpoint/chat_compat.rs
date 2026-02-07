@@ -5,6 +5,7 @@ use crate::endpoint::session::EndpointSession;
 use crate::error::ApiError;
 use crate::provider::Provider;
 use crate::requests::chat_compat::ChatRequestBuilder;
+use crate::sse::chat_compat::ChatReasoningFormat;
 use crate::sse::chat_compat::spawn_chat_stream;
 use crate::telemetry::SseTelemetry;
 use codex_client::HttpTransport;
@@ -46,11 +47,13 @@ impl<T: HttpTransport, A: AuthProvider> ChatCompatClient<T, A> {
         conversation_id: Option<String>,
         session_source: Option<SessionSource>,
     ) -> Result<ResponseStream, ApiError> {
+        let provider = self.session.provider();
+        let reasoning_format = chat_reasoning_format(provider);
         let request =
             ChatRequestBuilder::new(model, &prompt.instructions, &prompt.input, &prompt.tools)
                 .conversation_id(conversation_id)
                 .session_source(session_source)
-                .build(self.session.provider())?;
+                .build(provider)?;
 
         let stream_response = self
             .session
@@ -71,9 +74,18 @@ impl<T: HttpTransport, A: AuthProvider> ChatCompatClient<T, A> {
 
         Ok(spawn_chat_stream(
             stream_response,
-            self.session.provider().stream_idle_timeout,
+            provider.stream_idle_timeout,
             self.sse_telemetry.clone(),
+            reasoning_format,
             None,
         ))
+    }
+}
+
+fn chat_reasoning_format(provider: &Provider) -> ChatReasoningFormat {
+    if provider.name.eq_ignore_ascii_case("minimax") || provider.base_url.contains("minimaxi.com") {
+        ChatReasoningFormat::MinimaxThinkTags
+    } else {
+        ChatReasoningFormat::Standard
     }
 }
