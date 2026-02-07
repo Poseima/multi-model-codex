@@ -2,13 +2,15 @@
 /// for `Op::OverrideProvider` while presenting the same method signatures to callers.
 ///
 /// Uses `std::sync::RwLock` internally. All read-side methods are either sync
-/// (`new_session`) or clone-then-release (`compact_conversation_history`,
-/// `summarize_memories`), so the lock is never held across an `.await` point.
+/// (`new_session`, `responses_websocket_enabled`, `clone_inner`) or
+/// clone-then-release (`compact_conversation_history`, `summarize_memories`),
+/// so the lock is never held across an `.await` point.
 use std::sync::RwLock;
 
 use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
 use codex_otel::SessionTelemetry;
+use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
@@ -22,7 +24,8 @@ pub(crate) struct SwappableModelClient {
     inner: RwLock<ModelClient>,
 }
 
-// RwLock poisoning means a prior panic — unrecoverable, so expect is appropriate.
+// RwLock poisoning means a prior panic; at that point the session is
+// unrecoverable, so `expect` is appropriate here.
 #[allow(clippy::expect_used)]
 impl SwappableModelClient {
     pub(crate) fn new(client: ModelClient) -> Self {
@@ -48,11 +51,19 @@ impl SwappableModelClient {
         &self,
         prompt: &Prompt,
         model_info: &ModelInfo,
+        effort: Option<ReasoningEffortConfig>,
+        summary: ReasoningSummaryConfig,
         session_telemetry: &SessionTelemetry,
     ) -> Result<Vec<ResponseItem>> {
         let client = self.inner.read().expect("lock poisoned").clone();
         client
-            .compact_conversation_history(prompt, model_info, session_telemetry)
+            .compact_conversation_history(
+                prompt,
+                model_info,
+                effort,
+                summary,
+                session_telemetry,
+            )
             .await
     }
 
@@ -73,12 +84,12 @@ impl SwappableModelClient {
             .await
     }
 
-    /// Sync: delegates to inner client's websocket enablement decision.
-    pub(crate) fn responses_websocket_enabled(&self, model_info: &ModelInfo) -> bool {
+    /// Sync: delegates to the inner client's websocket enablement decision.
+    pub(crate) fn responses_websocket_enabled(&self) -> bool {
         self.inner
             .read()
             .expect("lock poisoned")
-            .responses_websocket_enabled(model_info)
+            .responses_websocket_enabled()
     }
 
     /// Fork: replace the inner client when the user switches providers.
