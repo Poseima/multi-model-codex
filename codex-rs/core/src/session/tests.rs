@@ -5113,7 +5113,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         )),
         attestation_provider: None,
         time_provider: Arc::new(crate::current_time::SystemTimeProvider),
-        model_client: ModelClient::new(
+        model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
             Some(auth_manager.clone()),
             thread_id,
             session_configuration.provider.clone(),
@@ -5124,7 +5124,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             Session::build_model_client_beta_features_header(config.as_ref()),
             /*item_ids_enabled*/ config.features.enabled(Feature::ItemIds),
             /*attestation_provider*/ None,
-        ),
+        )),
         code_mode_service: crate::tools::code_mode::CodeModeService::new(),
         tool_search_handler_cache: Default::default(),
         turn_environments: Arc::clone(&turn_environments),
@@ -7172,7 +7172,7 @@ where
         )),
         attestation_provider: None,
         time_provider: Arc::new(crate::current_time::SystemTimeProvider),
-        model_client: ModelClient::new(
+        model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
             Some(Arc::clone(&auth_manager)),
             thread_id,
             session_configuration.provider.clone(),
@@ -7183,7 +7183,7 @@ where
             Session::build_model_client_beta_features_header(config.as_ref()),
             /*item_ids_enabled*/ config.features.enabled(Feature::ItemIds),
             /*attestation_provider*/ None,
-        ),
+        )),
         code_mode_service: crate::tools::code_mode::CodeModeService::new(),
         tool_search_handler_cache: Default::default(),
         turn_environments: Arc::clone(&turn_environments),
