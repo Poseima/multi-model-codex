@@ -42,6 +42,7 @@ use crate::image_preparation::prepare_response_items;
 use crate::parse_turn_item;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::session::step_context::StepContext;
+use crate::resolve_installation_id;
 use crate::session::turn_context::TurnEnvironment;
 use crate::session_prefix::format_inter_agent_completion_message;
 use crate::skills::SkillRenderSideEffects;
@@ -1634,6 +1635,39 @@ impl Session {
                 new_config,
             );
         }
+    }
+
+    pub(crate) async fn rebuild_model_client_for_current_provider(&self) {
+        let (provider, session_source, config) = {
+            let state = self.state.lock().await;
+            (
+                state.session_configuration.provider.clone(),
+                state.session_configuration.session_source.clone(),
+                Arc::clone(&state.session_configuration.original_config_do_not_use),
+            )
+        };
+        let installation_id = match resolve_installation_id(&config.codex_home).await {
+            Ok(installation_id) => installation_id,
+            Err(err) => {
+                warn!("failed to resolve installation id while switching providers: {err}");
+                return;
+            }
+        };
+
+        let model_client = ModelClient::new(
+            Some(Arc::clone(&self.services.auth_manager)),
+            self.services.agent_control.session_id(),
+            self.conversation_id,
+            installation_id,
+            provider,
+            session_source,
+            config.model_verbosity,
+            config.features.enabled(Feature::EnableRequestCompression),
+            config.features.enabled(Feature::RuntimeMetrics),
+            Self::build_model_client_beta_features_header(config.as_ref()),
+            self.services.attestation_provider.clone(),
+        );
+        self.services.model_client.replace(model_client);
     }
 
     pub(crate) async fn reload_user_config_layer(&self) {

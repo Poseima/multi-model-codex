@@ -6,7 +6,6 @@ use crate::SkillsService;
 use crate::agent::AgentControl;
 use crate::agents_md_manager::AgentsMdManager;
 use crate::attestation::AttestationProvider;
-use crate::client::ModelClient;
 use crate::config::NetworkProxyAuditMetadata;
 use crate::config::StartedNetworkProxy;
 use crate::current_time::TimeProvider;
@@ -16,6 +15,7 @@ use crate::guardian::GuardianRejection;
 use crate::guardian::GuardianRejectionCircuitBreaker;
 use crate::mcp::McpManager;
 use crate::session::McpRuntimeSnapshot;
+use crate::swappable_model_client::SwappableModelClient;
 use crate::tools::code_mode::CodeModeService;
 use crate::tools::handlers::ToolSearchHandlerCache;
 use crate::tools::network_approval::NetworkApprovalService;
@@ -95,9 +95,9 @@ pub(crate) struct SessionServices {
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
     pub(crate) time_provider: Arc<dyn TimeProvider>,
     /// Session-scoped model client shared across turns.
-    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
-    /// when the user switches to a different model provider mid-session.
-    pub(crate) model_client: RwLock<ModelClient>,
+    /// Fork: wrapped in `SwappableModelClient` so `Op::OverrideProvider` can
+    /// rebuild it when the user switches providers mid-session.
+    pub(crate) model_client: SwappableModelClient,
     pub(crate) code_mode_service: CodeModeService,
     pub(crate) tool_search_handler_cache: ToolSearchHandlerCache,
     pub(crate) turn_environments: Arc<ThreadEnvironments>,

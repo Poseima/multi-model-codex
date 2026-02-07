@@ -1103,28 +1103,30 @@ impl Session {
                 thread_store: Arc::clone(&thread_store),
                 attestation_provider: attestation_provider.clone(),
                 time_provider,
-                model_client: ModelClient::new(
-                    Some(Arc::clone(&auth_manager)),
-                    if config.features.enabled(Feature::UseAgentIdentity) {
-                        AgentIdentityAuthPolicy::ChatGptAuth
-                    } else {
-                        AgentIdentityAuthPolicy::JwtOnly
-                    },
-                    thread_id,
-                    session_configuration.provider.clone(),
-                    session_configuration.session_source.clone(),
-                    session_configuration.originator.clone(),
-                    config.model_verbosity,
-                    config.features.enabled(Feature::EnableRequestCompression),
-                    config.features.enabled(Feature::RuntimeMetrics),
-                    Self::build_model_client_beta_features_header(config.as_ref()),
-                    /*item_ids_enabled*/ config.features.enabled(Feature::ItemIds),
-                    attestation_provider,
-                )
-                .with_prompt_cache_key_override(
-                    crate::guardian::prompt_cache_key_override_for_review_session(
-                        &session_configuration.session_source,
-                        session_configuration.parent_thread_id,
+                model_client: crate::swappable_model_client::SwappableModelClient::new(
+                    ModelClient::new(
+                        Some(Arc::clone(&auth_manager)),
+                        if config.features.enabled(Feature::UseAgentIdentity) {
+                            AgentIdentityAuthPolicy::ChatGptAuth
+                        } else {
+                            AgentIdentityAuthPolicy::JwtOnly
+                        },
+                        thread_id,
+                        session_configuration.provider.clone(),
+                        session_configuration.session_source.clone(),
+                        session_configuration.originator.clone(),
+                        config.model_verbosity,
+                        config.features.enabled(Feature::EnableRequestCompression),
+                        config.features.enabled(Feature::RuntimeMetrics),
+                        Self::build_model_client_beta_features_header(config.as_ref()),
+                        /*item_ids_enabled*/ config.features.enabled(Feature::ItemIds),
+                        attestation_provider,
+                    )
+                    .with_prompt_cache_key_override(
+                        crate::guardian::prompt_cache_key_override_for_review_session(
+                            &session_configuration.session_source,
+                            session_configuration.parent_thread_id,
+                        ),
                     ),
                 ),
                 code_mode_service: crate::tools::code_mode::CodeModeService::new(Arc::clone(

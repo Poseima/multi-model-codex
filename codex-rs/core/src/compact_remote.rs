@@ -238,14 +238,15 @@ async fn run_remote_compact_task_inner_impl(
         output_schema: None,
         output_schema_strict: true,
     };
-    let model_client = sess.services.model_client.read().await.clone();
     let window_id = sess.current_window_id().await;
     let responses_metadata = turn_context.turn_metadata_state.to_responses_metadata(
         sess.installation_id.clone(),
         window_id,
         CodexResponsesRequestKind::Compaction(compaction_metadata),
     );
-    let new_history = model_client
+    let new_history = sess
+        .services
+        .model_client
         .compact_conversation_history(
             &prompt,
             &turn_context.model_info,
