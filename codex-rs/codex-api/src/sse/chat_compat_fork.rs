@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ChatReasoningFormat {
     Standard,
+    #[allow(dead_code)]
     MinimaxThinkTags,
 }
 
