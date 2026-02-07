@@ -8,6 +8,7 @@ use codex_client::StreamResponse;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ResponseItem;
+use codex_protocol::protocol::TokenUsage;
 use eventsource_stream::Eventsource;
 use futures::Stream;
 use futures::StreamExt;
@@ -94,13 +95,14 @@ async fn process_chat_sse_with_format<S>(
     let mut assistant_item: Option<ResponseItem> = None;
     let mut reasoning_item: Option<ResponseItem> = None;
     let mut content_splitter = ThinkTagStreamSplitter::new(reasoning_format);
-    let mut completed_sent = false;
+    let mut token_usage: Option<TokenUsage> = None;
 
     async fn flush_and_complete(
         tx_event: &mpsc::Sender<Result<ResponseEvent, ApiError>>,
         content_splitter: &mut ThinkTagStreamSplitter,
         reasoning_item: &mut Option<ResponseItem>,
         assistant_item: &mut Option<ResponseItem>,
+        token_usage: Option<TokenUsage>,
     ) {
         append_content_segments(
             tx_event,
@@ -125,7 +127,7 @@ async fn process_chat_sse_with_format<S>(
         let _ = tx_event
             .send(Ok(ResponseEvent::Completed {
                 response_id: String::new(),
-                token_usage: None,
+                token_usage,
             }))
             .await;
     }
@@ -143,15 +145,14 @@ async fn process_chat_sse_with_format<S>(
                 return;
             }
             Ok(None) => {
-                if !completed_sent {
-                    flush_and_complete(
-                        &tx_event,
-                        &mut content_splitter,
-                        &mut reasoning_item,
-                        &mut assistant_item,
-                    )
-                    .await;
-                }
+                flush_and_complete(
+                    &tx_event,
+                    &mut content_splitter,
+                    &mut reasoning_item,
+                    &mut assistant_item,
+                    token_usage.take(),
+                )
+                .await;
                 return;
             }
             Err(_) => {
@@ -171,15 +172,14 @@ async fn process_chat_sse_with_format<S>(
         }
 
         if data == "[DONE]" || data == "DONE" {
-            if !completed_sent {
-                flush_and_complete(
-                    &tx_event,
-                    &mut content_splitter,
-                    &mut reasoning_item,
-                    &mut assistant_item,
-                )
-                .await;
-            }
+            flush_and_complete(
+                &tx_event,
+                &mut content_splitter,
+                &mut reasoning_item,
+                &mut assistant_item,
+                token_usage.take(),
+            )
+            .await;
             return;
         }
 
@@ -193,6 +193,10 @@ async fn process_chat_sse_with_format<S>(
                 continue;
             }
         };
+
+        if let Some(usage_val) = value.get("usage") {
+            token_usage = parse_chat_usage(usage_val);
+        }
 
         let Some(choices) = value.get("choices").and_then(|c| c.as_array()) else {
             continue;
@@ -325,15 +329,36 @@ async fn process_chat_sse_with_format<S>(
                         .send(Ok(ResponseEvent::OutputItemDone(assistant)))
                         .await;
                 }
-                if !completed_sent {
-                    let _ = tx_event
-                        .send(Ok(ResponseEvent::Completed {
-                            response_id: String::new(),
-                            token_usage: None,
-                        }))
-                        .await;
-                    completed_sent = true;
+
+                // Some providers (e.g. MiniMax) use finish_reason "stop" even
+                // when tool calls are present. Emit any accumulated tool calls
+                // so they are not silently dropped.
+                for index in tool_call_order.drain(..) {
+                    let Some(state) = tool_calls.remove(&index) else {
+                        continue;
+                    };
+                    tool_call_order_seen.remove(&index);
+                    let ToolCallState {
+                        id,
+                        name,
+                        arguments,
+                    } = state;
+                    let Some(name) = name else {
+                        debug!("Skipping tool call at index {index} because name is missing");
+                        continue;
+                    };
+                    let item = ResponseItem::FunctionCall {
+                        id: None,
+                        name,
+                        arguments,
+                        call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
+                    };
+                    let _ = tx_event.send(Ok(ResponseEvent::OutputItemDone(item))).await;
                 }
+
+                // Don't send Completed here — the usage chunk arrives after
+                // stop but before [DONE]. Let the [DONE]/stream-end path
+                // send Completed with the accumulated token_usage.
                 continue;
             }
 
@@ -478,6 +503,43 @@ async fn append_reasoning_text(
             }))
             .await;
     }
+}
+
+/// Parse the `usage` object from a Chat Completions SSE chunk into `TokenUsage`.
+///
+/// Expected shape (OpenAI / OpenRouter / MiniMax):
+/// ```json
+/// {
+///   "prompt_tokens": 10,
+///   "completion_tokens": 20,
+///   "total_tokens": 30,
+///   "completion_tokens_details": { "reasoning_tokens": 5 }
+/// }
+/// ```
+fn parse_chat_usage(usage: &serde_json::Value) -> Option<TokenUsage> {
+    let prompt_tokens = usage.get("prompt_tokens")?.as_i64()?;
+    let completion_tokens = usage.get("completion_tokens")?.as_i64()?;
+    let total_tokens = usage
+        .get("total_tokens")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(prompt_tokens + completion_tokens);
+    let reasoning_output_tokens = usage
+        .get("completion_tokens_details")
+        .and_then(|d| d.get("reasoning_tokens"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let cached_input_tokens = usage
+        .get("prompt_tokens_details")
+        .and_then(|d| d.get("cached_tokens"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    Some(TokenUsage {
+        input_tokens: prompt_tokens,
+        cached_input_tokens,
+        output_tokens: completion_tokens,
+        reasoning_output_tokens,
+        total_tokens,
+    })
 }
 
 #[cfg(test)]
@@ -982,14 +1044,49 @@ mod tests {
         );
     }
 
+    /// Some providers (e.g. MiniMax) use `finish_reason: "stop"` even when
+    /// tool calls are present. Complete tool calls (with a name) must still be
+    /// emitted so the agent loop can execute them.
     #[tokio::test]
-    async fn drops_partial_tool_calls_on_stop_finish_reason() {
+    async fn emits_tool_calls_on_stop_finish_reason() {
         let delta_tool = json!({
             "choices": [{
                 "delta": {
                     "tool_calls": [{
                         "id": "call_a",
                         "function": { "name": "do_a", "arguments": "{}" }
+                    }]
+                }
+            }]
+        });
+
+        let finish_stop = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+
+        let body = build_body(&[delta_tool, finish_stop]);
+        let events = collect_events(&body).await;
+
+        assert_matches!(
+            &events[..],
+            [
+                ResponseEvent::OutputItemDone(ResponseItem::FunctionCall { call_id, name, arguments, .. }),
+                ResponseEvent::Completed { .. }
+            ] if call_id == "call_a" && name == "do_a" && arguments == "{}"
+        );
+    }
+
+    /// Tool calls without a name are truly partial and should be skipped.
+    #[tokio::test]
+    async fn drops_nameless_tool_calls_on_stop_finish_reason() {
+        let delta_tool = json!({
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "id": "call_a",
+                        "function": { "arguments": "{}" }
                     }]
                 }
             }]
@@ -1011,5 +1108,125 @@ mod tests {
             )
         }));
         assert_matches!(events.last(), Some(ResponseEvent::Completed { .. }));
+    }
+
+    /// When content and tool calls arrive together with `finish_reason: "stop"`,
+    /// both the assistant message and tool calls should be emitted.
+    #[tokio::test]
+    async fn emits_content_and_tool_calls_on_stop_finish_reason() {
+        let delta = json!({
+            "choices": [{
+                "delta": {
+                    "content": "Let me search for that.",
+                    "tool_calls": [{
+                        "id": "call_a",
+                        "function": { "name": "search", "arguments": "{\"q\":\"test\"}" }
+                    }]
+                }
+            }]
+        });
+
+        let finish_stop = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+
+        let body = build_body(&[delta, finish_stop]);
+        let events = collect_events(&body).await;
+
+        assert_matches!(
+            &events[..],
+            [
+                ResponseEvent::OutputItemAdded(ResponseItem::Message { .. }),
+                ResponseEvent::OutputTextDelta(text),
+                ResponseEvent::OutputItemDone(ResponseItem::Message { .. }),
+                ResponseEvent::OutputItemDone(ResponseItem::FunctionCall { call_id, name, arguments, .. }),
+                ResponseEvent::Completed { .. }
+            ] if text == "Let me search for that."
+                && call_id == "call_a"
+                && name == "search"
+                && arguments == "{\"q\":\"test\"}"
+        );
+    }
+
+    #[tokio::test]
+    async fn extracts_token_usage_from_usage_chunk() {
+        let content = json!({
+            "choices": [{
+                "delta": { "content": "hi" }
+            }]
+        });
+        let finish_stop = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+        // Usage chunk arrives after stop, before [DONE].
+        let usage_chunk = json!({
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 42,
+                "completion_tokens": 10,
+                "total_tokens": 52,
+                "completion_tokens_details": {
+                    "reasoning_tokens": 3
+                },
+                "prompt_tokens_details": {
+                    "cached_tokens": 5
+                }
+            }
+        });
+
+        let mut body = build_body(&[content, finish_stop, usage_chunk]);
+        body.push_str("event: message\ndata: [DONE]\n\n");
+        let events = collect_events(&body).await;
+
+        let completed = events
+            .iter()
+            .find_map(|ev| match ev {
+                ResponseEvent::Completed { token_usage, .. } => Some(token_usage.clone()),
+                _ => None,
+            })
+            .expect("expected Completed event");
+
+        assert_eq!(
+            completed,
+            Some(TokenUsage {
+                input_tokens: 42,
+                cached_input_tokens: 5,
+                output_tokens: 10,
+                reasoning_output_tokens: 3,
+                total_tokens: 52,
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn token_usage_is_none_when_no_usage_chunk() {
+        let content = json!({
+            "choices": [{
+                "delta": { "content": "hi" }
+            }]
+        });
+        let finish_stop = json!({
+            "choices": [{
+                "finish_reason": "stop"
+            }]
+        });
+
+        let mut body = build_body(&[content, finish_stop]);
+        body.push_str("event: message\ndata: [DONE]\n\n");
+        let events = collect_events(&body).await;
+
+        let completed = events
+            .iter()
+            .find_map(|ev| match ev {
+                ResponseEvent::Completed { token_usage, .. } => Some(token_usage.clone()),
+                _ => None,
+            })
+            .expect("expected Completed event");
+
+        assert_eq!(completed, None);
     }
 }
