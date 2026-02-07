@@ -5,7 +5,6 @@ use crate::AuthManager;
 use crate::RolloutRecorder;
 use crate::agent::AgentControl;
 use crate::analytics_client::AnalyticsEventsClient;
-use crate::client::ModelClient;
 use crate::config::StartedNetworkProxy;
 use crate::exec_policy::ExecPolicyManager;
 use crate::file_watcher::FileWatcher;
@@ -13,6 +12,7 @@ use crate::mcp_connection_manager::McpConnectionManager;
 use crate::models_manager::manager::ModelsManager;
 use crate::skills::SkillsManager;
 use crate::state_db::StateDbHandle;
+use crate::swappable_model_client::SwappableModelClient;
 use crate::tools::network_approval::NetworkApprovalService;
 use crate::tools::runtimes::ExecveSessionApproval;
 use crate::tools::sandboxing::ApprovalStore;
@@ -54,7 +54,7 @@ pub(crate) struct SessionServices {
     pub(crate) network_approval: Arc<NetworkApprovalService>,
     pub(crate) state_db: Option<StateDbHandle>,
     /// Session-scoped model client shared across turns.
-    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
-    /// when the user switches to a different model provider mid-session.
-    pub(crate) model_client: RwLock<ModelClient>,
+    /// Fork: wrapped in `SwappableModelClient` so `Op::OverrideProvider` can
+    /// rebuild it when the user switches providers mid-session.
+    pub(crate) model_client: SwappableModelClient,
 }
