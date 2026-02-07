@@ -3881,7 +3881,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             /*state_db*/ None,
         )),
         attestation_provider: None,
-        model_client: ModelClient::new(
+        model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
             Some(auth_manager.clone()),
             thread_id.into(),
             thread_id,
@@ -3893,7 +3893,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
             /*attestation_provider*/ None,
-        ),
+        )),
         code_mode_service: crate::tools::code_mode::CodeModeService::new(),
         environment_manager: Arc::new(codex_exec_server::EnvironmentManager::default_for_tests()),
     };
@@ -5601,7 +5601,7 @@ where
             state_db,
         )),
         attestation_provider: None,
-        model_client: ModelClient::new(
+        model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
             Some(Arc::clone(&auth_manager)),
             thread_id.into(),
             thread_id,
@@ -5613,7 +5613,7 @@ where
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
             /*attestation_provider*/ None,
-        ),
+        )),
         code_mode_service: crate::tools::code_mode::CodeModeService::new(),
         environment_manager: Arc::new(codex_exec_server::EnvironmentManager::default_for_tests()),
     };
