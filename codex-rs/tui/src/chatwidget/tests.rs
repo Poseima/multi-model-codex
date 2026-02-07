@@ -3009,10 +3009,18 @@ async fn collab_mode_shift_tab_cycles_only_when_enabled_and_idle() {
 
     chat.set_feature_enabled(Feature::CollaborationModes, true);
 
+    // Preset order is [Plan, Default, Dawn]. Starting from Default (index 1),
+    // first BackTab cycles to Dawn (index 2).
+    chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
+    assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Dawn);
+    assert_eq!(chat.current_collaboration_mode(), &initial);
+
+    // Second BackTab wraps around to Plan (index 0).
     chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
     assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Plan);
     assert_eq!(chat.current_collaboration_mode(), &initial);
 
+    // Third BackTab returns to Default (index 1).
     chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
     assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Default);
     assert_eq!(chat.current_collaboration_mode(), &initial);
