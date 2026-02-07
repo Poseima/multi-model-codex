@@ -814,6 +814,7 @@ pub(super) async fn submission_loop(
                         },
                     )
                     .await;
+                    sess.rebuild_model_client_for_current_provider().await;
                     false
                 }
                 Op::UserInput { .. }

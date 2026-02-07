@@ -72,7 +72,9 @@ pub(crate) struct SessionServices {
     pub(crate) thread_store: Arc<dyn ThreadStore>,
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
     /// Session-scoped model client shared across turns.
-    pub(crate) model_client: ModelClient,
+    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
+    /// when the user switches to a different model provider mid-session.
+    pub(crate) model_client: RwLock<ModelClient>,
     pub(crate) code_mode_service: CodeModeService,
     /// Shared process-level environment registry. Sessions carry an `Arc` handle so they can pass
     /// the same manager through child-thread spawn paths without reconstructing it.
