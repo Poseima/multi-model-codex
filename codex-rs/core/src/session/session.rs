@@ -1668,37 +1668,39 @@ impl Session {
                 thread_store: Arc::clone(&thread_store),
                 attestation_provider: attestation_provider.clone(),
                 time_provider,
-                model_client: ModelClient::new(
-                    Some(Arc::clone(&auth_manager)),
-                    if config.features.enabled(Feature::UseAgentIdentity) {
-                        AgentIdentityAuthPolicy::ChatGptAuth
-                    } else {
-                        AgentIdentityAuthPolicy::JwtOnly
-                    },
-                    thread_id,
-                    session_configuration.provider.info().clone(),
-                    session_configuration.session_source.clone(),
-                    session_configuration.originator.clone(),
-                    config.model_verbosity,
-                    config.features.enabled(Feature::ContentItemKinds),
-                    config.features.enabled(Feature::EnableRequestCompression),
-                    config.features.enabled(Feature::RuntimeMetrics),
-                    Self::build_model_client_beta_features_header(config.as_ref()),
-                    /*concurrent_reasoning_summaries_enabled*/ config
+                model_client: crate::swappable_model_client::SwappableModelClient::new(
+                    ModelClient::new(
+                        Some(Arc::clone(&auth_manager)),
+                        if config.features.enabled(Feature::UseAgentIdentity) {
+                            AgentIdentityAuthPolicy::ChatGptAuth
+                        } else {
+                            AgentIdentityAuthPolicy::JwtOnly
+                        },
+                        thread_id,
+                        session_configuration.provider.info().clone(),
+                        session_configuration.session_source.clone(),
+                        session_configuration.originator.clone(),
+                        config.model_verbosity,
+                        config.features.enabled(Feature::ContentItemKinds),
+                        config.features.enabled(Feature::EnableRequestCompression),
+                        config.features.enabled(Feature::RuntimeMetrics),
+                        Self::build_model_client_beta_features_header(config.as_ref()),
+                        /*concurrent_reasoning_summaries_enabled*/ config
                         .features
                         .enabled(Feature::ConcurrentReasoningSummaries),
-                    attestation_provider,
-                    config.http_client_factory(),
-                    config.workspace_routing_context(),
-                )
-                .with_session_context(
-                    crate::guardian::prompt_cache_key_override_for_review_session(
-                        &session_configuration.session_source,
-                        session_configuration.parent_thread_id,
+                        attestation_provider,
+                        config.http_client_factory(),
+                        config.workspace_routing_context(),
                     )
-                    .or(fork_cache_key),
-                    tx_event.clone(),
-                    codex_responses_headers,
+                    .with_session_context(
+                        crate::guardian::prompt_cache_key_override_for_review_session(
+                            &session_configuration.session_source,
+                            session_configuration.parent_thread_id,
+                        )
+                        .or(fork_cache_key),
+                        tx_event.clone(),
+                        codex_responses_headers,
+                    ),
                 ),
                 executed_tool_calls: executed_tool_calls.clone(),
                 code_mode_service: crate::tools::code_mode::CodeModeService::new(
