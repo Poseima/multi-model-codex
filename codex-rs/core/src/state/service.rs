@@ -82,7 +82,9 @@ pub(crate) struct SessionServices {
     pub(crate) attestation_provider: Option<Arc<dyn AttestationProvider>>,
     pub(crate) time_provider: Arc<dyn TimeProvider>,
     /// Session-scoped model client shared across turns.
-    pub(crate) model_client: ModelClient,
+    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
+    /// when the user switches to a different model provider mid-session.
+    pub(crate) model_client: RwLock<ModelClient>,
     pub(crate) code_mode_service: CodeModeService,
     pub(crate) tool_search_handler_cache: ToolSearchHandlerCache,
     pub(crate) turn_environments: Arc<ThreadEnvironments>,
