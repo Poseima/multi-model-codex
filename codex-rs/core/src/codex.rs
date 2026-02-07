@@ -119,6 +119,7 @@ use crate::error::CodexErr;
 use crate::error::Result as CodexResult;
 #[cfg(test)]
 use crate::exec::StreamOutput;
+use crate::swappable_model_client::SwappableModelClient;
 
 #[derive(Debug, PartialEq)]
 pub enum SteerInputError {
@@ -1064,7 +1065,7 @@ impl Session {
             file_watcher,
             agent_control,
             state_db: state_db_ctx.clone(),
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -1395,7 +1396,7 @@ impl Session {
             self.features.enabled(Feature::RuntimeMetrics),
             beta_header,
         );
-        *self.services.model_client.write().await = new_client;
+        self.services.model_client.replace(new_client);
     }
 
     pub(crate) async fn new_turn_with_sub_id(
@@ -3832,7 +3833,7 @@ pub(crate) async fn run_turn(
     let turn_metadata_header = turn_context.resolve_turn_metadata_header().await;
     // `ModelClientSession` is turn-scoped and caches WebSocket + sticky routing state, so we reuse
     // one instance across retries within this turn.
-    let mut client_session = sess.services.model_client.read().await.new_session();
+    let mut client_session = sess.services.model_client.new_session();
 
     loop {
         // Note that pending_input would be something like a message the user
@@ -5925,7 +5926,7 @@ mod tests {
             file_watcher,
             agent_control,
             state_db: None,
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(auth_manager.clone()),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -6057,7 +6058,7 @@ mod tests {
             file_watcher,
             agent_control,
             state_db: None,
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
