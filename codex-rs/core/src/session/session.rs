@@ -750,7 +750,7 @@ impl Session {
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
             thread_store: LocalThreadStore::new(RolloutConfig::from_view(config.as_ref())),
-            model_client: ModelClient::new(
+            model_client: tokio::sync::RwLock::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 installation_id,
@@ -760,7 +760,7 @@ impl Session {
                 config.features.enabled(Feature::EnableRequestCompression),
                 config.features.enabled(Feature::RuntimeMetrics),
                 Self::build_model_client_beta_features_header(config.as_ref()),
-            ),
+            )),
             code_mode_service: crate::tools::code_mode::CodeModeService::new(
                 config.js_repl_node_path.clone(),
             ),

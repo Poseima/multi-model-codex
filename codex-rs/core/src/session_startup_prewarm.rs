@@ -224,7 +224,8 @@ async fn schedule_startup_prewarm_inner(
     let startup_turn_metadata_header = startup_turn_context
         .turn_metadata_state
         .current_header_value();
-    let mut client_session = session.services.model_client.new_session();
+    let model_client = session.services.model_client.read().await.clone();
+    let mut client_session = model_client.new_session();
     client_session
         .prewarm_websocket(
             &startup_prompt,

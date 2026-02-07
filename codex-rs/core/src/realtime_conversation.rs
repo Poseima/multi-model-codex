@@ -775,7 +775,7 @@ async fn handle_start_inner(
         api_provider,
         extra_headers,
         session_config,
-        model_client: sess.services.model_client.clone(),
+        model_client: sess.services.model_client.read().await.clone(),
         sdp,
     };
     let start_output = sess.conversation.start(start).await?;

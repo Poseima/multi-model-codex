@@ -3156,7 +3156,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         thread_store: codex_thread_store::LocalThreadStore::new(
             codex_rollout::RolloutConfig::from_view(config.as_ref()),
         ),
-        model_client: ModelClient::new(
+        model_client: tokio::sync::RwLock::new(ModelClient::new(
             Some(auth_manager.clone()),
             conversation_id,
             /*installation_id*/ "11111111-1111-4111-8111-111111111111".to_string(),
@@ -3166,7 +3166,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
-        ),
+        )),
         code_mode_service: crate::tools::code_mode::CodeModeService::new(
             config.js_repl_node_path.clone(),
         ),
@@ -4468,7 +4468,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         thread_store: codex_thread_store::LocalThreadStore::new(
             codex_rollout::RolloutConfig::from_view(config.as_ref()),
         ),
-        model_client: ModelClient::new(
+        model_client: tokio::sync::RwLock::new(ModelClient::new(
             Some(Arc::clone(&auth_manager)),
             conversation_id,
             /*installation_id*/ "11111111-1111-4111-8111-111111111111".to_string(),
@@ -4478,7 +4478,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
-        ),
+        )),
         code_mode_service: crate::tools::code_mode::CodeModeService::new(
             config.js_repl_node_path.clone(),
         ),

@@ -345,7 +345,8 @@ mod job {
             output_schema_strict: true,
         };
 
-        let mut client_session = session.services.model_client.new_session();
+        let model_client = session.services.model_client.read().await.clone();
+        let mut client_session = model_client.new_session();
         let mut stream = client_session
             .stream(
                 &prompt,

@@ -1342,6 +1342,38 @@ impl Session {
         state.session_configuration.provider.clone()
     }
 
+    pub(crate) async fn rebuild_model_client_for_current_provider(&self) {
+        let (provider, session_source, config) = {
+            let state = self.state.lock().await;
+            (
+                state.session_configuration.provider.clone(),
+                state.session_configuration.session_source.clone(),
+                Arc::clone(&state.session_configuration.original_config_do_not_use),
+            )
+        };
+
+        let installation_id = match resolve_installation_id(&config.codex_home).await {
+            Ok(installation_id) => installation_id,
+            Err(err) => {
+                warn!("failed to resolve installation id while switching providers: {err}");
+                return;
+            }
+        };
+
+        let model_client = ModelClient::new(
+            Some(Arc::clone(&self.services.auth_manager)),
+            self.conversation_id,
+            installation_id,
+            provider,
+            session_source,
+            config.model_verbosity,
+            config.features.enabled(Feature::EnableRequestCompression),
+            config.features.enabled(Feature::RuntimeMetrics),
+            Self::build_model_client_beta_features_header(config.as_ref()),
+        );
+        *self.services.model_client.write().await = model_client;
+    }
+
     pub(crate) async fn reload_user_config_layer(&self) {
         let config_toml_path = {
             let state = self.state.lock().await;
@@ -2377,7 +2409,8 @@ impl Session {
             self.persist_rollout_items(&[RolloutItem::TurnContext(turn_context_item)])
                 .await;
         }
-        self.services.model_client.advance_window_generation();
+        let model_client = self.services.model_client.read().await.clone();
+        model_client.advance_window_generation();
     }
 
     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {
