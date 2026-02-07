@@ -82,7 +82,6 @@
 //! edits and renders a placeholder prompt instead of the editable textarea. This is part of the
 //! overall state machine, since it affects which transitions are even possible from a given UI
 //! state.
-use crate::bottom_pane::footer::mode_indicator_line;
 use crate::bottom_pane::selection_popup_common::truncate_line_with_ellipsis_if_overflow;
 use crate::key_hint;
 use crate::key_hint::KeyBinding;
@@ -3340,23 +3339,15 @@ impl ChatComposer {
                         show_queue_hint,
                     )
                 };
-                let right_line = if status_line_active {
-                    let full =
-                        mode_indicator_line(self.collaboration_mode_indicator, show_cycle_hint);
-                    let compact = mode_indicator_line(self.collaboration_mode_indicator, false);
-                    let full_width = full.as_ref().map(|l| l.width() as u16).unwrap_or(0);
-                    if can_show_left_with_context(hint_rect, left_width, full_width) {
-                        full
-                    } else {
-                        compact
-                    }
-                } else {
-                    Some(super::fork_footer::context_window_line_with_total(
-                        footer_props.context_window_percent,
-                        footer_props.context_window_used_tokens,
-                        self.context_window_total,
-                    ))
-                };
+                // Fork: always show the context window info on the right side,
+                // even when the status line is active. Model/mode info is
+                // already in the status line items, so the mode indicator
+                // on the right is redundant.
+                let right_line = Some(super::fork_footer::context_window_line_with_total(
+                    footer_props.context_window_percent,
+                    footer_props.context_window_used_tokens,
+                    self.context_window_total,
+                ));
                 let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
                 if status_line_active
                     && let Some(max_left) = max_left_width_for_right(hint_rect, right_width)
