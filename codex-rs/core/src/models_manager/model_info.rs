@@ -260,7 +260,7 @@ pub(crate) fn find_model_info_for_slug(slug: &str) -> ModelInfo {
             base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
             apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
             shell_type: ConfigShellToolType::ShellCommand,
-            supports_reasoning_summaries: true,
+            supports_reasoning_summaries: false,
             context_window: Some(200_000),
             supported_reasoning_levels: Vec::new(),
             default_reasoning_level: None
