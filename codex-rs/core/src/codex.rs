@@ -3793,6 +3793,9 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                         },
                     )
                     .await;
+                    // Fork: rebuild session-scoped ModelClient so subsequent turns
+                    // stream to the new provider's endpoint.
+                    sess.rebuild_model_client_for_current_provider().await;
                     false
                 }
                 Op::UserInput { .. } | Op::UserTurn { .. } => {
