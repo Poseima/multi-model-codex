@@ -3339,15 +3339,40 @@ impl ChatComposer {
                         show_queue_hint,
                     )
                 };
-                // Fork: always show the context window info on the right side,
-                // even when the status line is active. Model/mode info is
-                // already in the status line items, so the mode indicator
-                // on the right is redundant.
-                let right_line = Some(super::fork_footer::context_window_line_with_total(
+                // Fork: always show the context window info on the right side.
+                // When the status line is active, the mode indicator (Plan/Dawn)
+                // is suppressed on the left, so we show it on the right alongside
+                // the context window, e.g. "Plan mode · 12K / 256K (95%)".
+                let mode_for_right = if status_line_active {
+                    self.collaboration_mode_indicator
+                } else {
+                    None // mode is already shown on the left
+                };
+                let right_line_full = super::fork_footer::context_window_line_with_total(
                     footer_props.context_window_percent,
                     footer_props.context_window_used_tokens,
                     self.context_window_total,
-                ));
+                    mode_for_right,
+                    show_cycle_hint,
+                );
+                let right_line = if mode_for_right.is_some()
+                    && !can_show_left_with_context(
+                        hint_rect,
+                        left_width,
+                        right_line_full.width() as u16,
+                    ) {
+                    // Compact: drop "(shift+tab to cycle)" hint to save space.
+                    super::fork_footer::context_window_line_with_total(
+                        footer_props.context_window_percent,
+                        footer_props.context_window_used_tokens,
+                        self.context_window_total,
+                        mode_for_right,
+                        false,
+                    )
+                } else {
+                    right_line_full
+                };
+                let right_line = Some(right_line);
                 let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
                 if status_line_active
                     && let Some(max_left) = max_left_width_for_right(hint_rect, right_width)
