@@ -1987,7 +1987,9 @@ impl Session {
             provider,
             session_source,
             model_verbosity,
-            self.features.enabled(Feature::ResponsesWebsockets),
+            self.features.enabled(Feature::ResponsesWebsockets)
+                || self.features.enabled(Feature::ResponsesWebsocketsV2),
+            self.features.enabled(Feature::ResponsesWebsocketsV2),
             self.features.enabled(Feature::EnableRequestCompression),
             self.features.enabled(Feature::RuntimeMetrics),
             beta_header,

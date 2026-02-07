@@ -4,6 +4,7 @@
 /// Uses `std::sync::RwLock` internally. All read-side methods are either sync
 /// (`new_session`) or clone-then-release (`compact_conversation_history`,
 /// `summarize_memory_traces`), so the lock is never held across an `.await` point.
+use std::path::PathBuf;
 use std::sync::RwLock;
 
 use codex_api::MemoryTrace as ApiMemoryTrace;
@@ -32,6 +33,14 @@ impl SwappableModelClient {
     /// Sync: creates a turn-scoped session.
     pub(crate) fn new_session(&self) -> ModelClientSession {
         self.inner.read().unwrap().new_session()
+    }
+
+    /// Sync: spawns a best-effort task that warms a websocket for the first turn.
+    pub(crate) fn pre_establish_connection(&self, otel_manager: OtelManager, cwd: PathBuf) {
+        self.inner
+            .read()
+            .unwrap()
+            .pre_establish_connection(otel_manager, cwd);
     }
 
     /// Async: remote compaction. Clones the inner client (cheap `Arc` bump),
