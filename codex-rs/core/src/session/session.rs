@@ -750,7 +750,7 @@ impl Session {
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
             thread_store: LocalThreadStore::new(RolloutConfig::from_view(config.as_ref())),
-            model_client: tokio::sync::RwLock::new(ModelClient::new(
+            model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 installation_id,

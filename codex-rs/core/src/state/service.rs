@@ -4,7 +4,6 @@ use std::sync::Arc;
 use crate::RolloutRecorder;
 use crate::SkillsManager;
 use crate::agent::AgentControl;
-use crate::client::ModelClient;
 use crate::config::StartedNetworkProxy;
 use crate::exec_policy::ExecPolicyManager;
 use crate::guardian::GuardianRejection;
@@ -13,6 +12,7 @@ use crate::mcp::McpManager;
 use crate::plugins::PluginsManager;
 use crate::skills_watcher::SkillsWatcher;
 use crate::tools::code_mode::CodeModeService;
+use crate::swappable_model_client::SwappableModelClient;
 use crate::tools::network_approval::NetworkApprovalService;
 use crate::tools::sandboxing::ApprovalStore;
 use crate::unified_exec::UnifiedExecProcessManager;
@@ -66,9 +66,9 @@ pub(crate) struct SessionServices {
     pub(crate) state_db: Option<StateDbHandle>,
     pub(crate) thread_store: LocalThreadStore,
     /// Session-scoped model client shared across turns.
-    /// Wrapped in `RwLock` so that `Op::OverrideProvider` can rebuild it
-    /// when the user switches to a different model provider mid-session.
-    pub(crate) model_client: RwLock<ModelClient>,
+    /// Fork: wrapped in `SwappableModelClient` so `Op::OverrideProvider` can
+    /// rebuild it when the user switches providers mid-session.
+    pub(crate) model_client: SwappableModelClient,
     pub(crate) code_mode_service: CodeModeService,
     /// Shared process-level environment registry. Sessions carry an `Arc` handle so they can pass
     /// the same manager through child-thread spawn paths without reconstructing it.

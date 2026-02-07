@@ -3156,7 +3156,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         thread_store: codex_thread_store::LocalThreadStore::new(
             codex_rollout::RolloutConfig::from_view(config.as_ref()),
         ),
-        model_client: tokio::sync::RwLock::new(ModelClient::new(
+        model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
             Some(auth_manager.clone()),
             conversation_id,
             /*installation_id*/ "11111111-1111-4111-8111-111111111111".to_string(),
@@ -4468,7 +4468,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         thread_store: codex_thread_store::LocalThreadStore::new(
             codex_rollout::RolloutConfig::from_view(config.as_ref()),
         ),
-        model_client: tokio::sync::RwLock::new(ModelClient::new(
+        model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
             Some(Arc::clone(&auth_manager)),
             conversation_id,
             /*installation_id*/ "11111111-1111-4111-8111-111111111111".to_string(),

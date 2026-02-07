@@ -1371,7 +1371,7 @@ impl Session {
             config.features.enabled(Feature::RuntimeMetrics),
             Self::build_model_client_beta_features_header(config.as_ref()),
         );
-        *self.services.model_client.write().await = model_client;
+        self.services.model_client.replace(model_client);
     }
 
     pub(crate) async fn reload_user_config_layer(&self) {
@@ -2409,8 +2409,7 @@ impl Session {
             self.persist_rollout_items(&[RolloutItem::TurnContext(turn_context_item)])
                 .await;
         }
-        let model_client = self.services.model_client.read().await.clone();
-        model_client.advance_window_generation();
+        self.services.model_client.advance_window_generation();
     }
 
     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {
