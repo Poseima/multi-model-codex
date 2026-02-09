@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use anyhow::anyhow;
 use app_test_support::McpProcess;
 use app_test_support::to_response;
 use app_test_support::write_models_cache;
@@ -13,8 +12,6 @@ use codex_app_server_protocol::ModelListResponse;
 use codex_app_server_protocol::ReasoningEffortOption;
 use codex_app_server_protocol::RequestId;
 use codex_core::models_manager::model_presets::all_model_presets;
-use codex_protocol::openai_models::InputModality;
-use codex_protocol::openai_models::ReasoningEffort;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 use tokio::time::timeout;
@@ -22,14 +19,21 @@ use tokio::time::timeout;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 const INVALID_REQUEST_ERROR_CODE: i64 = -32600;
 
-/// Build the expected model list from the same preset source the cache uses.
+/// Build the expected model list matching the server's merge behavior.
+///
+/// The test cache writes ModelInfo with `slug = preset.model`, which converts
+/// back to ModelPreset with `id = model = preset.model`. The merge deduplicates
+/// by `model` slug, so the cache-derived version (with `id == model`) wins over
+/// builtins (which may have a different `id`).
 fn expected_models_from_presets() -> Vec<Model> {
     all_model_presets()
         .iter()
         .filter(|p| p.show_in_picker)
         .map(|preset| Model {
-            id: preset.id.clone(),
+            // After cache round-trip: id = slug = preset.model (not preset.id).
+            id: preset.model.clone(),
             model: preset.model.clone(),
+            upgrade: preset.upgrade.as_ref().map(|u| u.id.clone()),
             display_name: preset.display_name.clone(),
             description: preset.description.clone(),
             supported_reasoning_efforts: preset
@@ -41,7 +45,9 @@ fn expected_models_from_presets() -> Vec<Model> {
                 })
                 .collect(),
             default_reasoning_effort: preset.default_reasoning_effort,
-            supports_personality: preset.supports_personality,
+            input_modalities: preset.input_modalities.clone(),
+            // Cache round-trip loses supports_personality (model_messages is not cached).
+            supports_personality: false,
             is_default: preset.is_default,
         })
         .collect()
