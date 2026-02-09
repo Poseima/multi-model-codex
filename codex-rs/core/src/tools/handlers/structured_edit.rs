@@ -358,16 +358,16 @@ fn generate_str_replace_patch(
     patch.push_str("@@\n");
 
     // Pre-context lines.
-    for i in ctx_start..start_line {
+    for line in &lines[ctx_start..start_line] {
         patch.push(' ');
-        patch.push_str(lines[i]);
+        patch.push_str(line);
         patch.push('\n');
     }
 
     // Old lines (removed).
-    for i in start_line..=end_line {
+    for line in &lines[start_line..=end_line] {
         patch.push('-');
-        patch.push_str(lines[i]);
+        patch.push_str(line);
         patch.push('\n');
     }
 
@@ -379,9 +379,9 @@ fn generate_str_replace_patch(
     }
 
     // Post-context lines.
-    for i in (end_line + 1)..ctx_end {
+    for line in &lines[(end_line + 1)..ctx_end] {
         patch.push(' ');
-        patch.push_str(lines[i]);
+        patch.push_str(line);
         patch.push('\n');
     }
 

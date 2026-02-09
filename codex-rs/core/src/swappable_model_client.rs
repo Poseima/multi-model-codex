@@ -23,6 +23,8 @@ pub(crate) struct SwappableModelClient {
     inner: RwLock<ModelClient>,
 }
 
+// RwLock poisoning means a prior panic — unrecoverable, so expect is appropriate.
+#[allow(clippy::expect_used)]
 impl SwappableModelClient {
     pub(crate) fn new(client: ModelClient) -> Self {
         Self {
@@ -31,7 +33,7 @@ impl SwappableModelClient {
     }
 
     pub(crate) fn new_session(&self) -> ModelClientSession {
-        self.inner.read().unwrap().new_session()
+        self.inner.read().expect("lock poisoned").new_session()
     }
 
     pub(crate) fn clone_client(&self) -> ModelClient {
@@ -47,7 +49,7 @@ impl SwappableModelClient {
         session_telemetry: &SessionTelemetry,
         compaction_trace: &CompactionTraceContext,
     ) -> Result<Vec<ResponseItem>> {
-        let client = self.inner.read().unwrap().clone();
+        let client = self.inner.read().expect("lock poisoned").clone();
         client
             .compact_conversation_history(
                 prompt,
@@ -68,14 +70,14 @@ impl SwappableModelClient {
         effort: Option<ReasoningEffortConfig>,
         session_telemetry: &SessionTelemetry,
     ) -> Result<Vec<ApiMemorySummarizeOutput>> {
-        let client = self.inner.read().unwrap().clone();
+        let client = self.inner.read().expect("lock poisoned").clone();
         client
             .summarize_memories(raw_memories, model_info, effort, session_telemetry)
             .await
     }
 
     pub(crate) fn responses_websocket_enabled(&self) -> bool {
-        self.inner.read().unwrap().responses_websocket_enabled()
+        self.inner.read().expect("lock poisoned").responses_websocket_enabled()
     }
 
     pub(crate) fn advance_window_generation(&self) {
@@ -83,6 +85,6 @@ impl SwappableModelClient {
     }
 
     pub(crate) fn replace(&self, new_client: ModelClient) {
-        *self.inner.write().unwrap() = new_client;
+        *self.inner.write().expect("lock poisoned") = new_client;
     }
 }
