@@ -5849,15 +5849,7 @@ impl CodexMessageProcessor {
                 .map(|cm| &cm.settings.model)
                 .or(params.model.as_ref());
             model_slug.and_then(|slug| {
-                codex_core::models_manager::model_presets::all_model_presets()
-                    .iter()
-                    .find(|p| p.model == *slug)
-                    .and_then(|p| {
-                        codex_core::models_manager::fork_provider_mapping::provider_for_preset(
-                            &p.id,
-                        )
-                        .map(String::from)
-                    })
+                codex_core::models_manager::fork_provider_mapping::provider_for_model_slug(slug)
             })
         });
 
