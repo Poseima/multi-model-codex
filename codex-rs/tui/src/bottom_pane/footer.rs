@@ -107,7 +107,7 @@ impl CollaborationModeIndicator {
             CollaborationModeIndicator::Plan => Span::from(label).magenta(),
             CollaborationModeIndicator::PairProgramming => Span::from(label).cyan(),
             CollaborationModeIndicator::Execute => Span::from(label).dim(),
-            CollaborationModeIndicator::Dawn => Span::from(label).yellow(),
+            CollaborationModeIndicator::Dawn => Span::from(label).green(),
         }
     }
 }
@@ -461,6 +461,7 @@ pub(crate) fn single_line_footer_layout(
     (SummaryLeft::None, true)
 }
 
+#[cfg(test)]
 pub(crate) fn mode_indicator_line(
     indicator: Option<CollaborationModeIndicator>,
     show_cycle_hint: bool,
