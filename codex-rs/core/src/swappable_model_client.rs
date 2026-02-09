@@ -4,8 +4,9 @@
 /// Uses `std::sync::RwLock` internally. All read-side methods are either sync
 /// (`new_session`) or clone-then-release (`compact_conversation_history`,
 /// `summarize_memory_traces`), so the lock is never held across an `.await` point.
-use std::path::PathBuf;
 use std::sync::RwLock;
+
+use futures::future::BoxFuture;
 
 use codex_api::MemoryTrace as ApiMemoryTrace;
 use codex_api::MemoryTraceSummaryOutput as ApiMemoryTraceSummaryOutput;
@@ -23,6 +24,8 @@ pub(crate) struct SwappableModelClient {
     inner: RwLock<ModelClient>,
 }
 
+// RwLock poisoning means a prior panic — unrecoverable, so expect is appropriate.
+#[allow(clippy::expect_used)]
 impl SwappableModelClient {
     pub(crate) fn new(client: ModelClient) -> Self {
         Self {
@@ -32,15 +35,19 @@ impl SwappableModelClient {
 
     /// Sync: creates a turn-scoped session.
     pub(crate) fn new_session(&self) -> ModelClientSession {
-        self.inner.read().unwrap().new_session()
+        self.inner.read().expect("lock poisoned").new_session()
     }
 
     /// Sync: spawns a best-effort task that warms a websocket for the first turn.
-    pub(crate) fn pre_establish_connection(&self, otel_manager: OtelManager, cwd: PathBuf) {
+    pub(crate) fn pre_establish_connection(
+        &self,
+        otel_manager: OtelManager,
+        turn_metadata_header: BoxFuture<'static, Option<String>>,
+    ) {
         self.inner
             .read()
-            .unwrap()
-            .pre_establish_connection(otel_manager, cwd);
+            .expect("lock poisoned")
+            .pre_establish_connection(otel_manager, turn_metadata_header);
     }
 
     /// Async: remote compaction. Clones the inner client (cheap `Arc` bump),
@@ -51,7 +58,7 @@ impl SwappableModelClient {
         model_info: &ModelInfo,
         otel_manager: &OtelManager,
     ) -> Result<Vec<ResponseItem>> {
-        let client = self.inner.read().unwrap().clone();
+        let client = self.inner.read().expect("lock poisoned").clone();
         client
             .compact_conversation_history(prompt, model_info, otel_manager)
             .await
@@ -68,7 +75,7 @@ impl SwappableModelClient {
         effort: Option<ReasoningEffortConfig>,
         otel_manager: &OtelManager,
     ) -> Result<Vec<ApiMemoryTraceSummaryOutput>> {
-        let client = self.inner.read().unwrap().clone();
+        let client = self.inner.read().expect("lock poisoned").clone();
         client
             .summarize_memory_traces(traces, model_info, effort, otel_manager)
             .await
@@ -76,6 +83,6 @@ impl SwappableModelClient {
 
     /// Fork: replace the inner client when the user switches providers.
     pub(crate) fn replace(&self, new_client: ModelClient) {
-        *self.inner.write().unwrap() = new_client;
+        *self.inner.write().expect("lock poisoned") = new_client;
     }
 }
