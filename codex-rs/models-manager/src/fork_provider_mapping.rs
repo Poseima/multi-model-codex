@@ -1,10 +1,13 @@
-/// Fork: derives provider ID from the preset ID convention.
+/// Fork: resolve a model slug to its fork provider ID, if any.
 ///
-/// Non-default (fork) providers encode their identity in the preset ID
+/// Non-default (fork) providers encode their identity in the model slug
 /// using the format `provider/model-name`. This function extracts the
 /// provider prefix, avoiding the need to add a `provider_id` field to
 /// the upstream `ModelPreset` struct.
-///
+pub fn provider_for_model_slug(slug: &str) -> Option<String> {
+    provider_for_preset(slug).map(String::from)
+}
+
 /// Only known fork provider prefixes are returned to avoid false positives
 /// from model slugs that happen to contain slashes.
 pub fn provider_for_preset(preset_id: &str) -> Option<&str> {
