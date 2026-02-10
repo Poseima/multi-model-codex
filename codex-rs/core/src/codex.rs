@@ -1292,7 +1292,7 @@ impl Session {
         )
         .boxed();
         let startup_regular_task = RegularTask::with_startup_prewarm(
-            services.model_client.clone(),
+            services.model_client.clone_inner(),
             services.otel_manager.clone(),
             prewarm_model_info,
             turn_metadata_header,
