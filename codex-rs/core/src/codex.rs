@@ -1351,7 +1351,7 @@ impl Session {
             .get_model_info(session_configuration.collaboration_mode.model(), &config)
             .await;
         let startup_regular_task = RegularTask::with_startup_prewarm(
-            services.model_client.clone(),
+            services.model_client.clone_inner(),
             services.otel_manager.clone(),
             prewarm_model_info,
         );

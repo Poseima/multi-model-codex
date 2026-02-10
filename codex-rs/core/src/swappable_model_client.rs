@@ -6,8 +6,6 @@
 /// `summarize_memory_traces`), so the lock is never held across an `.await` point.
 use std::sync::RwLock;
 
-use futures::future::BoxFuture;
-
 use codex_api::MemoryTrace as ApiMemoryTrace;
 use codex_api::MemoryTraceSummaryOutput as ApiMemoryTraceSummaryOutput;
 use codex_otel::OtelManager;
@@ -38,16 +36,10 @@ impl SwappableModelClient {
         self.inner.read().expect("lock poisoned").new_session()
     }
 
-    /// Sync: spawns a best-effort task that warms a websocket for the first turn.
-    pub(crate) fn pre_establish_connection(
-        &self,
-        otel_manager: OtelManager,
-        turn_metadata_header: BoxFuture<'static, Option<String>>,
-    ) {
-        self.inner
-            .read()
-            .expect("lock poisoned")
-            .pre_establish_connection(otel_manager, turn_metadata_header);
+    /// Fork: clone the inner `ModelClient` (cheap `Arc` bump) for passing to
+    /// `RegularTask::with_startup_prewarm()` which expects a `ModelClient`.
+    pub(crate) fn clone_inner(&self) -> ModelClient {
+        self.inner.read().expect("lock poisoned").clone()
     }
 
     /// Async: remote compaction. Clones the inner client (cheap `Arc` bump),
