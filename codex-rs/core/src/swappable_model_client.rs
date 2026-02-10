@@ -3,10 +3,12 @@
 ///
 /// Uses `std::sync::RwLock` internally. Read-side async methods clone the inner client
 /// before awaiting so the lock is never held across an `.await` point.
+use std::sync::Arc;
 use std::sync::RwLock;
 
 use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
+use codex_login::AuthManager;
 use codex_otel::SessionTelemetry;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::models::ResponseItem;
@@ -36,8 +38,21 @@ impl SwappableModelClient {
         self.inner.read().expect("lock poisoned").new_session()
     }
 
-    pub(crate) fn clone_client(&self) -> ModelClient {
-        self.inner.read().unwrap().clone()
+    /// Fork: clone the inner `ModelClient` (cheap `Arc` bump) for passing to
+    /// `RegularTask::with_startup_prewarm()` which expects a `ModelClient`.
+    pub(crate) fn clone_inner(&self) -> ModelClient {
+        self.inner.read().expect("lock poisoned").clone()
+    }
+
+    pub(crate) fn auth_manager(&self) -> Option<Arc<AuthManager>> {
+        self.inner.read().expect("lock poisoned").auth_manager()
+    }
+
+    pub(crate) fn set_window_generation(&self, window_generation: u64) {
+        self.inner
+            .read()
+            .expect("lock poisoned")
+            .set_window_generation(window_generation);
     }
 
     pub(crate) async fn compact_conversation_history(
@@ -81,7 +96,10 @@ impl SwappableModelClient {
     }
 
     pub(crate) fn advance_window_generation(&self) {
-        self.inner.read().unwrap().advance_window_generation();
+        self.inner
+            .read()
+            .expect("lock poisoned")
+            .advance_window_generation();
     }
 
     pub(crate) fn replace(&self, new_client: ModelClient) {
