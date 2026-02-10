@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod collaboration_mode_presets;
+pub mod fork_model_info;
 pub mod fork_provider_mapping;
 pub mod manager;
 pub mod model_info;
