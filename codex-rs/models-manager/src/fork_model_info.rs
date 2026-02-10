@@ -3,7 +3,7 @@
 /// Since upstream moved all model metadata to remote `models.json` and removed
 /// hardcoded definitions from `model_info.rs`, fork-specific models that are not
 /// in the remote metadata need a local fallback. This file provides `ModelInfo`
-/// for those models, keeping the fork diff to a 2-line hook in upstream code.
+/// for those models, keeping the fork diff to a small hook in upstream code.
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
