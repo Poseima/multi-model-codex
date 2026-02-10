@@ -1871,7 +1871,6 @@ impl Session {
         ));
         let (out_of_band_elicitation_paused, _out_of_band_elicitation_paused_rx) =
             watch::channel(false);
-
         let sess = Arc::new(Session {
             conversation_id,
             tx_event: tx_event.clone(),
