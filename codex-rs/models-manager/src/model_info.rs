@@ -141,6 +141,9 @@ fn is_h1_heading(line: &str) -> bool {
 
 /// Build a minimal fallback model descriptor for missing/unknown slugs.
 pub fn model_info_from_slug(slug: &str) -> ModelInfo {
+    if let Some(info) = super::fork_model_info::fork_model_info_for_slug(slug) {
+        return info;
+    }
     warn!("Unknown model {slug} is used. This will use fallback model metadata.");
     ModelInfo {
         slug: slug.to_string(),
