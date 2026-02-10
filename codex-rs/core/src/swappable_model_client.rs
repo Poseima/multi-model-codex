@@ -9,6 +9,7 @@ use std::sync::RwLock;
 
 use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
+use codex_login::AuthManager;
 use codex_otel::SessionTelemetry;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
@@ -39,8 +40,14 @@ impl SwappableModelClient {
         self.inner.read().expect("lock poisoned").new_session()
     }
 
-    pub(crate) fn clone_client(&self) -> ModelClient {
-        self.inner.read().unwrap().clone()
+    /// Fork: clone the inner `ModelClient` (cheap `Arc` bump) for passing to
+    /// `RegularTask::with_startup_prewarm()` which expects a `ModelClient`.
+    pub(crate) fn clone_inner(&self) -> ModelClient {
+        self.inner.read().expect("lock poisoned").clone()
+    }
+
+    pub(crate) fn auth_manager(&self) -> Option<Arc<AuthManager>> {
+        self.inner.read().expect("lock poisoned").auth_manager()
     }
 
     pub(crate) async fn compact_conversation_history(
