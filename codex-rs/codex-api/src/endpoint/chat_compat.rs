@@ -1,5 +1,4 @@
 use crate::auth::AuthProvider;
-use crate::common::Prompt as ApiPrompt;
 use crate::common::ResponseStream;
 use crate::endpoint::session::EndpointSession;
 use crate::error::ApiError;
@@ -11,9 +10,11 @@ use crate::telemetry::SseTelemetry;
 use codex_client::HttpTransport;
 use codex_client::RequestCompression;
 use codex_client::RequestTelemetry;
+use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::SessionSource;
 use http::HeaderValue;
 use http::Method;
+use serde_json::Value;
 use std::sync::Arc;
 
 pub struct ChatCompatClient<T: HttpTransport, A: AuthProvider> {
@@ -43,17 +44,18 @@ impl<T: HttpTransport, A: AuthProvider> ChatCompatClient<T, A> {
     pub async fn stream_prompt(
         &self,
         model: &str,
-        prompt: &ApiPrompt,
+        instructions: &str,
+        input: &[ResponseItem],
+        tools: &[Value],
         conversation_id: Option<String>,
         session_source: Option<SessionSource>,
     ) -> Result<ResponseStream, ApiError> {
         let provider = self.session.provider();
         let reasoning_format = chat_reasoning_format(provider);
-        let mut request =
-            ChatRequestBuilder::new(model, &prompt.instructions, &prompt.input, &prompt.tools)
-                .conversation_id(conversation_id)
-                .session_source(session_source)
-                .build(provider)?;
+        let mut request = ChatRequestBuilder::new(model, instructions, input, tools)
+            .conversation_id(conversation_id)
+            .session_source(session_source)
+            .build(provider)?;
 
         merge_split_assistant_messages(&mut request.body);
 
