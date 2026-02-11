@@ -867,7 +867,7 @@ impl ModelClientSession {
         let auth_manager = self.client.state.auth_manager.clone();
         let instructions = prompt.base_instructions.text.clone();
         let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
-        let api_prompt = build_api_prompt(prompt, instructions, tools_json);
+        let input = prompt.get_formatted_input();
         let conversation_id = self.client.state.conversation_id.to_string();
         let session_source = self.client.state.session_source.clone();
 
@@ -893,7 +893,9 @@ impl ModelClientSession {
             let stream_result = client
                 .stream_prompt(
                     &model_info.slug,
-                    &api_prompt,
+                    &instructions,
+                    &input,
+                    &tools_json,
                     Some(conversation_id.clone()),
                     Some(session_source.clone()),
                 )

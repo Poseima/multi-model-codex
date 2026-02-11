@@ -243,6 +243,7 @@ async fn model_change_from_image_to_text_strips_prior_image_content() -> Result<
         supports_parallel_tool_calls: false,
         context_window: Some(272_000),
         auto_compact_token_limit: None,
+        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
     };

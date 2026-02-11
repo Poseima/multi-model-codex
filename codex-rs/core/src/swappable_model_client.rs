@@ -3,11 +3,11 @@
 ///
 /// Uses `std::sync::RwLock` internally. All read-side methods are either sync
 /// (`new_session`) or clone-then-release (`compact_conversation_history`,
-/// `summarize_memory_traces`), so the lock is never held across an `.await` point.
+/// `summarize_memories`), so the lock is never held across an `.await` point.
 use std::sync::RwLock;
 
-use codex_api::MemoryTrace as ApiMemoryTrace;
-use codex_api::MemoryTraceSummaryOutput as ApiMemoryTraceSummaryOutput;
+use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
+use codex_api::RawMemory as ApiRawMemory;
 use codex_otel::OtelManager;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
@@ -56,20 +56,20 @@ impl SwappableModelClient {
             .await
     }
 
-    /// Async: memory trace summarization. Same clone-then-release pattern.
+    /// Async: memory summarization. Same clone-then-release pattern.
     /// Not currently called via `services.model_client` but included for
     /// forward compatibility if upstream routes it through the wrapper.
     #[allow(dead_code)]
-    pub(crate) async fn summarize_memory_traces(
+    pub(crate) async fn summarize_memories(
         &self,
-        traces: Vec<ApiMemoryTrace>,
+        raw_memories: Vec<ApiRawMemory>,
         model_info: &ModelInfo,
         effort: Option<ReasoningEffortConfig>,
         otel_manager: &OtelManager,
-    ) -> Result<Vec<ApiMemoryTraceSummaryOutput>> {
+    ) -> Result<Vec<ApiMemorySummarizeOutput>> {
         let client = self.inner.read().expect("lock poisoned").clone();
         client
-            .summarize_memory_traces(traces, model_info, effort, otel_manager)
+            .summarize_memories(raw_memories, model_info, effort, otel_manager)
             .await
     }
 
