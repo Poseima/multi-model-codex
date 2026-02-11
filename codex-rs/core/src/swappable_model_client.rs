@@ -74,6 +74,9 @@ impl SwappableModelClient {
             .await
     }
 
+    /// Async: memory summarization. Same clone-then-release pattern.
+    /// Not currently called via `services.model_client` but included for
+    /// forward compatibility if upstream routes it through the wrapper.
     #[allow(dead_code)]
     pub(crate) async fn summarize_memories(
         &self,
