@@ -59,6 +59,11 @@ impl<T: HttpTransport, A: AuthProvider> ChatCompatClient<T, A> {
 
         merge_split_assistant_messages(&mut request.body);
 
+        // Fork: Zhipu requires thinking + tool_stream parameters.
+        if provider.is_zhipu() {
+            inject_zhipu_params(&mut request.body);
+        }
+
         let stream_response = self
             .session
             .stream_with(
@@ -94,6 +99,17 @@ fn chat_reasoning_format(_provider: &Provider) -> ChatReasoningFormat {
     // reasoning attached to tool-call messages (where content is null) is
     // lost entirely.
     ChatReasoningFormat::Standard
+}
+
+/// Fork: Inject Zhipu-specific parameters into the Chat Completions request body.
+///
+/// Zhipu requires `thinking: {"type": "enabled"}` to activate reasoning and
+/// `tool_stream: true` to enable streaming of tool call arguments.
+fn inject_zhipu_params(body: &mut serde_json::Value) {
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("thinking".into(), serde_json::json!({"type": "enabled"}));
+        obj.insert("tool_stream".into(), serde_json::json!(true));
+    }
 }
 
 /// Merge consecutive assistant messages where the first has content and the
