@@ -44,7 +44,6 @@ macro_rules! fork_model_info {
             supports_parallel_tool_calls: false,
             context_window: Some(CONTEXT_WINDOW_272K),
             auto_compact_token_limit: None,
-            auto_compact_percent: None,
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: default_input_modalities(),
@@ -69,6 +68,22 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
             shell_type: ConfigShellToolType::ShellCommand,
             supports_reasoning_summaries: false,
             context_window: Some(200_000),
+        ));
+    }
+
+    // Zhipu models
+    if slug.starts_with("glm-") {
+        let ctx = if slug.starts_with("glm-5") {
+            200_000
+        } else {
+            128_000
+        };
+        return Some(fork_model_info!(
+            slug,
+            base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
+            apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+            shell_type: ConfigShellToolType::ShellCommand,
+            context_window: Some(ctx),
         ));
     }
 
