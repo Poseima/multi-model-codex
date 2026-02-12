@@ -742,7 +742,8 @@ impl CodexMessageProcessor {
                     .await;
             }
             ClientRequest::ProviderList { request_id, params } => {
-                self.list_providers(request_id, params).await;
+                self.list_providers(to_connection_request_id(request_id), params)
+                    .await;
             }
             ClientRequest::CollaborationModeList { request_id, params } => {
                 let outgoing = self.outgoing.clone();
