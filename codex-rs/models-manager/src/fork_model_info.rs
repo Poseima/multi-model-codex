@@ -80,6 +80,22 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
         ));
     }
 
+    // Zhipu models
+    if slug.starts_with("glm-") {
+        let ctx = if slug.starts_with("glm-5") {
+            200_000
+        } else {
+            128_000
+        };
+        return Some(fork_model_info!(
+            slug,
+            base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
+            apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+            shell_type: ConfigShellToolType::ShellCommand,
+            context_window: Some(ctx),
+        ));
+    }
+
     // OpenRouter models
     if slug.starts_with("xiaomi/mimo") {
         return Some(fork_model_info!(

@@ -23,7 +23,7 @@ pub fn provider_for_preset(preset_id: &str) -> Option<&str> {
     let slash_pos = preset_id.find('/')?;
     let prefix = &preset_id[..slash_pos];
     match prefix {
-        "openrouter" | "minimax" | "volcengine" => Some(prefix),
+        "openrouter" | "minimax" | "volcengine" | "zhipu" => Some(prefix),
         _ => None,
     }
 }
@@ -59,6 +59,12 @@ mod tests {
             Some("volcengine"),
             provider_for_preset("volcengine/ark-code-latest")
         );
+    }
+
+    #[test]
+    fn zhipu_presets_return_zhipu() {
+        assert_eq!(Some("zhipu"), provider_for_preset("zhipu/glm-5"));
+        assert_eq!(Some("zhipu"), provider_for_preset("zhipu/glm-4.7"));
     }
 
     #[test]
