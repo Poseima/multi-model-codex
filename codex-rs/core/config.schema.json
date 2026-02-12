@@ -1931,11 +1931,6 @@
       "description": "Optional override of model selection.",
       "type": "string"
     },
-    "model_auto_compact_percent": {
-      "description": "Percentage of context window to use as default auto-compaction threshold (0-100). When `model_auto_compact_token_limit` is unset, the threshold is calculated as (context_window * model_auto_compact_percent) / 100. Defaults to 90.",
-      "format": "int64",
-      "type": "integer"
-    },
     "model_auto_compact_token_limit": {
       "description": "Token usage threshold triggering auto-compaction of conversation history.",
       "format": "int64",
