@@ -109,6 +109,11 @@ impl Provider {
         self.name.eq_ignore_ascii_case("volcengine") || self.base_url.contains("volces.com")
     }
 
+    /// Check if this provider is Zhipu (requires thinking + tool_stream parameters).
+    pub fn is_zhipu(&self) -> bool {
+        self.name.eq_ignore_ascii_case("zhipu") || self.base_url.contains("bigmodel.cn")
+    }
+
     pub fn is_azure_responses_endpoint(&self) -> bool {
         is_azure_responses_wire_base_url(&self.name, Some(&self.base_url))
     }
