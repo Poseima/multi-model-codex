@@ -217,6 +217,15 @@ async fn process_chat_sse_with_format<S>(
                     }
                 }
 
+                // Fork: Zhipu/DeepSeek use `reasoning_content` as a top-level
+                // string field on the delta, distinct from OpenAI's `reasoning`
+                // object.
+                if let Some(text) = delta.get("reasoning_content").and_then(|v| v.as_str())
+                    && !text.is_empty()
+                {
+                    append_reasoning_text(&tx_event, &mut reasoning_item, text.to_string()).await;
+                }
+
                 if let Some(content) = delta.get("content") {
                     if content.is_array() {
                         for item in content.as_array().unwrap_or(&vec![]) {
