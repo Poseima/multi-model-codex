@@ -73,6 +73,14 @@ impl SwappableModelClient {
             .await
     }
 
+    /// Sync: delegates to inner client's `responses_websocket_enabled`.
+    pub(crate) fn responses_websocket_enabled(&self, model_info: &ModelInfo) -> bool {
+        self.inner
+            .read()
+            .expect("lock poisoned")
+            .responses_websocket_enabled(model_info)
+    }
+
     /// Fork: replace the inner client when the user switches providers.
     pub(crate) fn replace(&self, new_client: ModelClient) {
         *self.inner.write().expect("lock poisoned") = new_client;

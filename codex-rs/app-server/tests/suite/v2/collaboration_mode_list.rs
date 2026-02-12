@@ -73,7 +73,7 @@ fn default_preset() -> CollaborationModeMask {
 
 /// Builds the dawn preset that the list response is expected to return.
 fn dawn_preset() -> CollaborationModeMask {
-    let presets = test_builtin_collaboration_mode_presets();
+    let presets = builtin_collaboration_mode_presets();
     presets
         .into_iter()
         .find(|p| p.mode == Some(ModeKind::Dawn))
