@@ -104,7 +104,6 @@ impl SwappableModelClient {
             .expect("lock poisoned")
             .advance_window_generation();
     }
-
     pub(crate) fn replace(&self, new_client: ModelClient) {
         *self.inner.write().expect("lock poisoned") = new_client;
     }
