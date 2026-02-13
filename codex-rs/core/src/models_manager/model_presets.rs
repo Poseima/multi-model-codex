@@ -415,6 +415,20 @@ pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
             supported_in_api: true,
             input_modalities: default_input_modalities(),
         },
+        ModelPreset {
+            id: "minimax/MiniMax-M2.5".to_string(),
+            model: "MiniMax-M2.5".to_string(),
+            display_name: "MiniMax M2.5".to_string(),
+            description: "MiniMax M2.5 model for coding tasks.".to_string(),
+            default_reasoning_effort: ReasoningEffort::None,
+            supported_reasoning_efforts: vec![],
+            supports_personality: false,
+            is_default: false,
+            upgrade: None,
+            show_in_picker: true,
+            supported_in_api: true,
+            input_modalities: default_input_modalities(),
+        },
         // Zhipu models.
         ModelPreset {
             id: "zhipu/glm-5".to_string(),
