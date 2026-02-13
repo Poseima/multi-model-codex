@@ -60,7 +60,7 @@ macro_rules! fork_model_info {
 /// Returns `Some(ModelInfo)` for fork provider models, `None` for everything else.
 pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
     // MiniMax models
-    if slug.starts_with("codex-MiniMax") {
+    if slug.starts_with("codex-MiniMax") || slug.starts_with("MiniMax-") {
         return Some(fork_model_info!(
             slug,
             base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),

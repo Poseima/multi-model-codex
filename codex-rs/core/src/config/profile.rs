@@ -71,6 +71,14 @@ pub fn built_in_profiles() -> std::collections::HashMap<String, ConfigProfile> {
             },
         ),
         (
+            "m25".to_string(),
+            ConfigProfile {
+                model: Some("MiniMax-M2.5".to_string()),
+                model_provider: Some("minimax".to_string()),
+                ..Default::default()
+            },
+        ),
+        (
             "glm5".to_string(),
             ConfigProfile {
                 model: Some("glm-5".to_string()),
