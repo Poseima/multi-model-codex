@@ -51,6 +51,7 @@ mod tests {
             Some("minimax"),
             provider_for_preset("minimax/codex-MiniMax-M2.1")
         );
+        assert_eq!(Some("minimax"), provider_for_preset("minimax/MiniMax-M2.5"));
     }
 
     #[test]
