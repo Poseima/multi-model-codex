@@ -1,7 +1,9 @@
 use crate::bespoke_event_handling::apply_bespoke_event_handling;
 use crate::error_code::INTERNAL_ERROR_CODE;
 use crate::error_code::INVALID_REQUEST_ERROR_CODE;
+use crate::fuzzy_file_search::FuzzyFileSearchSession;
 use crate::fuzzy_file_search::run_fuzzy_file_search;
+use crate::fuzzy_file_search::start_fuzzy_file_search_session;
 use crate::models::supported_models;
 use crate::outgoing_message::ConnectionId;
 use crate::outgoing_message::ConnectionRequestId;
@@ -47,6 +49,12 @@ use codex_app_server_protocol::ForkConversationParams;
 use codex_app_server_protocol::ForkConversationResponse;
 use codex_app_server_protocol::FuzzyFileSearchParams;
 use codex_app_server_protocol::FuzzyFileSearchResponse;
+use codex_app_server_protocol::FuzzyFileSearchSessionStartParams;
+use codex_app_server_protocol::FuzzyFileSearchSessionStartResponse;
+use codex_app_server_protocol::FuzzyFileSearchSessionStopParams;
+use codex_app_server_protocol::FuzzyFileSearchSessionStopResponse;
+use codex_app_server_protocol::FuzzyFileSearchSessionUpdateParams;
+use codex_app_server_protocol::FuzzyFileSearchSessionUpdateResponse;
 use codex_app_server_protocol::GetAccountParams;
 use codex_app_server_protocol::GetAccountRateLimitsResponse;
 use codex_app_server_protocol::GetAccountResponse;
@@ -261,6 +269,13 @@ use crate::thread_state::ThreadStateManager;
 const THREAD_LIST_DEFAULT_LIMIT: usize = 25;
 const THREAD_LIST_MAX_LIMIT: usize = 100;
 
+struct ThreadListFilters {
+    model_providers: Option<Vec<String>>,
+    source_kinds: Option<Vec<ThreadSourceKind>>,
+    archived: bool,
+    cwd: Option<PathBuf>,
+}
+
 // Duration before a ChatGPT login attempt is abandoned.
 const LOGIN_CHATGPT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const APP_LIST_LOAD_TIMEOUT: Duration = Duration::from_secs(90);
@@ -297,6 +312,7 @@ pub(crate) struct CodexMessageProcessor {
     active_login: Arc<Mutex<Option<ActiveLogin>>>,
     thread_state_manager: ThreadStateManager,
     pending_fuzzy_searches: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+    fuzzy_search_sessions: Arc<Mutex<HashMap<String, FuzzyFileSearchSession>>>,
     feedback: CodexFeedback,
 }
 
@@ -364,6 +380,7 @@ impl CodexMessageProcessor {
             active_login: Arc::new(Mutex::new(None)),
             thread_state_manager: ThreadStateManager::new(),
             pending_fuzzy_searches: Arc::new(Mutex::new(HashMap::new())),
+            fuzzy_search_sessions: Arc::new(Mutex::new(HashMap::new())),
             feedback,
         }
     }
@@ -732,6 +749,18 @@ impl CodexMessageProcessor {
             }
             ClientRequest::FuzzyFileSearch { request_id, params } => {
                 self.fuzzy_file_search(to_connection_request_id(request_id), params)
+                    .await;
+            }
+            ClientRequest::FuzzyFileSearchSessionStart { request_id, params } => {
+                self.fuzzy_file_search_session_start(to_connection_request_id(request_id), params)
+                    .await;
+            }
+            ClientRequest::FuzzyFileSearchSessionUpdate { request_id, params } => {
+                self.fuzzy_file_search_session_update(to_connection_request_id(request_id), params)
+                    .await;
+            }
+            ClientRequest::FuzzyFileSearchSessionStop { request_id, params } => {
+                self.fuzzy_file_search_session_stop(to_connection_request_id(request_id), params)
                     .await;
             }
             ClientRequest::OneOffCommandExec { request_id, params } => {
@@ -1662,11 +1691,11 @@ impl CodexMessageProcessor {
         }
 
         let cwd = params.cwd.unwrap_or_else(|| self.config.cwd.clone());
-        let env = create_env(&self.config.shell_environment_policy, None);
+        let env = create_env(&self.config.permissions.shell_environment_policy, None);
         let timeout_ms = params
             .timeout_ms
             .and_then(|timeout_ms| u64::try_from(timeout_ms).ok());
-        let started_network_proxy = match self.config.network.as_ref() {
+        let started_network_proxy = match self.config.permissions.network.as_ref() {
             Some(spec) => match spec.start_proxy().await {
                 Ok(started) => Some(started),
                 Err(err) => {
@@ -1698,7 +1727,7 @@ impl CodexMessageProcessor {
 
         let requested_policy = params.sandbox_policy.map(|policy| policy.to_core());
         let effective_policy = match requested_policy {
-            Some(policy) => match self.config.sandbox_policy.can_set(&policy) {
+            Some(policy) => match self.config.permissions.sandbox_policy.can_set(&policy) {
                 Ok(()) => policy,
                 Err(err) => {
                     let error = JSONRPCErrorError {
@@ -1710,7 +1739,7 @@ impl CodexMessageProcessor {
                     return;
                 }
             },
-            None => self.config.sandbox_policy.get().clone(),
+            None => self.config.permissions.sandbox_policy.get().clone(),
         };
 
         let codex_linux_sandbox_exe = self.config.codex_linux_sandbox_exe.clone();
@@ -1879,6 +1908,7 @@ impl CodexMessageProcessor {
             experimental_raw_events,
             personality,
             ephemeral,
+            persist_extended_history,
         } = params;
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
@@ -1917,9 +1947,7 @@ impl CodexMessageProcessor {
         let core_dynamic_tools = if dynamic_tools.is_empty() {
             Vec::new()
         } else {
-            let snapshot = collect_mcp_snapshot(&config).await;
-            let mcp_tool_names = snapshot.tools.keys().cloned().collect::<HashSet<_>>();
-            if let Err(message) = validate_dynamic_tools(&dynamic_tools, &mcp_tool_names) {
+            if let Err(message) = validate_dynamic_tools(&dynamic_tools) {
                 let error = JSONRPCErrorError {
                     code: INVALID_REQUEST_ERROR_CODE,
                     message,
@@ -1940,7 +1968,7 @@ impl CodexMessageProcessor {
 
         match self
             .thread_manager
-            .start_thread_with_tools(config, core_dynamic_tools)
+            .start_thread_with_tools(config, core_dynamic_tools, persist_extended_history)
             .await
         {
             Ok(new_conv) => {
@@ -2416,6 +2444,7 @@ impl CodexMessageProcessor {
             model_providers,
             source_kinds,
             archived,
+            cwd,
         } = params;
 
         let requested_page_size = limit
@@ -2430,10 +2459,13 @@ impl CodexMessageProcessor {
             .list_threads_common(
                 requested_page_size,
                 cursor,
-                model_providers,
-                source_kinds,
                 core_sort_key,
-                archived.unwrap_or(false),
+                ThreadListFilters {
+                    model_providers,
+                    source_kinds,
+                    archived: archived.unwrap_or(false),
+                    cwd: cwd.map(PathBuf::from),
+                },
             )
             .await
         {
@@ -2677,6 +2709,7 @@ impl CodexMessageProcessor {
             base_instructions,
             developer_instructions,
             personality,
+            persist_extended_history,
         } = params;
 
         let thread_history = if let Some(history) = history {
@@ -2792,7 +2825,12 @@ impl CodexMessageProcessor {
 
         match self
             .thread_manager
-            .resume_thread_with_history(config, thread_history, self.auth_manager.clone())
+            .resume_thread_with_history(
+                config,
+                thread_history,
+                self.auth_manager.clone(),
+                persist_extended_history,
+            )
             .await
         {
             Ok(NewThread {
@@ -2897,6 +2935,7 @@ impl CodexMessageProcessor {
             config: cli_overrides,
             base_instructions,
             developer_instructions,
+            persist_extended_history,
         } = params;
 
         let (rollout_path, source_thread_id) = if let Some(path) = path {
@@ -3008,7 +3047,12 @@ impl CodexMessageProcessor {
             ..
         } = match self
             .thread_manager
-            .fork_thread(usize::MAX, config, rollout_path.clone())
+            .fork_thread(
+                usize::MAX,
+                config,
+                rollout_path.clone(),
+                persist_extended_history,
+            )
             .await
         {
             Ok(thread) => thread,
@@ -3195,10 +3239,13 @@ impl CodexMessageProcessor {
             .list_threads_common(
                 requested_page_size,
                 cursor,
-                model_providers,
-                None,
                 CoreThreadSortKey::UpdatedAt,
-                false,
+                ThreadListFilters {
+                    model_providers,
+                    source_kinds: None,
+                    archived: false,
+                    cwd: None,
+                },
             )
             .await
         {
@@ -3216,11 +3263,15 @@ impl CodexMessageProcessor {
         &self,
         requested_page_size: usize,
         cursor: Option<String>,
-        model_providers: Option<Vec<String>>,
-        source_kinds: Option<Vec<ThreadSourceKind>>,
         sort_key: CoreThreadSortKey,
-        archived: bool,
+        filters: ThreadListFilters,
     ) -> Result<(Vec<ConversationSummary>, Option<String>), JSONRPCErrorError> {
+        let ThreadListFilters {
+            model_providers,
+            source_kinds,
+            archived,
+            cwd,
+        } = filters;
         let mut cursor_obj: Option<RolloutCursor> = match cursor.as_ref() {
             Some(cursor_str) => {
                 Some(parse_cursor(cursor_str).ok_or_else(|| JSONRPCErrorError {
@@ -3301,6 +3352,9 @@ impl CodexMessageProcessor {
                 if source_kind_filter
                     .as_ref()
                     .is_none_or(|filter| source_kind_matches(&summary.source, filter))
+                    && cwd
+                        .as_ref()
+                        .is_none_or(|expected_cwd| &summary.cwd == expected_cwd)
                 {
                     filtered.push(summary);
                     if filtered.len() >= remaining {
@@ -3971,7 +4025,7 @@ impl CodexMessageProcessor {
 
         match self
             .thread_manager
-            .resume_thread_with_history(config, thread_history, self.auth_manager.clone())
+            .resume_thread_with_history(config, thread_history, self.auth_manager.clone(), false)
             .await
         {
             Ok(NewThread {
@@ -4171,7 +4225,7 @@ impl CodexMessageProcessor {
             ..
         } = match self
             .thread_manager
-            .fork_thread(usize::MAX, config, rollout_path.clone())
+            .fork_thread(usize::MAX, config, rollout_path.clone(), false)
             .await
         {
             Ok(thread) => thread,
@@ -4599,8 +4653,9 @@ impl CodexMessageProcessor {
             let _ = accessible_tx.send(AppListLoadResult::Accessible(result));
         });
 
+        let all_config = config.clone();
         tokio::spawn(async move {
-            let result = connectors::list_all_connectors_with_options(&config, force_refetch)
+            let result = connectors::list_all_connectors_with_options(&all_config, force_refetch)
                 .await
                 .map_err(|err| format!("failed to list apps: {err}"));
             let _ = tx.send(AppListLoadResult::Directory(result));
@@ -4663,9 +4718,12 @@ impl CodexMessageProcessor {
                 }
             }
 
-            let merged = Self::merge_loaded_apps(
-                all_connectors.as_deref(),
-                accessible_connectors.as_deref(),
+            let merged = connectors::with_app_enabled_state(
+                Self::merge_loaded_apps(
+                    all_connectors.as_deref(),
+                    accessible_connectors.as_deref(),
+                ),
+                &config,
             );
             Self::send_app_list_updated_notification(&outgoing, merged.clone()).await;
 
@@ -5164,10 +5222,13 @@ impl CodexMessageProcessor {
         &mut self,
         request_id: &ConnectionRequestId,
         parent_thread_id: ThreadId,
+        parent_thread: Arc<CodexThread>,
         review_request: ReviewRequest,
         display_text: &str,
     ) -> std::result::Result<(), JSONRPCErrorError> {
-        let rollout_path =
+        let rollout_path = if let Some(path) = parent_thread.rollout_path() {
+            path
+        } else {
             find_thread_path_by_id_str(&self.config.codex_home, &parent_thread_id.to_string())
                 .await
                 .map_err(|err| JSONRPCErrorError {
@@ -5179,7 +5240,8 @@ impl CodexMessageProcessor {
                     code: INVALID_REQUEST_ERROR_CODE,
                     message: format!("no rollout found for thread id {parent_thread_id}"),
                     data: None,
-                })?;
+                })?
+        };
 
         let mut config = self.config.as_ref().clone();
         if let Some(review_model) = &config.review_model {
@@ -5193,7 +5255,7 @@ impl CodexMessageProcessor {
             ..
         } = self
             .thread_manager
-            .fork_thread(usize::MAX, config, rollout_path)
+            .fork_thread(usize::MAX, config, rollout_path, false)
             .await
             .map_err(|err| JSONRPCErrorError {
                 code: INTERNAL_ERROR_CODE,
@@ -5302,6 +5364,7 @@ impl CodexMessageProcessor {
                     .start_detached_review(
                         &request_id,
                         parent_thread_id,
+                        parent_thread,
                         review_request,
                         display_text.as_str(),
                     )
@@ -5603,6 +5666,89 @@ impl CodexMessageProcessor {
         self.outgoing.send_response(request_id, response).await;
     }
 
+    async fn fuzzy_file_search_session_start(
+        &mut self,
+        request_id: ConnectionRequestId,
+        params: FuzzyFileSearchSessionStartParams,
+    ) {
+        let FuzzyFileSearchSessionStartParams { session_id, roots } = params;
+        if session_id.is_empty() {
+            let error = JSONRPCErrorError {
+                code: INVALID_REQUEST_ERROR_CODE,
+                message: "sessionId must not be empty".to_string(),
+                data: None,
+            };
+            self.outgoing.send_error(request_id, error).await;
+            return;
+        }
+
+        let session =
+            start_fuzzy_file_search_session(session_id.clone(), roots, self.outgoing.clone());
+        match session {
+            Ok(session) => {
+                let mut sessions = self.fuzzy_search_sessions.lock().await;
+                sessions.insert(session_id, session);
+                self.outgoing
+                    .send_response(request_id, FuzzyFileSearchSessionStartResponse {})
+                    .await;
+            }
+            Err(err) => {
+                let error = JSONRPCErrorError {
+                    code: INTERNAL_ERROR_CODE,
+                    message: format!("failed to start fuzzy file search session: {err}"),
+                    data: None,
+                };
+                self.outgoing.send_error(request_id, error).await;
+            }
+        }
+    }
+
+    async fn fuzzy_file_search_session_update(
+        &mut self,
+        request_id: ConnectionRequestId,
+        params: FuzzyFileSearchSessionUpdateParams,
+    ) {
+        let FuzzyFileSearchSessionUpdateParams { session_id, query } = params;
+        let found = {
+            let sessions = self.fuzzy_search_sessions.lock().await;
+            if let Some(session) = sessions.get(&session_id) {
+                session.update_query(query);
+                true
+            } else {
+                false
+            }
+        };
+        if !found {
+            let error = JSONRPCErrorError {
+                code: INVALID_REQUEST_ERROR_CODE,
+                message: format!("fuzzy file search session not found: {session_id}"),
+                data: None,
+            };
+            self.outgoing.send_error(request_id, error).await;
+            return;
+        }
+
+        self.outgoing
+            .send_response(request_id, FuzzyFileSearchSessionUpdateResponse {})
+            .await;
+    }
+
+    async fn fuzzy_file_search_session_stop(
+        &mut self,
+        request_id: ConnectionRequestId,
+        params: FuzzyFileSearchSessionStopParams,
+    ) {
+        let FuzzyFileSearchSessionStopParams { session_id } = params;
+        {
+            let mut sessions = self.fuzzy_search_sessions.lock().await;
+            sessions.remove(&session_id);
+        }
+
+        self.outgoing
+            .send_response(request_id, FuzzyFileSearchSessionStopResponse {})
+            .await;
+    }
+
     async fn upload_feedback(&self, request_id: ConnectionRequestId, params: FeedbackUploadParams) {
         if !self.config.feedback_enabled {
             let error = JSONRPCErrorError {
@@ -5757,10 +5903,7 @@ fn errors_to_info(
         .collect()
 }
 
-fn validate_dynamic_tools(
-    tools: &[ApiDynamicToolSpec],
-    mcp_tool_names: &HashSet<String>,
-) -> Result<(), String> {
+fn validate_dynamic_tools(tools: &[ApiDynamicToolSpec]) -> Result<(), String> {
     let mut seen = HashSet::new();
     for tool in tools {
         let name = tool.name.trim();
@@ -5775,9 +5918,6 @@ fn validate_dynamic_tools(
         }
         if name == "mcp" || name.starts_with("mcp__") {
             return Err(format!("dynamic tool name is reserved: {name}"));
-        }
-        if mcp_tool_names.contains(name) {
-            return Err(format!("dynamic tool name conflicts with MCP tool: {name}"));
         }
         if !seen.insert(name.to_string()) {
             return Err(format!("duplicate dynamic tool name: {name}"));
@@ -6281,7 +6421,7 @@ mod tests {
             description: "test".to_string(),
             input_schema: json!({"type": "null"}),
         }];
-        let err = validate_dynamic_tools(&tools, &HashSet::new()).expect_err("invalid schema");
+        let err = validate_dynamic_tools(&tools).expect_err("invalid schema");
         assert!(err.contains("my_tool"), "unexpected error: {err}");
     }
 
@@ -6293,7 +6433,7 @@ mod tests {
             // Missing `type` is common; core sanitizes these to a supported schema.
             input_schema: json!({"properties": {}}),
         }];
-        validate_dynamic_tools(&tools, &HashSet::new()).expect("valid schema");
+        validate_dynamic_tools(&tools).expect("valid schema");
     }
 
     #[test]
