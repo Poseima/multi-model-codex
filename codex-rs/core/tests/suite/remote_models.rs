@@ -778,7 +778,7 @@ async fn remote_models_request_times_out_after_5s() -> Result<()> {
     // get_model should return a default model even when refresh times out
     let default_model = model.expect("get_model should finish and return default model");
     assert!(
-        default_model == "gpt-5.2-codex",
+        default_model == "gpt-5.3-codex",
         "get_model should return default model when refresh times out, got: {default_model}"
     );
     let _ = server
