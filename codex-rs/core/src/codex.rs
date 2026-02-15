@@ -1520,15 +1520,6 @@ impl Session {
         state.get_total_token_usage(state.server_reasoning_included())
     }
 
-    pub(crate) async fn get_current_context_input_tokens(&self) -> i64 {
-        let state = self.state.lock().await;
-        state
-            .history
-            .token_info()
-            .map(|info| info.last_token_usage.input_tokens)
-            .unwrap_or(0)
-    }
-
     pub(crate) async fn get_total_token_usage_breakdown(&self) -> TotalTokenUsageBreakdown {
         let state = self.state.lock().await;
         state.history.get_total_token_usage_breakdown()
@@ -4572,17 +4563,15 @@ pub(crate) async fn run_turn(
                     needs_follow_up,
                     last_agent_message: sampling_request_last_agent_message,
                 } = sampling_request_output;
-                let current_context_input_tokens = sess.get_current_context_input_tokens().await;
-                let token_limit_reached = current_context_input_tokens >= auto_compact_limit;
-                let cumulative_usage_tokens = sess.get_total_token_usage().await;
+                let total_usage_tokens = sess.get_total_token_usage().await;
+                let token_limit_reached = total_usage_tokens >= auto_compact_limit;
 
                 let estimated_token_count =
                     sess.get_estimated_token_count(turn_context.as_ref()).await;
 
                 trace!(
                     turn_id = %turn_context.sub_id,
-                    current_context_input_tokens,
-                    cumulative_usage_tokens,
+                    total_usage_tokens,
                     estimated_token_count = ?estimated_token_count,
                     auto_compact_limit,
                     token_limit_reached,
@@ -4698,21 +4687,20 @@ async fn run_pre_sampling_compact(
     sess: &Arc<Session>,
     turn_context: &Arc<TurnContext>,
 ) -> CodexResult<()> {
-    let current_context_input_tokens_before_compaction =
-        sess.get_current_context_input_tokens().await;
+    let total_usage_tokens_before_compaction = sess.get_total_token_usage().await;
     maybe_run_previous_model_inline_compact(
         sess,
         turn_context,
-        current_context_input_tokens_before_compaction,
+        total_usage_tokens_before_compaction,
     )
     .await?;
-    let current_context_input_tokens = sess.get_current_context_input_tokens().await;
+    let total_usage_tokens = sess.get_total_token_usage().await;
     let auto_compact_limit = turn_context
         .model_info
         .auto_compact_token_limit()
         .unwrap_or(i64::MAX);
-    // Compact if the context input tokens exceed the auto compact limit
-    if current_context_input_tokens >= auto_compact_limit {
+    // Compact if the total usage tokens exceed the auto compact limit
+    if total_usage_tokens >= auto_compact_limit {
         run_auto_compact(sess, turn_context).await?;
     }
     Ok(())
@@ -4727,7 +4715,7 @@ async fn run_pre_sampling_compact(
 async fn maybe_run_previous_model_inline_compact(
     sess: &Arc<Session>,
     turn_context: &Arc<TurnContext>,
-    current_context_input_tokens: i64,
+    total_usage_tokens: i64,
 ) -> CodexResult<()> {
     let Some(previous_model) = sess.previous_model().await else {
         return Ok(());
@@ -4748,7 +4736,7 @@ async fn maybe_run_previous_model_inline_compact(
         .model_info
         .auto_compact_token_limit()
         .unwrap_or(i64::MAX);
-    let should_run = current_context_input_tokens > new_auto_compact_limit
+    let should_run = total_usage_tokens > new_auto_compact_limit
         && previous_turn_context.model_info.slug != turn_context.model_info.slug
         && old_context_window > new_context_window;
     if should_run {
