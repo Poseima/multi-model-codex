@@ -346,7 +346,6 @@ pub(crate) fn build_specs_with_discoverable_tools(
             builder.register_handler(name.clone(), mcp_handler.clone());
         }
     }
-
     for unavailable_tool in unavailable_called_tools {
         let tool_name = unavailable_tool.display();
         if existing_spec_names.insert(tool_name.clone()) {
@@ -373,6 +372,16 @@ pub(crate) fn build_specs_with_discoverable_tools(
             builder.push_spec(spec);
         }
         builder.register_handler(unavailable_tool, unavailable_tool_handler.clone());
+    }
+
+    {
+        use crate::tools::handlers::fork_memory_retrieve;
+
+        builder.push_spec(fork_memory_retrieve::tool_spec());
+        builder.register_handler(
+            "memory_retrieve",
+            Arc::new(fork_memory_retrieve::MemoryRetrieveHandler),
+        );
     }
     builder
 }

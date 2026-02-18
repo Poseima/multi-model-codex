@@ -165,6 +165,7 @@ use crate::config::resolve_web_search_mode_for_turn;
 use crate::context_manager::ContextManager;
 use crate::context_manager::TotalTokenUsageBreakdown;
 use crate::thread_rollout_truncation::initial_history_has_prior_user_turns;
+use crate::memory_experiment; // Fork: project-scoped memory system
 use codex_config::CONFIG_TOML_FILE;
 use codex_config::types::McpServerConfig;
 use codex_config::types::ShellEnvironmentPolicy;
@@ -2515,6 +2516,27 @@ impl Session {
         {
             developer_sections.push(memory_prompt);
         }
+        // Fork: auto-regenerate clues if memories exist but clues are missing.
+        if memory_experiment::is_enabled(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        ) {
+            memory_experiment::ensure_clues_fresh(
+                &turn_context.config.codex_home,
+                &turn_context.cwd,
+            )
+            .await;
+        }
+        // Fork: inject project memory clues into system prompt.
+        if let Some(clues_prompt) = memory_experiment::build_clues_prompt(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+        )
+        .await
+        {
+            items.push(DeveloperInstructions::new(clues_prompt).into());
+        }
         // Add developer instructions from collaboration_mode if they exist and are non-empty
         if let Some(collab_instructions) =
             CollaborationModeInstructions::from_collaboration_mode(&collaboration_mode)
@@ -3236,6 +3258,1441 @@ pub(crate) fn emit_subagent_session_started(
     });
 }
 
+async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiver<Submission>) {
+    // To break out of this loop, send Op::Shutdown.
+    while let Ok(sub) = rx_sub.recv().await {
+        debug!(?sub, "Submission");
+        let dispatch_span = submission_dispatch_span(&sub);
+        let should_exit = async {
+            match sub.op.clone() {
+                Op::Interrupt => {
+                    handlers::interrupt(&sess).await;
+                    false
+                }
+                Op::CleanBackgroundTerminals => {
+                    handlers::clean_background_terminals(&sess).await;
+                    false
+                }
+                Op::RealtimeConversationStart(params) => {
+                    if let Err(err) =
+                        handle_realtime_conversation_start(&sess, sub.id.clone(), params).await
+                    {
+                        sess.send_event_raw(Event {
+                            id: sub.id.clone(),
+                            msg: EventMsg::Error(ErrorEvent {
+                                message: err.to_string(),
+                                codex_error_info: Some(CodexErrorInfo::Other),
+                            }),
+                        })
+                        .await;
+                    }
+                    false
+                }
+                Op::RealtimeConversationAudio(params) => {
+                    handle_realtime_conversation_audio(&sess, sub.id.clone(), params).await;
+                    false
+                }
+                Op::RealtimeConversationText(params) => {
+                    handle_realtime_conversation_text(&sess, sub.id.clone(), params).await;
+                    false
+                }
+                Op::RealtimeConversationClose => {
+                    handle_realtime_conversation_close(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::RealtimeConversationListVoices => {
+                    handlers::realtime_conversation_list_voices(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::OverrideTurnContext {
+                    cwd,
+                    approval_policy,
+                    approvals_reviewer,
+                    sandbox_policy,
+                    windows_sandbox_level,
+                    model,
+                    effort,
+                    summary,
+                    service_tier,
+                    collaboration_mode,
+                    personality,
+                } => {
+                    let collaboration_mode = if let Some(collab_mode) = collaboration_mode {
+                        collab_mode
+                    } else {
+                        let state = sess.state.lock().await;
+                        state.session_configuration.collaboration_mode.with_updates(
+                            model.clone(),
+                            effort,
+                            /*developer_instructions*/ None,
+                        )
+                    };
+                    handlers::override_turn_context(
+                        &sess,
+                        sub.id.clone(),
+                        SessionSettingsUpdate {
+                            cwd,
+                            approval_policy,
+                            approvals_reviewer,
+                            sandbox_policy,
+                            windows_sandbox_level,
+                            collaboration_mode: Some(collaboration_mode),
+                            reasoning_summary: summary,
+                            service_tier,
+                            personality,
+                            ..Default::default()
+                        },
+                    )
+                    .await;
+                    false
+                }
+                // Fork: separate variant to avoid adding provider_id to OverrideTurnContext
+                Op::OverrideProvider { provider_id } => {
+                    handlers::override_turn_context(
+                        &sess,
+                        sub.id.clone(),
+                        SessionSettingsUpdate {
+                            provider_id: Some(provider_id),
+                            ..Default::default()
+                        },
+                    )
+                    .await;
+                    // Fork: rebuild session-scoped ModelClient so subsequent turns
+                    // stream to the new provider's endpoint.
+                    sess.rebuild_model_client_for_current_provider().await;
+                    false
+                }
+                Op::UserInput { .. } | Op::UserTurn { .. } => {
+                    handlers::user_input_or_turn(&sess, sub.id.clone(), sub.op).await;
+                    false
+                }
+                Op::InterAgentCommunication { communication } => {
+                    handlers::inter_agent_communication(&sess, sub.id.clone(), communication).await;
+                    false
+                }
+                Op::ExecApproval {
+                    id: approval_id,
+                    turn_id,
+                    decision,
+                } => {
+                    handlers::exec_approval(&sess, approval_id, turn_id, decision).await;
+                    false
+                }
+                Op::PatchApproval { id, decision } => {
+                    handlers::patch_approval(&sess, id, decision).await;
+                    false
+                }
+                Op::UserInputAnswer { id, response } => {
+                    handlers::request_user_input_response(&sess, id, response).await;
+                    false
+                }
+                Op::RequestPermissionsResponse { id, response } => {
+                    handlers::request_permissions_response(&sess, id, response).await;
+                    false
+                }
+                Op::DynamicToolResponse { id, response } => {
+                    handlers::dynamic_tool_response(&sess, id, response).await;
+                    false
+                }
+                Op::AddToHistory { text } => {
+                    handlers::add_to_history(&sess, &config, text).await;
+                    false
+                }
+                Op::GetHistoryEntryRequest { offset, log_id } => {
+                    handlers::get_history_entry_request(
+                        &sess,
+                        &config,
+                        sub.id.clone(),
+                        offset,
+                        log_id,
+                    )
+                    .await;
+                    false
+                }
+                Op::ListMcpTools => {
+                    handlers::list_mcp_tools(&sess, &config, sub.id.clone()).await;
+                    false
+                }
+                Op::RefreshMcpServers { config } => {
+                    handlers::refresh_mcp_servers(&sess, config).await;
+                    false
+                }
+                Op::ReloadUserConfig => {
+                    handlers::reload_user_config(&sess).await;
+                    false
+                }
+                Op::ListSkills { cwds, force_reload } => {
+                    handlers::list_skills(&sess, sub.id.clone(), cwds, force_reload).await;
+                    false
+                }
+                Op::Undo => {
+                    handlers::undo(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::Compact => {
+                    handlers::compact(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::Archive => {
+                    handlers::archive(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::DropMemories => {
+                    handlers::drop_memories(&sess, &config, sub.id.clone()).await;
+                    false
+                }
+                Op::UpdateMemories => {
+                    handlers::update_memories(&sess, &config, sub.id.clone()).await;
+                    false
+                }
+                Op::ThreadRollback { num_turns } => {
+                    handlers::thread_rollback(&sess, sub.id.clone(), num_turns).await;
+                    false
+                }
+                Op::SetThreadName { name } => {
+                    handlers::set_thread_name(&sess, sub.id.clone(), name).await;
+                    false
+                }
+                Op::SetThreadMemoryMode { mode } => {
+                    handlers::set_thread_memory_mode(&sess, sub.id.clone(), mode).await;
+                    false
+                }
+                Op::RunUserShellCommand { command } => {
+                    handlers::run_user_shell_command(&sess, sub.id.clone(), command).await;
+                    false
+                }
+                Op::ResolveElicitation {
+                    server_name,
+                    request_id,
+                    decision,
+                    content,
+                    meta,
+                } => {
+                    handlers::resolve_elicitation(
+                        &sess,
+                        server_name,
+                        request_id,
+                        decision,
+                        content,
+                        meta,
+                    )
+                    .await;
+                    false
+                }
+                Op::Shutdown => handlers::shutdown(&sess, sub.id.clone()).await,
+                Op::Review { review_request } => {
+                    handlers::review(&sess, &config, sub.id.clone(), review_request).await;
+                    false
+                }
+                _ => false, // Ignore unknown ops; enum is non_exhaustive to allow extensions.
+            }
+        }
+        .instrument(dispatch_span)
+        .await;
+        if should_exit {
+            break;
+        }
+    }
+    // Also drain cached guardian state if the submission loop exits because
+    // the channel closed without receiving an explicit shutdown op.
+    sess.guardian_review_session.shutdown().await;
+    debug!("Agent loop exited");
+}
+
+fn submission_dispatch_span(sub: &Submission) -> tracing::Span {
+    let op_name = sub.op.kind();
+    let span_name = format!("op.dispatch.{op_name}");
+    let dispatch_span = match &sub.op {
+        Op::RealtimeConversationAudio(_) => {
+            debug_span!(
+                "submission_dispatch",
+                otel.name = span_name.as_str(),
+                submission.id = sub.id.as_str(),
+                codex.op = op_name
+            )
+        }
+        _ => info_span!(
+            "submission_dispatch",
+            otel.name = span_name.as_str(),
+            submission.id = sub.id.as_str(),
+            codex.op = op_name
+        ),
+    };
+    if let Some(trace) = sub.trace.as_ref()
+        && !set_parent_from_w3c_trace_context(&dispatch_span, trace)
+    {
+        warn!(
+            submission.id = sub.id.as_str(),
+            "ignoring invalid submission trace carrier"
+        );
+    }
+    dispatch_span
+}
+
+/// Operation handlers
+mod handlers {
+    use crate::codex::Session;
+    use crate::codex::SessionSettingsUpdate;
+    use crate::codex::SteerInputError;
+
+    use crate::codex::spawn_review_thread;
+    use crate::config::Config;
+    use crate::config_loader::CloudRequirementsLoader;
+    use crate::config_loader::LoaderOverrides;
+    use crate::config_loader::load_config_layers_state;
+    use crate::realtime_context::REALTIME_TURN_TOKEN_BUDGET;
+    use crate::realtime_context::truncate_realtime_text_to_token_budget;
+    use codex_features::Feature;
+    use codex_utils_absolute_path::AbsolutePathBuf;
+
+    use crate::review_prompts::resolve_review_request;
+    use crate::rollout::RolloutRecorder;
+    use crate::rollout::read_session_meta_line;
+    use crate::tasks::ArchiveTask;
+    use crate::tasks::CompactTask;
+    use crate::tasks::UndoTask;
+    use crate::tasks::UserShellCommandMode;
+    use crate::tasks::UserShellCommandTask;
+    use crate::tasks::execute_user_shell_command;
+    use codex_mcp::collect_mcp_snapshot_from_manager;
+    use codex_mcp::compute_auth_statuses;
+    use codex_protocol::protocol::CodexErrorInfo;
+    use codex_protocol::protocol::ErrorEvent;
+    use codex_protocol::protocol::Event;
+    use codex_protocol::protocol::EventMsg;
+    use codex_protocol::protocol::InterAgentCommunication;
+    use codex_protocol::protocol::ListSkillsResponseEvent;
+    use codex_protocol::protocol::McpServerRefreshConfig;
+    use codex_protocol::protocol::Op;
+    use codex_protocol::protocol::RealtimeConversationListVoicesResponseEvent;
+    use codex_protocol::protocol::RealtimeVoicesList;
+    use codex_protocol::protocol::ReviewDecision;
+    use codex_protocol::protocol::ReviewRequest;
+    use codex_protocol::protocol::RolloutItem;
+    use codex_protocol::protocol::SkillErrorInfo;
+    use codex_protocol::protocol::SkillsListEntry;
+    use codex_protocol::protocol::ThreadMemoryMode;
+    use codex_protocol::protocol::ThreadNameUpdatedEvent;
+    use codex_protocol::protocol::ThreadRolledBackEvent;
+    use codex_protocol::protocol::TurnAbortReason;
+    use codex_protocol::protocol::WarningEvent;
+    use codex_protocol::request_permissions::RequestPermissionsResponse;
+    use codex_protocol::request_user_input::RequestUserInputResponse;
+
+    use crate::context_manager::is_user_turn_boundary;
+    use codex_protocol::config_types::CollaborationMode;
+    use codex_protocol::config_types::ModeKind;
+    use codex_protocol::config_types::Settings;
+    use codex_protocol::dynamic_tools::DynamicToolResponse;
+    use codex_protocol::items::UserMessageItem;
+    use codex_protocol::mcp::RequestId as ProtocolRequestId;
+    use codex_protocol::user_input::UserInput;
+    use codex_rmcp_client::ElicitationAction;
+    use codex_rmcp_client::ElicitationResponse;
+    use serde_json::Value;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use tracing::debug;
+    use tracing::info;
+    use tracing::warn;
+
+    pub async fn interrupt(sess: &Arc<Session>) {
+        sess.interrupt_task().await;
+    }
+
+    pub async fn clean_background_terminals(sess: &Arc<Session>) {
+        sess.close_unified_exec_processes().await;
+    }
+
+    pub async fn realtime_conversation_list_voices(sess: &Session, sub_id: String) {
+        sess.send_event_raw(Event {
+            id: sub_id,
+            msg: EventMsg::RealtimeConversationListVoicesResponse(
+                RealtimeConversationListVoicesResponseEvent {
+                    voices: RealtimeVoicesList::builtin(),
+                },
+            ),
+        })
+        .await;
+    }
+
+    pub async fn override_turn_context(
+        sess: &Session,
+        sub_id: String,
+        updates: SessionSettingsUpdate,
+    ) {
+        if let Err(err) = sess.update_settings(updates).await {
+            sess.send_event_raw(Event {
+                id: sub_id,
+                msg: EventMsg::Error(ErrorEvent {
+                    message: err.to_string(),
+                    codex_error_info: Some(CodexErrorInfo::BadRequest),
+                }),
+            })
+            .await;
+        }
+    }
+
+    pub async fn user_input_or_turn(sess: &Arc<Session>, sub_id: String, op: Op) {
+        user_input_or_turn_inner(
+            sess,
+            sub_id,
+            op,
+            /*mirror_user_text_to_realtime*/ Some(()),
+        )
+        .await;
+    }
+
+    pub(super) async fn user_input_or_turn_inner(
+        sess: &Arc<Session>,
+        sub_id: String,
+        op: Op,
+        mirror_user_text_to_realtime: Option<()>,
+    ) {
+        let (items, updates, responsesapi_client_metadata) = match op {
+            Op::UserTurn {
+                cwd,
+                approval_policy,
+                approvals_reviewer,
+                sandbox_policy,
+                model,
+                effort,
+                summary,
+                service_tier,
+                final_output_json_schema,
+                items,
+                collaboration_mode,
+                personality,
+            } => {
+                let collaboration_mode = collaboration_mode.or_else(|| {
+                    Some(CollaborationMode {
+                        mode: ModeKind::Default,
+                        settings: Settings {
+                            model: model.clone(),
+                            reasoning_effort: effort,
+                            developer_instructions: None,
+                        },
+                    })
+                });
+                (
+                    items,
+                    SessionSettingsUpdate {
+                        cwd: Some(cwd),
+                        approval_policy: Some(approval_policy),
+                        approvals_reviewer,
+                        sandbox_policy: Some(sandbox_policy),
+                        windows_sandbox_level: None,
+                        collaboration_mode,
+                        reasoning_summary: summary,
+                        service_tier,
+                        final_output_json_schema: Some(final_output_json_schema),
+                        personality,
+                        app_server_client_name: None,
+                        app_server_client_version: None,
+                        provider_id: None,
+                    },
+                    None,
+                )
+            }
+            Op::UserInput {
+                items,
+                final_output_json_schema,
+                responsesapi_client_metadata,
+            } => (
+                items,
+                SessionSettingsUpdate {
+                    final_output_json_schema: Some(final_output_json_schema),
+                    ..Default::default()
+                },
+                responsesapi_client_metadata,
+            ),
+            _ => unreachable!(),
+        };
+
+        let Ok(current_context) = sess.new_turn_with_sub_id(sub_id.clone(), updates).await else {
+            // new_turn_with_sub_id already emits the error event.
+            return;
+        };
+        sess.maybe_emit_unknown_model_warning_for_turn(current_context.as_ref())
+            .await;
+        let accepted_items = match sess
+            .steer_input(
+                items.clone(),
+                /*expected_turn_id*/ None,
+                responsesapi_client_metadata.clone(),
+            )
+            .await
+        {
+            Ok(_) => {
+                current_context.session_telemetry.user_prompt(&items);
+                Some(items)
+            }
+            Err(SteerInputError::NoActiveTurn(items)) => {
+                if let Some(responsesapi_client_metadata) = responsesapi_client_metadata {
+                    current_context
+                        .turn_metadata_state
+                        .set_responsesapi_client_metadata(responsesapi_client_metadata);
+                }
+                current_context.session_telemetry.user_prompt(&items);
+                sess.refresh_mcp_servers_if_requested(&current_context)
+                    .await;
+                let accepted_items = items.clone();
+                sess.spawn_task(
+                    Arc::clone(&current_context),
+                    items,
+                    crate::tasks::RegularTask::new(),
+                )
+                .await;
+                Some(accepted_items)
+            }
+            Err(err) => {
+                sess.send_event_raw(Event {
+                    id: sub_id,
+                    msg: EventMsg::Error(err.to_error_event()),
+                })
+                .await;
+                None
+            }
+        };
+        if let (Some(items), Some(())) = (accepted_items, mirror_user_text_to_realtime) {
+            self::mirror_user_text_to_realtime(sess, &items).await;
+        }
+    }
+
+    async fn mirror_user_text_to_realtime(sess: &Arc<Session>, items: &[UserInput]) {
+        let text = UserMessageItem::new(items).message();
+        if text.is_empty() {
+            return;
+        }
+        let text = truncate_realtime_text_to_token_budget(&text, REALTIME_TURN_TOKEN_BUDGET);
+        if text.is_empty() {
+            return;
+        }
+        if sess.conversation.running_state().await.is_none() {
+            return;
+        }
+        if let Err(err) = sess.conversation.text_in(text).await {
+            debug!("failed to mirror user text to realtime conversation: {err}");
+        }
+    }
+
+    /// Records an inter-agent assistant envelope, then lets the shared pending-work scheduler
+    /// decide whether an idle session should start a regular turn.
+    pub async fn inter_agent_communication(
+        sess: &Arc<Session>,
+        sub_id: String,
+        communication: InterAgentCommunication,
+    ) {
+        let trigger_turn = communication.trigger_turn;
+        sess.enqueue_mailbox_communication(communication);
+        if trigger_turn {
+            sess.maybe_start_turn_for_pending_work_with_sub_id(sub_id)
+                .await;
+        }
+    }
+
+    pub async fn run_user_shell_command(sess: &Arc<Session>, sub_id: String, command: String) {
+        if let Some((turn_context, cancellation_token)) =
+            sess.active_turn_context_and_cancellation_token().await
+        {
+            let session = Arc::clone(sess);
+            tokio::spawn(async move {
+                execute_user_shell_command(
+                    session,
+                    turn_context,
+                    command,
+                    cancellation_token,
+                    UserShellCommandMode::ActiveTurnAuxiliary,
+                )
+                .await;
+            });
+            return;
+        }
+
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+        sess.spawn_task(
+            Arc::clone(&turn_context),
+            Vec::new(),
+            UserShellCommandTask::new(command),
+        )
+        .await;
+    }
+
+    pub async fn resolve_elicitation(
+        sess: &Arc<Session>,
+        server_name: String,
+        request_id: ProtocolRequestId,
+        decision: codex_protocol::approvals::ElicitationAction,
+        content: Option<Value>,
+        meta: Option<Value>,
+    ) {
+        let action = match decision {
+            codex_protocol::approvals::ElicitationAction::Accept => ElicitationAction::Accept,
+            codex_protocol::approvals::ElicitationAction::Decline => ElicitationAction::Decline,
+            codex_protocol::approvals::ElicitationAction::Cancel => ElicitationAction::Cancel,
+        };
+        let content = match action {
+            // Preserve the legacy fallback for clients that only send an action.
+            ElicitationAction::Accept => Some(content.unwrap_or_else(|| serde_json::json!({}))),
+            ElicitationAction::Decline | ElicitationAction::Cancel => None,
+        };
+        let response = ElicitationResponse {
+            action,
+            content,
+            meta,
+        };
+        let request_id = match request_id {
+            ProtocolRequestId::String(value) => {
+                rmcp::model::NumberOrString::String(std::sync::Arc::from(value))
+            }
+            ProtocolRequestId::Integer(value) => rmcp::model::NumberOrString::Number(value),
+        };
+        if let Err(err) = sess
+            .resolve_elicitation(server_name, request_id, response)
+            .await
+        {
+            warn!(
+                error = %err,
+                "failed to resolve elicitation request in session"
+            );
+        }
+    }
+
+    /// Propagate a user's exec approval decision to the session.
+    /// Also optionally applies an execpolicy amendment.
+    pub async fn exec_approval(
+        sess: &Arc<Session>,
+        approval_id: String,
+        turn_id: Option<String>,
+        decision: ReviewDecision,
+    ) {
+        let event_turn_id = turn_id.unwrap_or_else(|| approval_id.clone());
+        if let ReviewDecision::ApprovedExecpolicyAmendment {
+            proposed_execpolicy_amendment,
+        } = &decision
+        {
+            match sess
+                .persist_execpolicy_amendment(proposed_execpolicy_amendment)
+                .await
+            {
+                Ok(()) => {
+                    sess.record_execpolicy_amendment_message(
+                        &event_turn_id,
+                        proposed_execpolicy_amendment,
+                    )
+                    .await;
+                }
+                Err(err) => {
+                    let message = format!("Failed to apply execpolicy amendment: {err}");
+                    tracing::warn!("{message}");
+                    let warning = EventMsg::Warning(WarningEvent { message });
+                    sess.send_event_raw(Event {
+                        id: event_turn_id.clone(),
+                        msg: warning,
+                    })
+                    .await;
+                }
+            }
+        }
+        match decision {
+            ReviewDecision::Abort => {
+                sess.interrupt_task().await;
+            }
+            other => sess.notify_approval(&approval_id, other).await,
+        }
+    }
+
+    pub async fn patch_approval(sess: &Arc<Session>, id: String, decision: ReviewDecision) {
+        match decision {
+            ReviewDecision::Abort => {
+                sess.interrupt_task().await;
+            }
+            other => sess.notify_approval(&id, other).await,
+        }
+    }
+
+    pub async fn request_user_input_response(
+        sess: &Arc<Session>,
+        id: String,
+        response: RequestUserInputResponse,
+    ) {
+        sess.notify_user_input_response(&id, response).await;
+    }
+
+    pub async fn request_permissions_response(
+        sess: &Arc<Session>,
+        id: String,
+        response: RequestPermissionsResponse,
+    ) {
+        sess.notify_request_permissions_response(&id, response)
+            .await;
+    }
+
+    pub async fn dynamic_tool_response(
+        sess: &Arc<Session>,
+        id: String,
+        response: DynamicToolResponse,
+    ) {
+        sess.notify_dynamic_tool_response(&id, response).await;
+    }
+
+    pub async fn add_to_history(sess: &Arc<Session>, config: &Arc<Config>, text: String) {
+        let id = sess.conversation_id;
+        let config = Arc::clone(config);
+        tokio::spawn(async move {
+            if let Err(e) = crate::message_history::append_entry(&text, &id, &config).await {
+                warn!("failed to append to message history: {e}");
+            }
+        });
+    }
+
+    pub async fn get_history_entry_request(
+        sess: &Arc<Session>,
+        config: &Arc<Config>,
+        sub_id: String,
+        offset: usize,
+        log_id: u64,
+    ) {
+        let config = Arc::clone(config);
+        let sess_clone = Arc::clone(sess);
+
+        tokio::spawn(async move {
+            // Run lookup in blocking thread because it does file IO + locking.
+            let entry_opt = tokio::task::spawn_blocking(move || {
+                crate::message_history::lookup(log_id, offset, &config)
+            })
+            .await
+            .unwrap_or(None);
+
+            let event = Event {
+                id: sub_id,
+                msg: EventMsg::GetHistoryEntryResponse(
+                    codex_protocol::protocol::GetHistoryEntryResponseEvent {
+                        offset,
+                        log_id,
+                        entry: entry_opt.map(|e| codex_protocol::message_history::HistoryEntry {
+                            conversation_id: e.session_id,
+                            ts: e.ts,
+                            text: e.text,
+                        }),
+                    },
+                ),
+            };
+
+            sess_clone.send_event_raw(event).await;
+        });
+    }
+
+    pub async fn refresh_mcp_servers(sess: &Arc<Session>, refresh_config: McpServerRefreshConfig) {
+        let mut guard = sess.pending_mcp_server_refresh_config.lock().await;
+        *guard = Some(refresh_config);
+    }
+
+    pub async fn reload_user_config(sess: &Arc<Session>) {
+        sess.reload_user_config_layer().await;
+    }
+
+    pub async fn list_mcp_tools(sess: &Session, config: &Arc<Config>, sub_id: String) {
+        let mcp_connection_manager = sess.services.mcp_connection_manager.read().await;
+        let auth = sess.services.auth_manager.auth().await;
+        let mcp_servers = sess
+            .services
+            .mcp_manager
+            .effective_servers(config, auth.as_ref())
+            .await;
+        let snapshot = collect_mcp_snapshot_from_manager(
+            &mcp_connection_manager,
+            compute_auth_statuses(mcp_servers.iter(), config.mcp_oauth_credentials_store_mode)
+                .await,
+        )
+        .await;
+        let event = Event {
+            id: sub_id,
+            msg: EventMsg::McpListToolsResponse(snapshot),
+        };
+        sess.send_event_raw(event).await;
+    }
+
+    pub async fn list_skills(
+        sess: &Session,
+        sub_id: String,
+        cwds: Vec<PathBuf>,
+        force_reload: bool,
+    ) {
+        let default_cwd = {
+            let state = sess.state.lock().await;
+            state.session_configuration.cwd.to_path_buf()
+        };
+        let cwds = if cwds.is_empty() {
+            vec![default_cwd]
+        } else {
+            cwds
+        };
+
+        let skills_manager = &sess.services.skills_manager;
+        let plugins_manager = &sess.services.plugins_manager;
+        let fs = sess
+            .services
+            .environment
+            .as_ref()
+            .map(|environment| environment.get_filesystem());
+        let config = sess.get_config().await;
+        let codex_home = sess.codex_home().await;
+        let mut skills = Vec::new();
+        let empty_cli_overrides: &[(String, toml::Value)] = &[];
+        for cwd in cwds {
+            let cwd_abs = match AbsolutePathBuf::relative_to_current_dir(cwd.as_path()) {
+                Ok(path) => path,
+                Err(err) => {
+                    let error_path = cwd.clone();
+                    skills.push(SkillsListEntry {
+                        cwd,
+                        skills: Vec::new(),
+                        errors: vec![SkillErrorInfo {
+                            path: error_path,
+                            message: err.to_string(),
+                        }],
+                    });
+                    continue;
+                }
+            };
+            let config_layer_stack = match load_config_layers_state(
+                &codex_home,
+                Some(cwd_abs.clone()),
+                empty_cli_overrides,
+                LoaderOverrides::default(),
+                CloudRequirementsLoader::default(),
+            )
+            .await
+            {
+                Ok(config_layer_stack) => config_layer_stack,
+                Err(err) => {
+                    let error_path = cwd.clone();
+                    skills.push(SkillsListEntry {
+                        cwd,
+                        skills: Vec::new(),
+                        errors: vec![SkillErrorInfo {
+                            path: error_path,
+                            message: err.to_string(),
+                        }],
+                    });
+                    continue;
+                }
+            };
+            let effective_skill_roots = plugins_manager
+                .effective_skill_roots_for_layer_stack(
+                    &config_layer_stack,
+                    config.features.enabled(Feature::Plugins),
+                )
+                .await;
+            let skills_input = crate::SkillsLoadInput::new(
+                cwd_abs.clone(),
+                effective_skill_roots,
+                config_layer_stack,
+                config.bundled_skills_enabled(),
+            );
+            let outcome = skills_manager
+                .skills_for_cwd(&skills_input, force_reload, fs.clone())
+                .await;
+            let errors = super::errors_to_info(&outcome.errors);
+            let skills_metadata = super::skills_to_info(&outcome.skills, &outcome.disabled_paths);
+            skills.push(SkillsListEntry {
+                cwd,
+                skills: skills_metadata,
+                errors,
+            });
+        }
+
+        let event = Event {
+            id: sub_id,
+            msg: EventMsg::ListSkillsResponse(ListSkillsResponseEvent { skills }),
+        };
+        sess.send_event_raw(event).await;
+    }
+
+    pub async fn undo(sess: &Arc<Session>, sub_id: String) {
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+        sess.spawn_task(turn_context, Vec::new(), UndoTask::new())
+            .await;
+    }
+
+    pub async fn compact(sess: &Arc<Session>, sub_id: String) {
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+
+        sess.spawn_task(
+            Arc::clone(&turn_context),
+            vec![UserInput::Text {
+                text: turn_context.compact_prompt().to_string(),
+                // Compaction prompt is synthesized; no UI element ranges to preserve.
+                text_elements: Vec::new(),
+            }],
+            CompactTask,
+        )
+        .await;
+    }
+
+    pub async fn archive(sess: &Arc<Session>, sub_id: String) {
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+        sess.spawn_task(turn_context, Vec::new(), ArchiveTask::new())
+            .await;
+    }
+
+    pub async fn drop_memories(sess: &Arc<Session>, config: &Arc<Config>, sub_id: String) {
+        let mut errors = Vec::new();
+
+        if let Some(state_db) = sess.services.state_db.as_deref() {
+            if let Err(err) = state_db.clear_memory_data().await {
+                errors.push(format!("failed clearing memory rows from state db: {err}"));
+            }
+        } else {
+            errors.push("state db unavailable; memory rows were not cleared".to_string());
+        }
+
+        let memory_root = crate::memories::memory_root(&config.codex_home);
+        if let Err(err) = crate::memories::clear_memory_root_contents(&memory_root).await {
+            errors.push(format!(
+                "failed clearing memory directory {}: {err}",
+                memory_root.display()
+            ));
+        }
+
+        if errors.is_empty() {
+            sess.send_event_raw(Event {
+                id: sub_id,
+                msg: EventMsg::Warning(WarningEvent {
+                    message: format!(
+                        "Dropped memories at {} and cleared memory rows from state db.",
+                        memory_root.display()
+                    ),
+                }),
+            })
+            .await;
+            return;
+        }
+
+        sess.send_event_raw(Event {
+            id: sub_id,
+            msg: EventMsg::Error(ErrorEvent {
+                message: format!("Memory drop completed with errors: {}", errors.join("; ")),
+                codex_error_info: Some(CodexErrorInfo::Other),
+            }),
+        })
+        .await;
+    }
+
+    pub async fn update_memories(sess: &Arc<Session>, config: &Arc<Config>, sub_id: String) {
+        let session_source = {
+            let state = sess.state.lock().await;
+            state.session_configuration.session_source.clone()
+        };
+
+        crate::memories::start_memories_startup_task(sess, Arc::clone(config), &session_source);
+
+        sess.send_event_raw(Event {
+            id: sub_id.clone(),
+            msg: EventMsg::Warning(WarningEvent {
+                message: "Memory update triggered.".to_string(),
+            }),
+        })
+        .await;
+    }
+
+    pub async fn thread_rollback(sess: &Arc<Session>, sub_id: String, num_turns: u32) {
+        if num_turns == 0 {
+            sess.send_event_raw(Event {
+                id: sub_id,
+                msg: EventMsg::Error(ErrorEvent {
+                    message: "num_turns must be >= 1".to_string(),
+                    codex_error_info: Some(CodexErrorInfo::ThreadRollbackFailed),
+                }),
+            })
+            .await;
+            return;
+        }
+
+        let has_active_turn = { sess.active_turn.lock().await.is_some() };
+        if has_active_turn {
+            sess.send_event_raw(Event {
+                id: sub_id,
+                msg: EventMsg::Error(ErrorEvent {
+                    message: "Cannot rollback while a turn is in progress.".to_string(),
+                    codex_error_info: Some(CodexErrorInfo::ThreadRollbackFailed),
+                }),
+            })
+            .await;
+            return;
+        }
+
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+        let rollout_path = {
+            let recorder = {
+                let guard = sess.services.rollout.lock().await;
+                guard.clone()
+            };
+            let Some(recorder) = recorder else {
+                sess.send_event_raw(Event {
+                    id: turn_context.sub_id.clone(),
+                    msg: EventMsg::Error(ErrorEvent {
+                        message: "thread rollback requires a persisted rollout path".to_string(),
+                        codex_error_info: Some(CodexErrorInfo::ThreadRollbackFailed),
+                    }),
+                })
+                .await;
+                return;
+            };
+            recorder.rollout_path().to_path_buf()
+        };
+        if let Some(recorder) = {
+            let guard = sess.services.rollout.lock().await;
+            guard.clone()
+        } && let Err(err) = recorder.flush().await
+        {
+            sess.send_event_raw(Event {
+                id: turn_context.sub_id.clone(),
+                msg: EventMsg::Error(ErrorEvent {
+                    message: format!(
+                        "failed to flush rollout `{}` for rollback replay: {err}",
+                        rollout_path.display()
+                    ),
+                    codex_error_info: Some(CodexErrorInfo::ThreadRollbackFailed),
+                }),
+            })
+            .await;
+            return;
+        }
+
+        let initial_history =
+            match RolloutRecorder::get_rollout_history(rollout_path.as_path()).await {
+                Ok(history) => history,
+                Err(err) => {
+                    sess.send_event_raw(Event {
+                        id: turn_context.sub_id.clone(),
+                        msg: EventMsg::Error(ErrorEvent {
+                            message: format!(
+                                "failed to load rollout `{}` for rollback replay: {err}",
+                                rollout_path.display()
+                            ),
+                            codex_error_info: Some(CodexErrorInfo::ThreadRollbackFailed),
+                        }),
+                    })
+                    .await;
+                    return;
+                }
+            };
+
+        let rollback_event = ThreadRolledBackEvent { num_turns };
+        let rollback_msg = EventMsg::ThreadRolledBack(rollback_event.clone());
+        let replay_items = initial_history
+            .get_rollout_items()
+            .into_iter()
+            .chain(std::iter::once(RolloutItem::EventMsg(rollback_msg.clone())))
+            .collect::<Vec<_>>();
+        sess.apply_rollout_reconstruction(turn_context.as_ref(), replay_items.as_slice())
+            .await;
+        sess.recompute_token_usage(turn_context.as_ref()).await;
+
+        sess.persist_rollout_items(&[RolloutItem::EventMsg(rollback_msg.clone())])
+            .await;
+        if let Err(err) = sess.flush_rollout().await {
+            sess.send_event(
+                turn_context.as_ref(),
+                EventMsg::Warning(WarningEvent {
+                    message: format!(
+                        "Rolled the thread back, but failed to save the rollback marker. Codex will continue retrying. Error: {err}"
+                    ),
+                }),
+            )
+            .await;
+        }
+
+        sess.deliver_event_raw(Event {
+            id: turn_context.sub_id.clone(),
+            msg: rollback_msg,
+        })
+        .await;
+    }
+
+    async fn persist_thread_name_update(
+        sess: &Arc<Session>,
+        event: ThreadNameUpdatedEvent,
+    ) -> anyhow::Result<EventMsg> {
+        let msg = EventMsg::ThreadNameUpdated(event);
+        let item = RolloutItem::EventMsg(msg.clone());
+        let recorder = {
+            let guard = sess.services.rollout.lock().await;
+            guard.clone()
+        }
+        .ok_or_else(|| anyhow::anyhow!("Session persistence is disabled; cannot rename thread."))?;
+        recorder.persist().await?;
+        recorder.record_items(std::slice::from_ref(&item)).await?;
+        recorder.flush().await?;
+        Ok(msg)
+    }
+
+    pub(super) async fn persist_thread_memory_mode_update(
+        sess: &Arc<Session>,
+        mode: ThreadMemoryMode,
+    ) -> anyhow::Result<()> {
+        let recorder = {
+            let guard = sess.services.rollout.lock().await;
+            guard.clone()
+        }
+        .ok_or_else(|| {
+            anyhow::anyhow!("Session persistence is disabled; cannot update thread memory mode.")
+        })?;
+        recorder.persist().await?;
+        recorder.flush().await?;
+
+        let rollout_path = recorder.rollout_path().to_path_buf();
+        let mut session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+        if session_meta.meta.id != sess.conversation_id {
+            anyhow::bail!(
+                "rollout session metadata id mismatch: expected {}, found {}",
+                sess.conversation_id,
+                session_meta.meta.id
+            );
+        }
+        session_meta.meta.memory_mode = Some(
+            match mode {
+                ThreadMemoryMode::Enabled => "enabled",
+                ThreadMemoryMode::Disabled => "disabled",
+            }
+            .to_string(),
+        );
+
+        let item = RolloutItem::SessionMeta(session_meta);
+        recorder.record_items(std::slice::from_ref(&item)).await?;
+        recorder.flush().await?;
+        Ok(())
+    }
+
+    /// Persists the thread name in the rollout and state database, updates in-memory state, and
+    /// emits a `ThreadNameUpdated` event on success.
+    pub async fn set_thread_name(sess: &Arc<Session>, sub_id: String, name: String) {
+        let Some(name) = crate::util::normalize_thread_name(&name) else {
+            let event = Event {
+                id: sub_id,
+                msg: EventMsg::Error(ErrorEvent {
+                    message: "Thread name cannot be empty.".to_string(),
+                    codex_error_info: Some(CodexErrorInfo::BadRequest),
+                }),
+            };
+            sess.send_event_raw(event).await;
+            return;
+        };
+
+        let updated = ThreadNameUpdatedEvent {
+            thread_id: sess.conversation_id,
+            thread_name: Some(name.clone()),
+        };
+
+        let msg = match persist_thread_name_update(sess, updated).await {
+            Ok(msg) => msg,
+            Err(err) => {
+                warn!("Failed to persist thread name update to rollout: {err}");
+                let event = Event {
+                    id: sub_id,
+                    msg: EventMsg::Error(ErrorEvent {
+                        message: err.to_string(),
+                        codex_error_info: Some(CodexErrorInfo::Other),
+                    }),
+                };
+                sess.send_event_raw(event).await;
+                return;
+            }
+        };
+
+        if let Some(state_db) = sess.services.state_db.as_deref()
+            && let Err(err) = state_db
+                .update_thread_title(sess.conversation_id, &name)
+                .await
+        {
+            warn!("Failed to update thread title in state db: {err}");
+        }
+
+        {
+            let mut state = sess.state.lock().await;
+            state.session_configuration.thread_name = Some(name.clone());
+        }
+
+        let codex_home = sess.codex_home().await;
+        if let Err(err) =
+            crate::rollout::append_thread_name(&codex_home, sess.conversation_id, &name).await
+        {
+            warn!("Failed to update legacy thread name index: {err}");
+        }
+
+        sess.deliver_event_raw(Event { id: sub_id, msg }).await;
+    }
+
+    /// Persists thread-level memory mode metadata for the active session.
+    ///
+    /// This does not involve the model and only affects whether the thread is
+    /// eligible for future memory generation.
+    pub async fn set_thread_memory_mode(
+        sess: &Arc<Session>,
+        sub_id: String,
+        mode: ThreadMemoryMode,
+    ) {
+        if let Err(err) = persist_thread_memory_mode_update(sess, mode).await {
+            warn!("Failed to persist thread memory mode update to rollout: {err}");
+            let event = Event {
+                id: sub_id,
+                msg: EventMsg::Error(ErrorEvent {
+                    message: err.to_string(),
+                    codex_error_info: Some(CodexErrorInfo::Other),
+                }),
+            };
+            sess.send_event_raw(event).await;
+        }
+    }
+
+    pub async fn shutdown(sess: &Arc<Session>, sub_id: String) -> bool {
+        sess.abort_all_tasks(TurnAbortReason::Interrupted).await;
+        let _ = sess.conversation.shutdown().await;
+        sess.services
+            .unified_exec_manager
+            .terminate_all_processes()
+            .await;
+        sess.guardian_review_session.shutdown().await;
+        info!("Shutting down Codex instance");
+        let history = sess.clone_history().await;
+        let turn_count = history
+            .raw_items()
+            .iter()
+            .filter(|item| is_user_turn_boundary(item))
+            .count();
+        sess.services.session_telemetry.counter(
+            "codex.conversation.turn.count",
+            i64::try_from(turn_count).unwrap_or(0),
+            &[],
+        );
+
+        // Gracefully flush and shutdown rollout recorder on session end so tests
+        // that inspect the rollout file do not race with the background writer.
+        let recorder_opt = {
+            let mut guard = sess.services.rollout.lock().await;
+            guard.take()
+        };
+        if let Some(rec) = recorder_opt
+            && let Err(e) = rec.shutdown().await
+        {
+            warn!("failed to shutdown rollout recorder: {e}");
+            let event = Event {
+                id: sub_id.clone(),
+                msg: EventMsg::Error(ErrorEvent {
+                    message: "Failed to shutdown rollout recorder".to_string(),
+                    codex_error_info: Some(CodexErrorInfo::Other),
+                }),
+            };
+            sess.send_event_raw(event).await;
+        }
+
+        let event = Event {
+            id: sub_id,
+            msg: EventMsg::ShutdownComplete,
+        };
+        sess.send_event_raw(event).await;
+        true
+    }
+
+    pub async fn review(
+        sess: &Arc<Session>,
+        config: &Arc<Config>,
+        sub_id: String,
+        review_request: ReviewRequest,
+    ) {
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id.clone()).await;
+        sess.maybe_emit_unknown_model_warning_for_turn(turn_context.as_ref())
+            .await;
+        sess.refresh_mcp_servers_if_requested(&turn_context).await;
+        match resolve_review_request(review_request, &turn_context.cwd) {
+            Ok(resolved) => {
+                spawn_review_thread(
+                    Arc::clone(sess),
+                    Arc::clone(config),
+                    turn_context.clone(),
+                    sub_id,
+                    resolved,
+                )
+                .await;
+            }
+            Err(err) => {
+                let event = Event {
+                    id: sub_id,
+                    msg: EventMsg::Error(ErrorEvent {
+                        message: err.to_string(),
+                        codex_error_info: Some(CodexErrorInfo::Other),
+                    }),
+                };
+                sess.send_event(&turn_context, event.msg).await;
+            }
+        }
+    }
+}
+
+/// Spawn a review thread using the given prompt.
+async fn spawn_review_thread(
+    sess: Arc<Session>,
+    config: Arc<Config>,
+    parent_turn_context: Arc<TurnContext>,
+    sub_id: String,
+    resolved: crate::review_prompts::ResolvedReviewRequest,
+) {
+    let model = config
+        .review_model
+        .clone()
+        .unwrap_or_else(|| parent_turn_context.model_info.slug.clone());
+    let review_model_info = sess
+        .services
+        .models_manager
+        .get_model_info(&model, &config.to_models_manager_config())
+        .await;
+    // For reviews, disable web_search and view_image regardless of global settings.
+    let mut review_features = sess.features.clone();
+    let _ = review_features.disable(Feature::WebSearchRequest);
+    let _ = review_features.disable(Feature::WebSearchCached);
+    let review_web_search_mode = WebSearchMode::Disabled;
+    let tools_config = ToolsConfig::new(&ToolsConfigParams {
+        model_info: &review_model_info,
+        available_models: &sess
+            .services
+            .models_manager
+            .list_models(RefreshStrategy::OnlineIfUncached)
+            .await,
+        features: &review_features,
+        image_generation_tool_auth_allowed: image_generation_tool_auth_allowed(Some(
+            sess.services.auth_manager.as_ref(),
+        )),
+        web_search_mode: Some(review_web_search_mode),
+        session_source: parent_turn_context.session_source.clone(),
+        sandbox_policy: parent_turn_context.sandbox_policy.get(),
+        windows_sandbox_level: parent_turn_context.windows_sandbox_level,
+    })
+    .with_unified_exec_shell_mode_for_session(
+        crate::tools::spec::tool_user_shell_type(sess.services.user_shell.as_ref()),
+        sess.services.shell_zsh_path.as_ref(),
+        sess.services.main_execve_wrapper_exe.as_ref(),
+    )
+    .with_web_search_config(/*web_search_config*/ None)
+    .with_allow_login_shell(config.permissions.allow_login_shell)
+    .with_has_environment(parent_turn_context.environment.is_some())
+    .with_spawn_agent_usage_hint(config.multi_agent_v2.usage_hint_enabled)
+    .with_spawn_agent_usage_hint_text(config.multi_agent_v2.usage_hint_text.clone())
+    .with_hide_spawn_agent_metadata(config.multi_agent_v2.hide_spawn_agent_metadata)
+    .with_agent_type_description(crate::agent::role::spawn_tool_spec::build(
+        &config.agent_roles,
+    ));
+
+    let review_prompt = resolved.prompt.clone();
+    let provider = parent_turn_context.provider.clone();
+    let auth_manager = parent_turn_context.auth_manager.clone();
+    let model_info = review_model_info.clone();
+
+    // Build per‑turn client with the requested model/family.
+    let mut per_turn_config = (*config).clone();
+    per_turn_config.model = Some(model.clone());
+    per_turn_config.features = review_features.clone();
+    if let Err(err) = per_turn_config.web_search_mode.set(review_web_search_mode) {
+        let fallback_value = per_turn_config.web_search_mode.value();
+        tracing::warn!(
+            error = %err,
+            ?review_web_search_mode,
+            ?fallback_value,
+            "review web_search_mode is disallowed by requirements; keeping constrained value"
+        );
+    }
+
+    let session_telemetry = parent_turn_context
+        .session_telemetry
+        .clone()
+        .with_model(model.as_str(), review_model_info.slug.as_str());
+    let auth_manager_for_context = auth_manager.clone();
+    let provider_for_context = provider.clone();
+    let session_telemetry_for_context = session_telemetry.clone();
+    let reasoning_effort = per_turn_config.model_reasoning_effort;
+    let reasoning_summary = per_turn_config
+        .model_reasoning_summary
+        .unwrap_or(model_info.default_reasoning_summary);
+    let session_source = parent_turn_context.session_source.clone();
+
+    let per_turn_config = Arc::new(per_turn_config);
+    let review_turn_id = sub_id.to_string();
+    let turn_metadata_state = Arc::new(TurnMetadataState::new(
+        sess.conversation_id.to_string(),
+        &session_source,
+        review_turn_id.clone(),
+        parent_turn_context.cwd.clone(),
+        parent_turn_context.sandbox_policy.get(),
+        parent_turn_context.windows_sandbox_level,
+    ));
+
+    let review_turn_context = TurnContext {
+        sub_id: review_turn_id,
+        trace_id: current_span_trace_id(),
+        realtime_active: parent_turn_context.realtime_active,
+        config: per_turn_config,
+        auth_manager: auth_manager_for_context,
+        model_info: model_info.clone(),
+        session_telemetry: session_telemetry_for_context,
+        provider: provider_for_context,
+        reasoning_effort,
+        reasoning_summary,
+        session_source,
+        environment: parent_turn_context.environment.clone(),
+        tools_config,
+        features: parent_turn_context.features.clone(),
+        ghost_snapshot: parent_turn_context.ghost_snapshot.clone(),
+        current_date: parent_turn_context.current_date.clone(),
+        timezone: parent_turn_context.timezone.clone(),
+        app_server_client_name: parent_turn_context.app_server_client_name.clone(),
+        developer_instructions: None,
+        user_instructions: None,
+        compact_prompt: parent_turn_context.compact_prompt.clone(),
+        collaboration_mode: parent_turn_context.collaboration_mode.clone(),
+        personality: parent_turn_context.personality,
+        approval_policy: parent_turn_context.approval_policy.clone(),
+        sandbox_policy: parent_turn_context.sandbox_policy.clone(),
+        file_system_sandbox_policy: parent_turn_context.file_system_sandbox_policy.clone(),
+        network_sandbox_policy: parent_turn_context.network_sandbox_policy,
+        network: parent_turn_context.network.clone(),
+        windows_sandbox_level: parent_turn_context.windows_sandbox_level,
+        shell_environment_policy: parent_turn_context.shell_environment_policy.clone(),
+        cwd: parent_turn_context.cwd.clone(),
+        final_output_json_schema: None,
+        codex_self_exe: parent_turn_context.codex_self_exe.clone(),
+        codex_linux_sandbox_exe: parent_turn_context.codex_linux_sandbox_exe.clone(),
+        tool_call_gate: Arc::new(ReadinessFlag::new()),
+        js_repl: Arc::clone(&sess.js_repl),
+        dynamic_tools: parent_turn_context.dynamic_tools.clone(),
+        truncation_policy: model_info.truncation_policy.into(),
+        turn_metadata_state,
+        turn_skills: TurnSkillsContext::new(parent_turn_context.turn_skills.outcome.clone()),
+        turn_timing_state: Arc::new(TurnTimingState::default()),
+    };
+
+    // Seed the child task with the review prompt as the initial user message.
+    let input: Vec<UserInput> = vec![UserInput::Text {
+        text: review_prompt,
+        // Review prompt is synthesized; no UI element ranges to preserve.
+        text_elements: Vec::new(),
+    }];
+    let tc = Arc::new(review_turn_context);
+    tc.turn_metadata_state.spawn_git_enrichment_task();
+    // TODO(ccunningham): Review turns currently rely on `spawn_task` for TurnComplete but do not
+    // emit a parent TurnStarted. Consider giving review a full parent turn lifecycle
+    // (TurnStarted + TurnComplete) for consistency with other standalone tasks.
+    sess.spawn_task(tc.clone(), input, ReviewTask::new()).await;
+
+    // Announce entering review mode so UIs can switch modes.
+    let review_request = ReviewRequest {
+        target: resolved.target,
+        user_facing_hint: Some(resolved.user_facing_hint),
+    };
+    sess.send_event(&tc, EventMsg::EnteredReviewMode(review_request))
+        .await;
+}
+
 fn skills_to_info(
     skills: &[SkillMetadata],
     disabled_paths: &HashSet<AbsolutePathBuf>,
@@ -3288,6 +4745,2025 @@ fn errors_to_info(errors: &[SkillError]) -> Vec<SkillErrorInfo> {
             message: err.message.clone(),
         })
         .collect()
+}
+
+/// Takes a user message as input and runs a loop where, at each sampling request, the model
+/// replies with either:
+///
+/// - requested function calls
+/// - an assistant message
+///
+/// While it is possible for the model to return multiple of these items in a
+/// single sampling request, in practice, we generally one item per sampling request:
+///
+/// - If the model requests a function call, we execute it and send the output
+///   back to the model in the next sampling request.
+/// - If the model sends only an assistant message, we record it in the
+///   conversation history and consider the turn complete.
+///
+pub(crate) async fn run_turn(
+    sess: Arc<Session>,
+    turn_context: Arc<TurnContext>,
+    input: Vec<UserInput>,
+    prewarmed_client_session: Option<ModelClientSession>,
+    cancellation_token: CancellationToken,
+) -> Option<String> {
+    if input.is_empty() && !sess.has_pending_input().await {
+        return None;
+    }
+
+    let model_info = turn_context.model_info.clone();
+    let auto_compact_limit = model_info.auto_compact_token_limit().unwrap_or(i64::MAX);
+    let mut prewarmed_client_session = prewarmed_client_session;
+    // TODO(ccunningham): Pre-turn compaction runs before context updates and the
+    // new user message are recorded. Estimate pending incoming items (context
+    // diffs/full reinjection + user input) and trigger compaction preemptively
+    // when they would push the thread over the compaction threshold.
+    let pre_sampling_compacted = match run_pre_sampling_compact(&sess, &turn_context).await {
+        Ok(pre_sampling_compacted) => pre_sampling_compacted,
+        Err(_) => {
+            error!("Failed to run pre-sampling compact");
+            return None;
+        }
+    };
+    if pre_sampling_compacted && let Some(mut client_session) = prewarmed_client_session.take() {
+        client_session.reset_websocket_session();
+    }
+
+    let skills_outcome = Some(turn_context.turn_skills.outcome.as_ref());
+
+    sess.record_context_updates_and_set_reference_context_item(turn_context.as_ref())
+        .await;
+
+    let loaded_plugins = sess
+        .services
+        .plugins_manager
+        .plugins_for_config(&turn_context.config)
+        .await;
+    // Structured plugin:// mentions are resolved from the current session's
+    // enabled plugins, then converted into turn-scoped guidance below.
+    let mentioned_plugins =
+        collect_explicit_plugin_mentions(&input, loaded_plugins.capability_summaries());
+    let mcp_tools = if turn_context.apps_enabled() || !mentioned_plugins.is_empty() {
+        // Plugin mentions need raw MCP/app inventory even when app tools
+        // are normally hidden so we can describe the plugin's currently
+        // usable capabilities for this turn.
+        match sess
+            .services
+            .mcp_connection_manager
+            .read()
+            .await
+            .list_all_tools()
+            .or_cancel(&cancellation_token)
+            .await
+        {
+            Ok(mcp_tools) => mcp_tools,
+            Err(_) if turn_context.apps_enabled() => return None,
+            Err(_) => HashMap::new(),
+        }
+    } else {
+        HashMap::new()
+    };
+    let available_connectors = if turn_context.apps_enabled() {
+        let connectors = connectors::merge_plugin_apps_with_accessible(
+            loaded_plugins.effective_apps(),
+            connectors::accessible_connectors_from_mcp_tools(&mcp_tools),
+        );
+        connectors::with_app_enabled_state(connectors, &turn_context.config)
+    } else {
+        Vec::new()
+    };
+    let connector_slug_counts = build_connector_slug_counts(&available_connectors);
+    let skill_name_counts_lower = skills_outcome
+        .as_ref()
+        .map_or_else(HashMap::new, |outcome| {
+            build_skill_name_counts(&outcome.skills, &outcome.disabled_paths).1
+        });
+    let mentioned_skills = skills_outcome.as_ref().map_or_else(Vec::new, |outcome| {
+        collect_explicit_skill_mentions(
+            &input,
+            &outcome.skills,
+            &outcome.disabled_paths,
+            &connector_slug_counts,
+        )
+    });
+    let config = turn_context.config.clone();
+    if config
+        .features
+        .enabled(Feature::SkillEnvVarDependencyPrompt)
+    {
+        let env_var_dependencies = collect_env_var_dependencies(&mentioned_skills);
+        resolve_skill_dependencies_for_turn(&sess, &turn_context, &env_var_dependencies).await;
+    }
+
+    maybe_prompt_and_install_mcp_dependencies(
+        sess.as_ref(),
+        turn_context.as_ref(),
+        &cancellation_token,
+        &mentioned_skills,
+    )
+    .await;
+
+    let session_telemetry = turn_context.session_telemetry.clone();
+    let thread_id = sess.conversation_id.to_string();
+    let tracking = build_track_events_context(
+        turn_context.model_info.slug.clone(),
+        thread_id,
+        turn_context.sub_id.clone(),
+    );
+    let SkillInjections {
+        items: skill_items,
+        warnings: skill_warnings,
+    } = build_skill_injections(
+        &mentioned_skills,
+        skills_outcome,
+        Some(&session_telemetry),
+        &sess.services.analytics_events_client,
+        tracking.clone(),
+    )
+    .await;
+
+    for message in skill_warnings {
+        sess.send_event(&turn_context, EventMsg::Warning(WarningEvent { message }))
+            .await;
+    }
+
+    let plugin_items =
+        build_plugin_injections(&mentioned_plugins, &mcp_tools, &available_connectors);
+    let mentioned_plugin_metadata = mentioned_plugins
+        .iter()
+        .filter_map(crate::plugins::PluginCapabilitySummary::telemetry_metadata)
+        .collect::<Vec<_>>();
+
+    let mut explicitly_enabled_connectors = collect_explicit_app_ids(&input);
+    explicitly_enabled_connectors.extend(collect_explicit_app_ids_from_skill_items(
+        &skill_items,
+        &available_connectors,
+        &skill_name_counts_lower,
+    ));
+    let connector_names_by_id = available_connectors
+        .iter()
+        .map(|connector| (connector.id.as_str(), connector.name.as_str()))
+        .collect::<HashMap<&str, &str>>();
+    let mentioned_app_invocations = explicitly_enabled_connectors
+        .iter()
+        .map(|connector_id| AppInvocation {
+            connector_id: Some(connector_id.clone()),
+            app_name: connector_names_by_id
+                .get(connector_id.as_str())
+                .map(|name| (*name).to_string()),
+            invocation_type: Some(InvocationType::Explicit),
+        })
+        .collect::<Vec<_>>();
+
+    if run_pending_session_start_hooks(&sess, &turn_context).await {
+        return None;
+    }
+    let additional_contexts = if input.is_empty() {
+        Vec::new()
+    } else {
+        let initial_input_for_turn: ResponseInputItem = ResponseInputItem::from(input.clone());
+        let response_item: ResponseItem = initial_input_for_turn.clone().into();
+        let user_prompt_submit_outcome = run_user_prompt_submit_hooks(
+            &sess,
+            &turn_context,
+            UserMessageItem::new(&input).message(),
+        )
+        .await;
+        if user_prompt_submit_outcome.should_stop {
+            record_additional_contexts(
+                &sess,
+                &turn_context,
+                user_prompt_submit_outcome.additional_contexts,
+            )
+            .await;
+            return None;
+        }
+        sess.record_user_prompt_and_emit_turn_item(turn_context.as_ref(), &input, response_item)
+            .await;
+        user_prompt_submit_outcome.additional_contexts
+    };
+    sess.services
+        .analytics_events_client
+        .track_app_mentioned(tracking.clone(), mentioned_app_invocations);
+    for plugin in mentioned_plugin_metadata {
+        sess.services
+            .analytics_events_client
+            .track_plugin_used(tracking.clone(), plugin);
+    }
+    sess.merge_connector_selection(explicitly_enabled_connectors.clone())
+        .await;
+    record_additional_contexts(&sess, &turn_context, additional_contexts).await;
+    if !input.is_empty() {
+        // Track the previous-turn baseline from the regular user-turn path only so
+        // standalone tasks (compact/shell/review/undo) cannot suppress future
+        // model/realtime injections.
+        sess.set_previous_turn_settings(Some(PreviousTurnSettings {
+            model: turn_context.model_info.slug.clone(),
+            realtime_active: Some(turn_context.realtime_active),
+        }))
+        .await;
+    }
+
+    if !skill_items.is_empty() {
+        sess.record_conversation_items(&turn_context, &skill_items)
+            .await;
+    }
+    if !plugin_items.is_empty() {
+        sess.record_conversation_items(&turn_context, &plugin_items)
+            .await;
+    }
+
+    track_turn_resolved_config_analytics(&sess, &turn_context, &input).await;
+
+    let skills_outcome = Some(turn_context.turn_skills.outcome.as_ref());
+    sess.maybe_start_ghost_snapshot(Arc::clone(&turn_context), cancellation_token.child_token())
+        .await;
+    let mut last_agent_message: Option<String> = None;
+    let mut stop_hook_active = false;
+    // Although from the perspective of codex.rs, TurnDiffTracker has the lifecycle of a Task which contains
+    // many turns, from the perspective of the user, it is a single turn.
+    let turn_diff_tracker = Arc::new(tokio::sync::Mutex::new(TurnDiffTracker::new()));
+    let mut server_model_warning_emitted_for_turn = false;
+
+    // `ModelClientSession` is turn-scoped and caches WebSocket + sticky routing state, so we reuse
+    // one instance across retries within this turn.
+    let mut client_session = if let Some(client_session) = prewarmed_client_session {
+        client_session
+    } else {
+        sess.services.model_client.new_session()
+    };
+    // Pending input is drained into history before building the next model request.
+    // However, we defer that drain until after sampling in two cases:
+    // 1. At the start of a turn, so the fresh user prompt in `input` gets sampled first.
+    // 2. After auto-compact, when model/tool continuation needs to resume before any steer.
+    let mut can_drain_pending_input = input.is_empty();
+
+    loop {
+        if run_pending_session_start_hooks(&sess, &turn_context).await {
+            break;
+        }
+
+        // Note that pending_input would be something like a message the user
+        // submitted through the UI while the model was running. Though the UI
+        // may support this, the model might not.
+        let pending_input = if can_drain_pending_input {
+            sess.get_pending_input().await
+        } else {
+            Vec::new()
+        };
+
+        let mut blocked_pending_input = false;
+        let mut blocked_pending_input_contexts = Vec::new();
+        let mut requeued_pending_input = false;
+        let mut accepted_pending_input = Vec::new();
+        if !pending_input.is_empty() {
+            let mut pending_input_iter = pending_input.into_iter();
+            while let Some(pending_input_item) = pending_input_iter.next() {
+                match inspect_pending_input(&sess, &turn_context, pending_input_item).await {
+                    PendingInputHookDisposition::Accepted(pending_input) => {
+                        accepted_pending_input.push(*pending_input);
+                    }
+                    PendingInputHookDisposition::Blocked {
+                        additional_contexts,
+                    } => {
+                        let remaining_pending_input = pending_input_iter.collect::<Vec<_>>();
+                        if !remaining_pending_input.is_empty() {
+                            let _ = sess.prepend_pending_input(remaining_pending_input).await;
+                            requeued_pending_input = true;
+                        }
+                        blocked_pending_input_contexts = additional_contexts;
+                        blocked_pending_input = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        let has_accepted_pending_input = !accepted_pending_input.is_empty();
+        for pending_input in accepted_pending_input {
+            record_pending_input(&sess, &turn_context, pending_input).await;
+        }
+        record_additional_contexts(&sess, &turn_context, blocked_pending_input_contexts).await;
+
+        if blocked_pending_input && !has_accepted_pending_input {
+            if requeued_pending_input {
+                continue;
+            }
+            break;
+        }
+
+        // Construct the input that we will send to the model.
+        let sampling_request_input: Vec<ResponseItem> = {
+            sess.clone_history()
+                .await
+                .for_prompt(&turn_context.model_info.input_modalities)
+        };
+
+        let sampling_request_input_messages = sampling_request_input
+            .iter()
+            .filter_map(|item| match parse_turn_item(item) {
+                Some(TurnItem::UserMessage(user_message)) => Some(user_message),
+                _ => None,
+            })
+            .map(|user_message| user_message.message())
+            .collect::<Vec<String>>();
+        let turn_metadata_header = turn_context.turn_metadata_state.current_header_value();
+        match run_sampling_request(
+            Arc::clone(&sess),
+            Arc::clone(&turn_context),
+            Arc::clone(&turn_diff_tracker),
+            &mut client_session,
+            turn_metadata_header.as_deref(),
+            sampling_request_input,
+            &explicitly_enabled_connectors,
+            skills_outcome,
+            &mut server_model_warning_emitted_for_turn,
+            cancellation_token.child_token(),
+        )
+        .await
+        {
+            Ok(sampling_request_output) => {
+                let SamplingRequestResult {
+                    needs_follow_up: model_needs_follow_up,
+                    last_agent_message: sampling_request_last_agent_message,
+                } = sampling_request_output;
+                can_drain_pending_input = true;
+                let has_pending_input = sess.has_pending_input().await;
+                let needs_follow_up = model_needs_follow_up || has_pending_input;
+                let total_usage_tokens = sess.get_total_token_usage().await;
+                let token_limit_reached = total_usage_tokens >= auto_compact_limit;
+
+                let estimated_token_count =
+                    sess.get_estimated_token_count(turn_context.as_ref()).await;
+
+                trace!(
+                    turn_id = %turn_context.sub_id,
+                    total_usage_tokens,
+                    estimated_token_count = ?estimated_token_count,
+                    auto_compact_limit,
+                    token_limit_reached,
+                    model_needs_follow_up,
+                    has_pending_input,
+                    needs_follow_up,
+                    "post sampling token usage"
+                );
+
+                // as long as compaction works well in getting us way below the token limit, we shouldn't worry about being in an infinite loop.
+                if token_limit_reached && needs_follow_up {
+                    if run_auto_compact(
+                        &sess,
+                        &turn_context,
+                        InitialContextInjection::BeforeLastUserMessage,
+                        CompactionReason::ContextLimit,
+                        CompactionPhase::MidTurn,
+                    )
+                    .await
+                    .is_err()
+                    {
+                        return None;
+                    }
+                    client_session.reset_websocket_session();
+                    can_drain_pending_input = !model_needs_follow_up;
+                    continue;
+                }
+
+                if !needs_follow_up {
+                    last_agent_message = sampling_request_last_agent_message;
+                    let stop_hook_permission_mode = match turn_context.approval_policy.value() {
+                        AskForApproval::Never => "bypassPermissions",
+                        AskForApproval::UnlessTrusted
+                        | AskForApproval::OnFailure
+                        | AskForApproval::OnRequest
+                        | AskForApproval::Granular(_) => "default",
+                    }
+                    .to_string();
+                    let stop_request = codex_hooks::StopRequest {
+                        session_id: sess.conversation_id,
+                        turn_id: turn_context.sub_id.clone(),
+                        cwd: turn_context.cwd.clone(),
+                        transcript_path: sess.hook_transcript_path().await,
+                        model: turn_context.model_info.slug.clone(),
+                        permission_mode: stop_hook_permission_mode,
+                        stop_hook_active,
+                        last_assistant_message: last_agent_message.clone(),
+                    };
+                    for run in sess.hooks().preview_stop(&stop_request) {
+                        sess.send_event(
+                            &turn_context,
+                            EventMsg::HookStarted(codex_protocol::protocol::HookStartedEvent {
+                                turn_id: Some(turn_context.sub_id.clone()),
+                                run,
+                            }),
+                        )
+                        .await;
+                    }
+                    let stop_outcome = sess.hooks().run_stop(stop_request).await;
+                    for completed in stop_outcome.hook_events {
+                        sess.send_event(&turn_context, EventMsg::HookCompleted(completed))
+                            .await;
+                    }
+                    if stop_outcome.should_block {
+                        if let Some(hook_prompt_message) =
+                            build_hook_prompt_message(&stop_outcome.continuation_fragments)
+                        {
+                            sess.record_conversation_items(
+                                &turn_context,
+                                std::slice::from_ref(&hook_prompt_message),
+                            )
+                            .await;
+                            stop_hook_active = true;
+                            continue;
+                        } else {
+                            sess.send_event(
+                                &turn_context,
+                                EventMsg::Warning(WarningEvent {
+                                    message: "Stop hook requested continuation without a prompt; ignoring the block.".to_string(),
+                                }),
+                            )
+                            .await;
+                        }
+                    }
+                    if stop_outcome.should_stop {
+                        break;
+                    }
+                    let hook_outcomes = sess
+                        .hooks()
+                        .dispatch(HookPayload {
+                            session_id: sess.conversation_id,
+                            cwd: turn_context.cwd.clone(),
+                            client: turn_context.app_server_client_name.clone(),
+                            triggered_at: chrono::Utc::now(),
+                            hook_event: HookEvent::AfterAgent {
+                                event: HookEventAfterAgent {
+                                    thread_id: sess.conversation_id,
+                                    turn_id: turn_context.sub_id.clone(),
+                                    input_messages: sampling_request_input_messages,
+                                    last_assistant_message: last_agent_message.clone(),
+                                },
+                            },
+                        })
+                        .await;
+
+                    let mut abort_message = None;
+                    for hook_outcome in hook_outcomes {
+                        let hook_name = hook_outcome.hook_name;
+                        match hook_outcome.result {
+                            HookResult::Success => {}
+                            HookResult::FailedContinue(error) => {
+                                warn!(
+                                    turn_id = %turn_context.sub_id,
+                                    hook_name = %hook_name,
+                                    error = %error,
+                                    "after_agent hook failed; continuing"
+                                );
+                            }
+                            HookResult::FailedAbort(error) => {
+                                let message = format!(
+                                    "after_agent hook '{hook_name}' failed and aborted turn completion: {error}"
+                                );
+                                warn!(
+                                    turn_id = %turn_context.sub_id,
+                                    hook_name = %hook_name,
+                                    error = %error,
+                                    "after_agent hook failed; aborting operation"
+                                );
+                                if abort_message.is_none() {
+                                    abort_message = Some(message);
+                                }
+                            }
+                        }
+                    }
+                    if let Some(message) = abort_message {
+                        sess.send_event(
+                            &turn_context,
+                            EventMsg::Error(ErrorEvent {
+                                message,
+                                codex_error_info: None,
+                            }),
+                        )
+                        .await;
+                        return None;
+                    }
+                    break;
+                }
+                continue;
+            }
+            Err(CodexErr::TurnAborted) => {
+                // Aborted turn is reported via a different event.
+                break;
+            }
+            Err(CodexErr::InvalidImageRequest()) => {
+                let mut state = sess.state.lock().await;
+                error_or_panic(
+                    "Invalid image detected; sanitizing tool output to prevent poisoning",
+                );
+                if state.history.replace_last_turn_images("Invalid image") {
+                    continue;
+                }
+                let event = EventMsg::Error(ErrorEvent {
+                    message: "Invalid image in your last message. Please remove it and try again."
+                        .to_string(),
+                    codex_error_info: Some(CodexErrorInfo::BadRequest),
+                });
+                sess.send_event(&turn_context, event).await;
+                break;
+            }
+            Err(e) => {
+                info!("Turn error: {e:#}");
+                let event = EventMsg::Error(e.to_error_event(/*message_prefix*/ None));
+                sess.send_event(&turn_context, event).await;
+                // let the user continue the conversation
+                break;
+            }
+        }
+    }
+
+    last_agent_message
+}
+
+async fn track_turn_resolved_config_analytics(
+    sess: &Session,
+    turn_context: &TurnContext,
+    input: &[UserInput],
+) {
+    if !sess.enabled(Feature::GeneralAnalytics) {
+        return;
+    }
+
+    let thread_config = {
+        let state = sess.state.lock().await;
+        state.session_configuration.thread_config_snapshot()
+    };
+    let is_first_turn = {
+        let mut state = sess.state.lock().await;
+        state.take_next_turn_is_first()
+    };
+    sess.services
+        .analytics_events_client
+        .track_turn_resolved_config(TurnResolvedConfigFact {
+            turn_id: turn_context.sub_id.clone(),
+            thread_id: sess.conversation_id.to_string(),
+            num_input_images: input
+                .iter()
+                .filter(|item| {
+                    matches!(item, UserInput::Image { .. } | UserInput::LocalImage { .. })
+                })
+                .count(),
+            submission_type: None,
+            ephemeral: thread_config.ephemeral,
+            session_source: thread_config.session_source,
+            model: turn_context.model_info.slug.clone(),
+            model_provider: turn_context.config.model_provider_id.clone(),
+            sandbox_policy: turn_context.sandbox_policy.get().clone(),
+            reasoning_effort: turn_context.reasoning_effort,
+            reasoning_summary: Some(turn_context.reasoning_summary),
+            service_tier: turn_context.config.service_tier,
+            approval_policy: turn_context.approval_policy.value(),
+            approvals_reviewer: turn_context.config.approvals_reviewer,
+            sandbox_network_access: turn_context.network_sandbox_policy.is_enabled(),
+            collaboration_mode: turn_context.collaboration_mode.mode,
+            personality: turn_context.personality,
+            is_first_turn,
+        });
+}
+
+async fn run_pre_sampling_compact(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+) -> CodexResult<bool> {
+    let total_usage_tokens_before_compaction = sess.get_total_token_usage().await;
+    let mut pre_sampling_compacted = maybe_run_previous_model_inline_compact(
+        sess,
+        turn_context,
+        total_usage_tokens_before_compaction,
+    )
+    .await?;
+    let total_usage_tokens = sess.get_total_token_usage().await;
+    let auto_compact_limit = turn_context
+        .model_info
+        .auto_compact_token_limit()
+        .unwrap_or(i64::MAX);
+    if total_usage_tokens >= auto_compact_limit {
+        run_auto_compact(
+            sess,
+            turn_context,
+            InitialContextInjection::DoNotInject,
+            CompactionReason::ContextLimit,
+            CompactionPhase::PreTurn,
+        )
+        .await?;
+        pre_sampling_compacted = true;
+    }
+    Ok(pre_sampling_compacted)
+}
+
+/// Runs pre-sampling compaction against the previous model when switching to a smaller
+/// context-window model.
+///
+/// Returns `Ok(true)` when compaction ran successfully, `Ok(false)` when compaction was skipped
+/// because the model/context-window preconditions were not met, and `Err(_)` only when compaction
+/// was attempted and failed.
+async fn maybe_run_previous_model_inline_compact(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+    total_usage_tokens: i64,
+) -> CodexResult<bool> {
+    let Some(previous_turn_settings) = sess.previous_turn_settings().await else {
+        return Ok(false);
+    };
+    let previous_model_turn_context = Arc::new(
+        turn_context
+            .with_model(previous_turn_settings.model, &sess.services.models_manager)
+            .await,
+    );
+
+    let Some(old_context_window) = previous_model_turn_context.model_context_window() else {
+        return Ok(false);
+    };
+    let Some(new_context_window) = turn_context.model_context_window() else {
+        return Ok(false);
+    };
+    let new_auto_compact_limit = turn_context
+        .model_info
+        .auto_compact_token_limit()
+        .unwrap_or(i64::MAX);
+    let should_run = total_usage_tokens > new_auto_compact_limit
+        && previous_model_turn_context.model_info.slug != turn_context.model_info.slug
+        && old_context_window > new_context_window;
+    if should_run {
+        run_auto_compact(
+            sess,
+            &previous_model_turn_context,
+            InitialContextInjection::DoNotInject,
+            CompactionReason::ModelDownshift,
+            CompactionPhase::PreTurn,
+        )
+        .await?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+async fn run_auto_compact(
+    sess: &Arc<Session>,
+    turn_context: &Arc<TurnContext>,
+    initial_context_injection: InitialContextInjection,
+    reason: CompactionReason,
+    phase: CompactionPhase,
+) -> CodexResult<()> {
+    // Fork: run memory archive before compaction when experiment is enabled.
+    crate::tasks::run_inline_archive(Arc::clone(sess), Arc::clone(turn_context)).await;
+
+    if should_use_remote_compact_task(&turn_context.provider) {
+        run_inline_remote_auto_compact_task(
+            Arc::clone(sess),
+            Arc::clone(turn_context),
+            initial_context_injection,
+            reason,
+            phase,
+        )
+        .await?;
+    } else {
+        run_inline_auto_compact_task(
+            Arc::clone(sess),
+            Arc::clone(turn_context),
+            initial_context_injection,
+            reason,
+            phase,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+fn collect_explicit_app_ids_from_skill_items(
+    skill_items: &[ResponseItem],
+    connectors: &[connectors::AppInfo],
+    skill_name_counts_lower: &HashMap<String, usize>,
+) -> HashSet<String> {
+    if skill_items.is_empty() || connectors.is_empty() {
+        return HashSet::new();
+    }
+
+    let skill_messages = skill_items
+        .iter()
+        .filter_map(|item| match item {
+            ResponseItem::Message { content, .. } => {
+                content.iter().find_map(|content_item| match content_item {
+                    ContentItem::InputText { text } => Some(text.clone()),
+                    _ => None,
+                })
+            }
+            _ => None,
+        })
+        .collect::<Vec<String>>();
+    if skill_messages.is_empty() {
+        return HashSet::new();
+    }
+
+    let mentions = collect_tool_mentions_from_messages(&skill_messages);
+    let mention_names_lower = mentions
+        .plain_names
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect::<HashSet<String>>();
+    let mut connector_ids = mentions
+        .paths
+        .iter()
+        .filter(|path| tool_kind_for_path(path) == ToolMentionKind::App)
+        .filter_map(|path| app_id_from_path(path).map(str::to_string))
+        .collect::<HashSet<String>>();
+
+    let connector_slug_counts = build_connector_slug_counts(connectors);
+    for connector in connectors {
+        let slug = connectors::connector_mention_slug(connector);
+        let connector_count = connector_slug_counts.get(&slug).copied().unwrap_or(0);
+        let skill_count = skill_name_counts_lower.get(&slug).copied().unwrap_or(0);
+        if connector_count == 1 && skill_count == 0 && mention_names_lower.contains(&slug) {
+            connector_ids.insert(connector.id.clone());
+        }
+    }
+
+    connector_ids
+}
+
+fn filter_connectors_for_input(
+    connectors: &[connectors::AppInfo],
+    input: &[ResponseItem],
+    explicitly_enabled_connectors: &HashSet<String>,
+    skill_name_counts_lower: &HashMap<String, usize>,
+) -> Vec<connectors::AppInfo> {
+    let connectors: Vec<connectors::AppInfo> = connectors
+        .iter()
+        .filter(|connector| connector.is_enabled)
+        .cloned()
+        .collect::<Vec<_>>();
+    if connectors.is_empty() {
+        return Vec::new();
+    }
+
+    let user_messages = collect_user_messages(input);
+    if user_messages.is_empty() && explicitly_enabled_connectors.is_empty() {
+        return Vec::new();
+    }
+
+    let mentions = collect_tool_mentions_from_messages(&user_messages);
+    let mention_names_lower = mentions
+        .plain_names
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect::<HashSet<String>>();
+
+    let connector_slug_counts = build_connector_slug_counts(&connectors);
+    let mut allowed_connector_ids = explicitly_enabled_connectors.clone();
+    for path in mentions
+        .paths
+        .iter()
+        .filter(|path| tool_kind_for_path(path) == ToolMentionKind::App)
+    {
+        if let Some(connector_id) = app_id_from_path(path) {
+            allowed_connector_ids.insert(connector_id.to_string());
+        }
+    }
+
+    connectors
+        .into_iter()
+        .filter(|connector| {
+            connector_inserted_in_messages(
+                connector,
+                &mention_names_lower,
+                &allowed_connector_ids,
+                &connector_slug_counts,
+                skill_name_counts_lower,
+            )
+        })
+        .collect()
+}
+
+fn connector_inserted_in_messages(
+    connector: &connectors::AppInfo,
+    mention_names_lower: &HashSet<String>,
+    allowed_connector_ids: &HashSet<String>,
+    connector_slug_counts: &HashMap<String, usize>,
+    skill_name_counts_lower: &HashMap<String, usize>,
+) -> bool {
+    if allowed_connector_ids.contains(&connector.id) {
+        return true;
+    }
+
+    let mention_slug = connectors::connector_mention_slug(connector);
+    let connector_count = connector_slug_counts
+        .get(&mention_slug)
+        .copied()
+        .unwrap_or(0);
+    let skill_count = skill_name_counts_lower
+        .get(&mention_slug)
+        .copied()
+        .unwrap_or(0);
+    connector_count == 1 && skill_count == 0 && mention_names_lower.contains(&mention_slug)
+}
+
+pub(crate) fn build_prompt(
+    input: Vec<ResponseItem>,
+    router: &ToolRouter,
+    turn_context: &TurnContext,
+    base_instructions: BaseInstructions,
+) -> Prompt {
+    let deferred_dynamic_tools = turn_context
+        .dynamic_tools
+        .iter()
+        .filter(|tool| tool.defer_loading)
+        .map(|tool| tool.name.as_str())
+        .collect::<HashSet<_>>();
+    let tools = if deferred_dynamic_tools.is_empty() {
+        router.model_visible_specs()
+    } else {
+        router
+            .model_visible_specs()
+            .into_iter()
+            .filter(|spec| !deferred_dynamic_tools.contains(spec.name()))
+            .collect()
+    };
+
+    Prompt {
+        input,
+        tools,
+        parallel_tool_calls: turn_context.model_info.supports_parallel_tool_calls,
+        base_instructions,
+        personality: turn_context.personality,
+        output_schema: turn_context.final_output_json_schema.clone(),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+#[instrument(level = "trace",
+    skip_all,
+    fields(
+        turn_id = %turn_context.sub_id,
+        model = %turn_context.model_info.slug,
+        cwd = %turn_context.cwd.display()
+    )
+)]
+async fn run_sampling_request(
+    sess: Arc<Session>,
+    turn_context: Arc<TurnContext>,
+    turn_diff_tracker: SharedTurnDiffTracker,
+    client_session: &mut ModelClientSession,
+    turn_metadata_header: Option<&str>,
+    input: Vec<ResponseItem>,
+    explicitly_enabled_connectors: &HashSet<String>,
+    skills_outcome: Option<&SkillLoadOutcome>,
+    server_model_warning_emitted_for_turn: &mut bool,
+    cancellation_token: CancellationToken,
+) -> CodexResult<SamplingRequestResult> {
+    let router = built_tools(
+        sess.as_ref(),
+        turn_context.as_ref(),
+        &input,
+        explicitly_enabled_connectors,
+        skills_outcome,
+        &cancellation_token,
+    )
+    .await?;
+
+    let base_instructions = sess.get_base_instructions().await;
+
+    let tool_runtime = ToolCallRuntime::new(
+        Arc::clone(&router),
+        Arc::clone(&sess),
+        Arc::clone(&turn_context),
+        Arc::clone(&turn_diff_tracker),
+    );
+    let _code_mode_worker = sess
+        .services
+        .code_mode_service
+        .start_turn_worker(
+            &sess,
+            &turn_context,
+            Arc::clone(&router),
+            Arc::clone(&turn_diff_tracker),
+        )
+        .await;
+    let mut retries = 0;
+    let mut initial_input = Some(input);
+    loop {
+        let prompt_input = if let Some(input) = initial_input.take() {
+            input
+        } else {
+            sess.clone_history()
+                .await
+                .for_prompt(&turn_context.model_info.input_modalities)
+        };
+        let prompt = build_prompt(
+            prompt_input,
+            router.as_ref(),
+            turn_context.as_ref(),
+            base_instructions.clone(),
+        );
+        let err = match try_run_sampling_request(
+            tool_runtime.clone(),
+            Arc::clone(&sess),
+            Arc::clone(&turn_context),
+            client_session,
+            turn_metadata_header,
+            Arc::clone(&turn_diff_tracker),
+            server_model_warning_emitted_for_turn,
+            &prompt,
+            cancellation_token.child_token(),
+        )
+        .await
+        {
+            Ok(output) => {
+                return Ok(output);
+            }
+            Err(CodexErr::ContextWindowExceeded) => {
+                sess.set_total_tokens_full(&turn_context).await;
+                return Err(CodexErr::ContextWindowExceeded);
+            }
+            Err(CodexErr::UsageLimitReached(e)) => {
+                let rate_limits = e.rate_limits.clone();
+                if let Some(rate_limits) = rate_limits {
+                    sess.update_rate_limits(&turn_context, *rate_limits).await;
+                }
+                return Err(CodexErr::UsageLimitReached(e));
+            }
+            Err(err) => err,
+        };
+
+        if !err.is_retryable() {
+            return Err(err);
+        }
+
+        // Use the configured provider-specific stream retry budget.
+        let max_retries = turn_context.provider.stream_max_retries();
+        if retries >= max_retries
+            && client_session.try_switch_fallback_transport(
+                &turn_context.session_telemetry,
+                &turn_context.model_info,
+            )
+        {
+            sess.send_event(
+                &turn_context,
+                EventMsg::Warning(WarningEvent {
+                    message: format!("Falling back from WebSockets to HTTPS transport. {err:#}"),
+                }),
+            )
+            .await;
+            retries = 0;
+            continue;
+        }
+        if retries < max_retries {
+            retries += 1;
+            let delay = match &err {
+                CodexErr::Stream(_, requested_delay) => {
+                    requested_delay.unwrap_or_else(|| backoff(retries))
+                }
+                _ => backoff(retries),
+            };
+            warn!(
+                "stream disconnected - retrying sampling request ({retries}/{max_retries} in {delay:?})...",
+            );
+
+            // In release builds, hide the first websocket retry notification to reduce noisy
+            // transient reconnect messages. In debug builds, keep full visibility for diagnosis.
+            let report_error = retries > 1
+                || cfg!(debug_assertions)
+                || !sess.services.model_client.responses_websocket_enabled();
+            if report_error {
+                // Surface retry information to any UI/front‑end so the
+                // user understands what is happening instead of staring
+                // at a seemingly frozen screen.
+                sess.notify_stream_error(
+                    &turn_context,
+                    format!("Reconnecting... {retries}/{max_retries}"),
+                    err,
+                )
+                .await;
+            }
+            tokio::time::sleep(delay).await;
+        } else {
+            return Err(err);
+        }
+    }
+}
+
+pub(crate) async fn built_tools(
+    sess: &Session,
+    turn_context: &TurnContext,
+    input: &[ResponseItem],
+    explicitly_enabled_connectors: &HashSet<String>,
+    skills_outcome: Option<&SkillLoadOutcome>,
+    cancellation_token: &CancellationToken,
+) -> CodexResult<Arc<ToolRouter>> {
+    let mcp_connection_manager = sess.services.mcp_connection_manager.read().await;
+    let has_mcp_servers = mcp_connection_manager.has_servers();
+    let all_mcp_tools = mcp_connection_manager
+        .list_all_tools()
+        .or_cancel(cancellation_token)
+        .await?;
+    drop(mcp_connection_manager);
+    let loaded_plugins = sess
+        .services
+        .plugins_manager
+        .plugins_for_config(&turn_context.config)
+        .await;
+
+    let mut effective_explicitly_enabled_connectors = explicitly_enabled_connectors.clone();
+    effective_explicitly_enabled_connectors.extend(sess.get_connector_selection().await);
+
+    let apps_enabled = turn_context.apps_enabled();
+    let accessible_connectors =
+        apps_enabled.then(|| connectors::accessible_connectors_from_mcp_tools(&all_mcp_tools));
+    let accessible_connectors_with_enabled_state =
+        accessible_connectors.as_ref().map(|connectors| {
+            connectors::with_app_enabled_state(connectors.clone(), &turn_context.config)
+        });
+    let connectors = if apps_enabled {
+        let connectors = connectors::merge_plugin_apps_with_accessible(
+            loaded_plugins.effective_apps(),
+            accessible_connectors.clone().unwrap_or_default(),
+        );
+        Some(connectors::with_app_enabled_state(
+            connectors,
+            &turn_context.config,
+        ))
+    } else {
+        None
+    };
+    let auth = sess.services.auth_manager.auth().await;
+    let discoverable_tools = if apps_enabled && turn_context.tools_config.tool_suggest {
+        if let Some(accessible_connectors) = accessible_connectors_with_enabled_state.as_ref() {
+            match connectors::list_tool_suggest_discoverable_tools_with_auth(
+                &turn_context.config,
+                auth.as_ref(),
+                accessible_connectors.as_slice(),
+            )
+            .await
+            .map(|discoverable_tools| {
+                filter_tool_suggest_discoverable_tools_for_client(
+                    discoverable_tools,
+                    turn_context.app_server_client_name.as_deref(),
+                )
+            }) {
+                Ok(discoverable_tools) if discoverable_tools.is_empty() => None,
+                Ok(discoverable_tools) => Some(discoverable_tools),
+                Err(err) => {
+                    warn!("failed to load discoverable tool suggestions: {err:#}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let explicitly_enabled = if let Some(connectors) = connectors.as_ref() {
+        let skill_name_counts_lower = skills_outcome.map_or_else(HashMap::new, |outcome| {
+            build_skill_name_counts(&outcome.skills, &outcome.disabled_paths).1
+        });
+
+        filter_connectors_for_input(
+            connectors,
+            input,
+            &effective_explicitly_enabled_connectors,
+            &skill_name_counts_lower,
+        )
+    } else {
+        Vec::new()
+    };
+    let mcp_tool_exposure = build_mcp_tool_exposure(
+        &all_mcp_tools,
+        connectors.as_deref(),
+        explicitly_enabled.as_slice(),
+        &turn_context.config,
+        &turn_context.tools_config,
+    );
+    let direct_mcp_tools = has_mcp_servers.then_some(mcp_tool_exposure.direct_tools);
+
+    let parallel_mcp_server_names = turn_context
+        .config
+        .mcp_servers
+        .get()
+        .iter()
+        .filter_map(|(server_name, server_config)| {
+            server_config
+                .supports_parallel_tool_calls
+                .then_some(server_name.clone())
+        })
+        .collect::<HashSet<_>>();
+
+    Ok(Arc::new(ToolRouter::from_config(
+        &turn_context.tools_config,
+        ToolRouterParams {
+            mcp_tools: direct_mcp_tools,
+            deferred_mcp_tools: mcp_tool_exposure.deferred_tools,
+            parallel_mcp_server_names,
+            discoverable_tools,
+            dynamic_tools: turn_context.dynamic_tools.as_slice(),
+        },
+    )))
+}
+
+#[derive(Debug)]
+struct SamplingRequestResult {
+    needs_follow_up: bool,
+    last_agent_message: Option<String>,
+}
+
+/// Ephemeral per-response state for streaming a single proposed plan.
+/// This is intentionally not persisted or stored in session/state since it
+/// only exists while a response is actively streaming. The final plan text
+/// is extracted from the completed assistant message.
+/// Tracks a single proposed plan item across a streaming response.
+struct ProposedPlanItemState {
+    item_id: String,
+    started: bool,
+    completed: bool,
+}
+
+/// Aggregated state used only while streaming a plan-mode response.
+/// Includes per-item parsers, deferred agent message bookkeeping, and the plan item lifecycle.
+struct PlanModeStreamState {
+    /// Agent message items started by the model but deferred until we see non-plan text.
+    pending_agent_message_items: HashMap<String, TurnItem>,
+    /// Agent message items whose start notification has been emitted.
+    started_agent_message_items: HashSet<String>,
+    /// Leading whitespace buffered until we see non-whitespace text for an item.
+    leading_whitespace_by_item: HashMap<String, String>,
+    /// Tracks plan item lifecycle while streaming plan output.
+    plan_item_state: ProposedPlanItemState,
+}
+
+impl PlanModeStreamState {
+    fn new(turn_id: &str) -> Self {
+        Self {
+            pending_agent_message_items: HashMap::new(),
+            started_agent_message_items: HashSet::new(),
+            leading_whitespace_by_item: HashMap::new(),
+            plan_item_state: ProposedPlanItemState::new(turn_id),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct AssistantMessageStreamParsers {
+    plan_mode: bool,
+    parsers_by_item: HashMap<String, AssistantTextStreamParser>,
+}
+
+type ParsedAssistantTextDelta = AssistantTextChunk;
+
+impl AssistantMessageStreamParsers {
+    fn new(plan_mode: bool) -> Self {
+        Self {
+            plan_mode,
+            parsers_by_item: HashMap::new(),
+        }
+    }
+
+    fn parser_mut(&mut self, item_id: &str) -> &mut AssistantTextStreamParser {
+        let plan_mode = self.plan_mode;
+        self.parsers_by_item
+            .entry(item_id.to_string())
+            .or_insert_with(|| AssistantTextStreamParser::new(plan_mode))
+    }
+
+    fn seed_item_text(&mut self, item_id: &str, text: &str) -> ParsedAssistantTextDelta {
+        if text.is_empty() {
+            return ParsedAssistantTextDelta::default();
+        }
+        self.parser_mut(item_id).push_str(text)
+    }
+
+    fn parse_delta(&mut self, item_id: &str, delta: &str) -> ParsedAssistantTextDelta {
+        self.parser_mut(item_id).push_str(delta)
+    }
+
+    fn finish_item(&mut self, item_id: &str) -> ParsedAssistantTextDelta {
+        let Some(mut parser) = self.parsers_by_item.remove(item_id) else {
+            return ParsedAssistantTextDelta::default();
+        };
+        parser.finish()
+    }
+
+    fn drain_finished(&mut self) -> Vec<(String, ParsedAssistantTextDelta)> {
+        let parsers_by_item = std::mem::take(&mut self.parsers_by_item);
+        parsers_by_item
+            .into_iter()
+            .map(|(item_id, mut parser)| (item_id, parser.finish()))
+            .collect()
+    }
+}
+
+impl ProposedPlanItemState {
+    fn new(turn_id: &str) -> Self {
+        Self {
+            item_id: format!("{turn_id}-plan"),
+            started: false,
+            completed: false,
+        }
+    }
+
+    async fn start(&mut self, sess: &Session, turn_context: &TurnContext) {
+        if self.started || self.completed {
+            return;
+        }
+        self.started = true;
+        let item = TurnItem::Plan(PlanItem {
+            id: self.item_id.clone(),
+            text: String::new(),
+        });
+        sess.emit_turn_item_started(turn_context, &item).await;
+    }
+
+    async fn push_delta(&mut self, sess: &Session, turn_context: &TurnContext, delta: &str) {
+        if self.completed {
+            return;
+        }
+        if delta.is_empty() {
+            return;
+        }
+        let event = PlanDeltaEvent {
+            thread_id: sess.conversation_id.to_string(),
+            turn_id: turn_context.sub_id.clone(),
+            item_id: self.item_id.clone(),
+            delta: delta.to_string(),
+        };
+        sess.send_event(turn_context, EventMsg::PlanDelta(event))
+            .await;
+    }
+
+    async fn complete_with_text(
+        &mut self,
+        sess: &Session,
+        turn_context: &TurnContext,
+        text: String,
+    ) {
+        if self.completed || !self.started {
+            return;
+        }
+        self.completed = true;
+        let item = TurnItem::Plan(PlanItem {
+            id: self.item_id.clone(),
+            text,
+        });
+        sess.emit_turn_item_completed(turn_context, item).await;
+    }
+}
+
+/// In plan mode we defer agent message starts until the parser emits non-plan
+/// text. The parser buffers each line until it can rule out a tag prefix, so
+/// plan-only outputs never show up as empty assistant messages.
+async fn maybe_emit_pending_agent_message_start(
+    sess: &Session,
+    turn_context: &TurnContext,
+    state: &mut PlanModeStreamState,
+    item_id: &str,
+) {
+    if state.started_agent_message_items.contains(item_id) {
+        return;
+    }
+    if let Some(item) = state.pending_agent_message_items.remove(item_id) {
+        sess.emit_turn_item_started(turn_context, &item).await;
+        state
+            .started_agent_message_items
+            .insert(item_id.to_string());
+    }
+}
+
+/// Agent messages are text-only today; concatenate all text entries.
+fn agent_message_text(item: &codex_protocol::items::AgentMessageItem) -> String {
+    item.content
+        .iter()
+        .map(|entry| match entry {
+            codex_protocol::items::AgentMessageContent::Text { text } => text.as_str(),
+        })
+        .collect()
+}
+
+fn realtime_text_for_event(msg: &EventMsg) -> Option<String> {
+    match msg {
+        EventMsg::AgentMessage(event) => Some(event.message.clone()),
+        EventMsg::ItemCompleted(event) => match &event.item {
+            TurnItem::AgentMessage(item) => Some(agent_message_text(item)),
+            _ => None,
+        },
+        EventMsg::Error(_)
+        | EventMsg::Warning(_)
+        | EventMsg::RealtimeConversationStarted(_)
+        | EventMsg::RealtimeConversationSdp(_)
+        | EventMsg::RealtimeConversationRealtime(_)
+        | EventMsg::RealtimeConversationClosed(_)
+        | EventMsg::ModelReroute(_)
+        | EventMsg::ContextCompacted(_)
+        | EventMsg::ThreadRolledBack(_)
+        | EventMsg::TurnStarted(_)
+        | EventMsg::TurnComplete(_)
+        | EventMsg::TokenCount(_)
+        | EventMsg::UserMessage(_)
+        | EventMsg::AgentMessageDelta(_)
+        | EventMsg::AgentReasoning(_)
+        | EventMsg::AgentReasoningDelta(_)
+        | EventMsg::AgentReasoningRawContent(_)
+        | EventMsg::AgentReasoningRawContentDelta(_)
+        | EventMsg::AgentReasoningSectionBreak(_)
+        | EventMsg::SessionConfigured(_)
+        | EventMsg::ThreadNameUpdated(_)
+        | EventMsg::McpStartupUpdate(_)
+        | EventMsg::McpStartupComplete(_)
+        | EventMsg::McpToolCallBegin(_)
+        | EventMsg::McpToolCallEnd(_)
+        | EventMsg::WebSearchBegin(_)
+        | EventMsg::WebSearchEnd(_)
+        | EventMsg::ExecCommandBegin(_)
+        | EventMsg::ExecCommandOutputDelta(_)
+        | EventMsg::TerminalInteraction(_)
+        | EventMsg::ExecCommandEnd(_)
+        | EventMsg::PatchApplyBegin(_)
+        | EventMsg::PatchApplyEnd(_)
+        | EventMsg::ViewImageToolCall(_)
+        | EventMsg::ImageGenerationBegin(_)
+        | EventMsg::ImageGenerationEnd(_)
+        | EventMsg::ExecApprovalRequest(_)
+        | EventMsg::RequestPermissions(_)
+        | EventMsg::RequestUserInput(_)
+        | EventMsg::DynamicToolCallRequest(_)
+        | EventMsg::DynamicToolCallResponse(_)
+        | EventMsg::GuardianAssessment(_)
+        | EventMsg::ElicitationRequest(_)
+        | EventMsg::ApplyPatchApprovalRequest(_)
+        | EventMsg::DeprecationNotice(_)
+        | EventMsg::BackgroundEvent(_)
+        | EventMsg::UndoStarted(_)
+        | EventMsg::UndoCompleted(_)
+        | EventMsg::StreamError(_)
+        | EventMsg::TurnDiff(_)
+        | EventMsg::GetHistoryEntryResponse(_)
+        | EventMsg::McpListToolsResponse(_)
+        | EventMsg::ListSkillsResponse(_)
+        | EventMsg::RealtimeConversationListVoicesResponse(_)
+        | EventMsg::SkillsUpdateAvailable
+        | EventMsg::PlanUpdate(_)
+        | EventMsg::TurnAborted(_)
+        | EventMsg::ShutdownComplete
+        | EventMsg::EnteredReviewMode(_)
+        | EventMsg::ExitedReviewMode(_)
+        | EventMsg::RawResponseItem(_)
+        | EventMsg::ItemStarted(_)
+        | EventMsg::HookStarted(_)
+        | EventMsg::HookCompleted(_)
+        | EventMsg::AgentMessageContentDelta(_)
+        | EventMsg::PlanDelta(_)
+        | EventMsg::ReasoningContentDelta(_)
+        | EventMsg::ReasoningRawContentDelta(_)
+        | EventMsg::CollabAgentSpawnBegin(_)
+        | EventMsg::CollabAgentSpawnEnd(_)
+        | EventMsg::CollabAgentInteractionBegin(_)
+        | EventMsg::CollabAgentInteractionEnd(_)
+        | EventMsg::CollabWaitingBegin(_)
+        | EventMsg::CollabWaitingEnd(_)
+        | EventMsg::CollabCloseBegin(_)
+        | EventMsg::CollabCloseEnd(_)
+        | EventMsg::CollabResumeBegin(_)
+        | EventMsg::CollabResumeEnd(_) => None,
+    }
+}
+
+/// Split the stream into normal assistant text vs. proposed plan content.
+/// Normal text becomes AgentMessage deltas; plan content becomes PlanDelta +
+/// TurnItem::Plan.
+async fn handle_plan_segments(
+    sess: &Session,
+    turn_context: &TurnContext,
+    state: &mut PlanModeStreamState,
+    item_id: &str,
+    segments: Vec<ProposedPlanSegment>,
+) {
+    for segment in segments {
+        match segment {
+            ProposedPlanSegment::Normal(delta) => {
+                if delta.is_empty() {
+                    continue;
+                }
+                let has_non_whitespace = delta.chars().any(|ch| !ch.is_whitespace());
+                if !has_non_whitespace && !state.started_agent_message_items.contains(item_id) {
+                    let entry = state
+                        .leading_whitespace_by_item
+                        .entry(item_id.to_string())
+                        .or_default();
+                    entry.push_str(&delta);
+                    continue;
+                }
+                let delta = if !state.started_agent_message_items.contains(item_id) {
+                    if let Some(prefix) = state.leading_whitespace_by_item.remove(item_id) {
+                        format!("{prefix}{delta}")
+                    } else {
+                        delta
+                    }
+                } else {
+                    delta
+                };
+                maybe_emit_pending_agent_message_start(sess, turn_context, state, item_id).await;
+
+                let event = AgentMessageContentDeltaEvent {
+                    thread_id: sess.conversation_id.to_string(),
+                    turn_id: turn_context.sub_id.clone(),
+                    item_id: item_id.to_string(),
+                    delta,
+                };
+                sess.send_event(turn_context, EventMsg::AgentMessageContentDelta(event))
+                    .await;
+            }
+            ProposedPlanSegment::ProposedPlanStart => {
+                if !state.plan_item_state.completed {
+                    state.plan_item_state.start(sess, turn_context).await;
+                }
+            }
+            ProposedPlanSegment::ProposedPlanDelta(delta) => {
+                if !state.plan_item_state.completed {
+                    if !state.plan_item_state.started {
+                        state.plan_item_state.start(sess, turn_context).await;
+                    }
+                    state
+                        .plan_item_state
+                        .push_delta(sess, turn_context, &delta)
+                        .await;
+                }
+            }
+            ProposedPlanSegment::ProposedPlanEnd => {}
+        }
+    }
+}
+
+async fn emit_streamed_assistant_text_delta(
+    sess: &Session,
+    turn_context: &TurnContext,
+    plan_mode_state: Option<&mut PlanModeStreamState>,
+    item_id: &str,
+    parsed: ParsedAssistantTextDelta,
+) {
+    if parsed.is_empty() {
+        return;
+    }
+    if !parsed.citations.is_empty() {
+        // Citation extraction is intentionally local for now; we strip citations from display text
+        // but do not yet surface them in protocol events.
+        let _citations = parsed.citations;
+    }
+    if let Some(state) = plan_mode_state {
+        if !parsed.plan_segments.is_empty() {
+            handle_plan_segments(sess, turn_context, state, item_id, parsed.plan_segments).await;
+        }
+        return;
+    }
+    if parsed.visible_text.is_empty() {
+        return;
+    }
+    let event = AgentMessageContentDeltaEvent {
+        thread_id: sess.conversation_id.to_string(),
+        turn_id: turn_context.sub_id.clone(),
+        item_id: item_id.to_string(),
+        delta: parsed.visible_text,
+    };
+    sess.send_event(turn_context, EventMsg::AgentMessageContentDelta(event))
+        .await;
+}
+
+/// Flush buffered assistant text parser state when an assistant message item ends.
+async fn flush_assistant_text_segments_for_item(
+    sess: &Session,
+    turn_context: &TurnContext,
+    plan_mode_state: Option<&mut PlanModeStreamState>,
+    parsers: &mut AssistantMessageStreamParsers,
+    item_id: &str,
+) {
+    let parsed = parsers.finish_item(item_id);
+    emit_streamed_assistant_text_delta(sess, turn_context, plan_mode_state, item_id, parsed).await;
+}
+
+/// Flush any remaining buffered assistant text parser state at response completion.
+async fn flush_assistant_text_segments_all(
+    sess: &Session,
+    turn_context: &TurnContext,
+    mut plan_mode_state: Option<&mut PlanModeStreamState>,
+    parsers: &mut AssistantMessageStreamParsers,
+) {
+    for (item_id, parsed) in parsers.drain_finished() {
+        emit_streamed_assistant_text_delta(
+            sess,
+            turn_context,
+            plan_mode_state.as_deref_mut(),
+            &item_id,
+            parsed,
+        )
+        .await;
+    }
+}
+
+/// Emit completion for plan items by parsing the finalized assistant message.
+async fn maybe_complete_plan_item_from_message(
+    sess: &Session,
+    turn_context: &TurnContext,
+    state: &mut PlanModeStreamState,
+    item: &ResponseItem,
+) {
+    if let ResponseItem::Message { role, content, .. } = item
+        && role == "assistant"
+    {
+        let mut text = String::new();
+        for entry in content {
+            if let ContentItem::OutputText { text: chunk } = entry {
+                text.push_str(chunk);
+            }
+        }
+        if let Some(plan_text) = extract_proposed_plan_text(&text) {
+            let (plan_text, _citations) = strip_citations(&plan_text);
+            if !state.plan_item_state.started {
+                state.plan_item_state.start(sess, turn_context).await;
+            }
+            state
+                .plan_item_state
+                .complete_with_text(sess, turn_context, plan_text)
+                .await;
+        }
+    }
+}
+
+/// Emit a completed agent message in plan mode, respecting deferred starts.
+async fn emit_agent_message_in_plan_mode(
+    sess: &Session,
+    turn_context: &TurnContext,
+    agent_message: codex_protocol::items::AgentMessageItem,
+    state: &mut PlanModeStreamState,
+) {
+    let agent_message_id = agent_message.id.clone();
+    let text = agent_message_text(&agent_message);
+    if text.trim().is_empty() {
+        state.pending_agent_message_items.remove(&agent_message_id);
+        state.started_agent_message_items.remove(&agent_message_id);
+        return;
+    }
+
+    maybe_emit_pending_agent_message_start(sess, turn_context, state, &agent_message_id).await;
+
+    if !state
+        .started_agent_message_items
+        .contains(&agent_message_id)
+    {
+        let start_item = state
+            .pending_agent_message_items
+            .remove(&agent_message_id)
+            .unwrap_or_else(|| {
+                TurnItem::AgentMessage(codex_protocol::items::AgentMessageItem {
+                    id: agent_message_id.clone(),
+                    content: Vec::new(),
+                    phase: None,
+                    memory_citation: None,
+                })
+            });
+        sess.emit_turn_item_started(turn_context, &start_item).await;
+        state
+            .started_agent_message_items
+            .insert(agent_message_id.clone());
+    }
+
+    sess.emit_turn_item_completed(turn_context, TurnItem::AgentMessage(agent_message))
+        .await;
+    state.started_agent_message_items.remove(&agent_message_id);
+}
+
+/// Emit completion for a plan-mode turn item, handling agent messages specially.
+async fn emit_turn_item_in_plan_mode(
+    sess: &Session,
+    turn_context: &TurnContext,
+    turn_item: TurnItem,
+    previously_active_item: Option<&TurnItem>,
+    state: &mut PlanModeStreamState,
+) {
+    match turn_item {
+        TurnItem::AgentMessage(agent_message) => {
+            emit_agent_message_in_plan_mode(sess, turn_context, agent_message, state).await;
+        }
+        _ => {
+            if previously_active_item.is_none() {
+                sess.emit_turn_item_started(turn_context, &turn_item).await;
+            }
+            sess.emit_turn_item_completed(turn_context, turn_item).await;
+        }
+    }
+}
+
+/// Handle a completed assistant response item in plan mode, returning true if handled.
+async fn handle_assistant_item_done_in_plan_mode(
+    sess: &Session,
+    turn_context: &TurnContext,
+    item: &ResponseItem,
+    state: &mut PlanModeStreamState,
+    previously_active_item: Option<&TurnItem>,
+    last_agent_message: &mut Option<String>,
+) -> bool {
+    if let ResponseItem::Message { role, .. } = item
+        && role == "assistant"
+    {
+        maybe_complete_plan_item_from_message(sess, turn_context, state, item).await;
+
+        if let Some(turn_item) =
+            handle_non_tool_response_item(sess, turn_context, item, /*plan_mode*/ true).await
+        {
+            emit_turn_item_in_plan_mode(
+                sess,
+                turn_context,
+                turn_item,
+                previously_active_item,
+                state,
+            )
+            .await;
+        }
+
+        record_completed_response_item(sess, turn_context, item).await;
+        if let Some(agent_message) = last_assistant_message_from_item(item, /*plan_mode*/ true) {
+            *last_agent_message = Some(agent_message);
+        }
+        return true;
+    }
+    false
+}
+
+async fn drain_in_flight(
+    in_flight: &mut FuturesOrdered<BoxFuture<'static, CodexResult<ResponseInputItem>>>,
+    sess: Arc<Session>,
+    turn_context: Arc<TurnContext>,
+) -> CodexResult<()> {
+    while let Some(res) = in_flight.next().await {
+        match res {
+            Ok(response_input) => {
+                sess.record_conversation_items(&turn_context, &[response_input.into()])
+                    .await;
+            }
+            Err(err) => {
+                error_or_panic(format!("in-flight tool future failed during drain: {err}"));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+#[instrument(level = "trace",
+    skip_all,
+    fields(
+        turn_id = %turn_context.sub_id,
+        model = %turn_context.model_info.slug
+    )
+)]
+async fn try_run_sampling_request(
+    tool_runtime: ToolCallRuntime,
+    sess: Arc<Session>,
+    turn_context: Arc<TurnContext>,
+    client_session: &mut ModelClientSession,
+    turn_metadata_header: Option<&str>,
+    turn_diff_tracker: SharedTurnDiffTracker,
+    server_model_warning_emitted_for_turn: &mut bool,
+    prompt: &Prompt,
+    cancellation_token: CancellationToken,
+) -> CodexResult<SamplingRequestResult> {
+    feedback_tags!(
+        model = turn_context.model_info.slug.clone(),
+        approval_policy = turn_context.approval_policy.value(),
+        sandbox_policy = turn_context.sandbox_policy.get(),
+        effort = turn_context.reasoning_effort,
+        auth_mode = sess.services.auth_manager.auth_mode(),
+        features = sess.features.enabled_features(),
+    );
+    let mut stream = client_session
+        .stream(
+            prompt,
+            &turn_context.model_info,
+            &turn_context.session_telemetry,
+            turn_context.reasoning_effort,
+            turn_context.reasoning_summary,
+            turn_context.config.service_tier,
+            turn_metadata_header,
+        )
+        .instrument(trace_span!("stream_request"))
+        .or_cancel(&cancellation_token)
+        .await??;
+    let mut in_flight: FuturesOrdered<BoxFuture<'static, CodexResult<ResponseInputItem>>> =
+        FuturesOrdered::new();
+    let mut needs_follow_up = false;
+    let mut last_agent_message: Option<String> = None;
+    let mut active_item: Option<TurnItem> = None;
+    let mut should_emit_turn_diff = false;
+    let plan_mode = turn_context.collaboration_mode.mode == ModeKind::Plan;
+    let mut assistant_message_stream_parsers = AssistantMessageStreamParsers::new(plan_mode);
+    let mut plan_mode_state = plan_mode.then(|| PlanModeStreamState::new(&turn_context.sub_id));
+    let receiving_span = trace_span!("receiving_stream");
+    let outcome: CodexResult<SamplingRequestResult> = loop {
+        let handle_responses = trace_span!(
+            parent: &receiving_span,
+            "handle_responses",
+            otel.name = field::Empty,
+            tool_name = field::Empty,
+            from = field::Empty,
+        );
+
+        let event = match stream
+            .next()
+            .instrument(trace_span!(parent: &handle_responses, "receiving"))
+            .or_cancel(&cancellation_token)
+            .await
+        {
+            Ok(event) => event,
+            Err(codex_async_utils::CancelErr::Cancelled) => break Err(CodexErr::TurnAborted),
+        };
+
+        let event = match event {
+            Some(Ok(event)) => event,
+            Some(Err(err)) => break Err(err),
+            None => {
+                break Err(CodexErr::Stream(
+                    "stream closed before response.completed".into(),
+                    None,
+                ));
+            }
+        };
+
+        sess.services
+            .session_telemetry
+            .record_responses(&handle_responses, &event);
+        record_turn_ttft_metric(&turn_context, &event).await;
+
+        match event {
+            ResponseEvent::Created => {}
+            ResponseEvent::OutputItemDone(item) => {
+                let previously_active_item = active_item.take();
+                if let Some(previous) = previously_active_item.as_ref()
+                    && matches!(previous, TurnItem::AgentMessage(_))
+                {
+                    let item_id = previous.id();
+                    flush_assistant_text_segments_for_item(
+                        &sess,
+                        &turn_context,
+                        plan_mode_state.as_mut(),
+                        &mut assistant_message_stream_parsers,
+                        &item_id,
+                    )
+                    .await;
+                }
+                if let Some(state) = plan_mode_state.as_mut()
+                    && handle_assistant_item_done_in_plan_mode(
+                        &sess,
+                        &turn_context,
+                        &item,
+                        state,
+                        previously_active_item.as_ref(),
+                        &mut last_agent_message,
+                    )
+                    .await
+                {
+                    continue;
+                }
+
+                let mut ctx = HandleOutputCtx {
+                    sess: sess.clone(),
+                    turn_context: turn_context.clone(),
+                    tool_runtime: tool_runtime.clone(),
+                    cancellation_token: cancellation_token.child_token(),
+                };
+
+                let output_result =
+                    match handle_output_item_done(&mut ctx, item, previously_active_item)
+                        .instrument(handle_responses)
+                        .await
+                    {
+                        Ok(output_result) => output_result,
+                        Err(err) => break Err(err),
+                    };
+                if let Some(tool_future) = output_result.tool_future {
+                    in_flight.push_back(tool_future);
+                }
+                if let Some(agent_message) = output_result.last_agent_message {
+                    last_agent_message = Some(agent_message);
+                }
+                needs_follow_up |= output_result.needs_follow_up;
+            }
+            ResponseEvent::OutputItemAdded(item) => {
+                if let Some(turn_item) = handle_non_tool_response_item(
+                    sess.as_ref(),
+                    turn_context.as_ref(),
+                    &item,
+                    plan_mode,
+                )
+                .await
+                {
+                    let mut turn_item = turn_item;
+                    let mut seeded_parsed: Option<ParsedAssistantTextDelta> = None;
+                    let mut seeded_item_id: Option<String> = None;
+                    if matches!(turn_item, TurnItem::AgentMessage(_))
+                        && let Some(raw_text) = raw_assistant_output_text_from_item(&item)
+                    {
+                        let item_id = turn_item.id();
+                        let mut seeded =
+                            assistant_message_stream_parsers.seed_item_text(&item_id, &raw_text);
+                        if let TurnItem::AgentMessage(agent_message) = &mut turn_item {
+                            agent_message.content =
+                                vec![codex_protocol::items::AgentMessageContent::Text {
+                                    text: if plan_mode {
+                                        String::new()
+                                    } else {
+                                        std::mem::take(&mut seeded.visible_text)
+                                    },
+                                }];
+                        }
+                        seeded_parsed = plan_mode.then_some(seeded);
+                        seeded_item_id = Some(item_id);
+                    }
+                    if let Some(state) = plan_mode_state.as_mut()
+                        && matches!(turn_item, TurnItem::AgentMessage(_))
+                    {
+                        let item_id = turn_item.id();
+                        state
+                            .pending_agent_message_items
+                            .insert(item_id, turn_item.clone());
+                    } else {
+                        sess.emit_turn_item_started(&turn_context, &turn_item).await;
+                    }
+                    if let (Some(state), Some(item_id), Some(parsed)) = (
+                        plan_mode_state.as_mut(),
+                        seeded_item_id.as_deref(),
+                        seeded_parsed,
+                    ) {
+                        emit_streamed_assistant_text_delta(
+                            &sess,
+                            &turn_context,
+                            Some(state),
+                            item_id,
+                            parsed,
+                        )
+                        .await;
+                    }
+                    active_item = Some(turn_item);
+                }
+            }
+            ResponseEvent::ServerModel(server_model) => {
+                if !*server_model_warning_emitted_for_turn
+                    && sess
+                        .maybe_warn_on_server_model_mismatch(&turn_context, server_model)
+                        .await
+                {
+                    *server_model_warning_emitted_for_turn = true;
+                }
+            }
+            ResponseEvent::ServerReasoningIncluded(included) => {
+                sess.set_server_reasoning_included(included).await;
+            }
+            ResponseEvent::RateLimits(snapshot) => {
+                // Update internal state with latest rate limits, but defer sending until
+                // token usage is available to avoid duplicate TokenCount events.
+                sess.update_rate_limits(&turn_context, snapshot).await;
+            }
+            ResponseEvent::ModelsEtag(etag) => {
+                // Update internal state with latest models etag
+                sess.services.models_manager.refresh_if_new_etag(etag).await;
+            }
+            ResponseEvent::Completed {
+                response_id: _,
+                token_usage,
+            } => {
+                flush_assistant_text_segments_all(
+                    &sess,
+                    &turn_context,
+                    plan_mode_state.as_mut(),
+                    &mut assistant_message_stream_parsers,
+                )
+                .await;
+                sess.update_token_usage_info(&turn_context, token_usage.as_ref())
+                    .await;
+                should_emit_turn_diff = true;
+
+                break Ok(SamplingRequestResult {
+                    needs_follow_up,
+                    last_agent_message,
+                });
+            }
+            ResponseEvent::OutputTextDelta(delta) => {
+                // In review child threads, suppress assistant text deltas; the
+                // UI will show a selection popup from the final ReviewOutput.
+                if let Some(active) = active_item.as_ref() {
+                    let item_id = active.id();
+                    if matches!(active, TurnItem::AgentMessage(_)) {
+                        let parsed = assistant_message_stream_parsers.parse_delta(&item_id, &delta);
+                        emit_streamed_assistant_text_delta(
+                            &sess,
+                            &turn_context,
+                            plan_mode_state.as_mut(),
+                            &item_id,
+                            parsed,
+                        )
+                        .await;
+                    } else {
+                        let event = AgentMessageContentDeltaEvent {
+                            thread_id: sess.conversation_id.to_string(),
+                            turn_id: turn_context.sub_id.clone(),
+                            item_id,
+                            delta,
+                        };
+                        sess.send_event(&turn_context, EventMsg::AgentMessageContentDelta(event))
+                            .await;
+                    }
+                } else {
+                    error_or_panic("OutputTextDelta without active item".to_string());
+                }
+            }
+            ResponseEvent::ReasoningSummaryDelta {
+                delta,
+                summary_index,
+            } => {
+                if let Some(active) = active_item.as_ref() {
+                    let event = ReasoningContentDeltaEvent {
+                        thread_id: sess.conversation_id.to_string(),
+                        turn_id: turn_context.sub_id.clone(),
+                        item_id: active.id(),
+                        delta,
+                        summary_index,
+                    };
+                    sess.send_event(&turn_context, EventMsg::ReasoningContentDelta(event))
+                        .await;
+                } else {
+                    error_or_panic("ReasoningSummaryDelta without active item".to_string());
+                }
+            }
+            ResponseEvent::ReasoningSummaryPartAdded { summary_index } => {
+                if let Some(active) = active_item.as_ref() {
+                    let event =
+                        EventMsg::AgentReasoningSectionBreak(AgentReasoningSectionBreakEvent {
+                            item_id: active.id(),
+                            summary_index,
+                        });
+                    sess.send_event(&turn_context, event).await;
+                } else {
+                    error_or_panic("ReasoningSummaryPartAdded without active item".to_string());
+                }
+            }
+            ResponseEvent::ReasoningContentDelta {
+                delta,
+                content_index,
+            } => {
+                if let Some(active) = active_item.as_ref() {
+                    let event = ReasoningRawContentDeltaEvent {
+                        thread_id: sess.conversation_id.to_string(),
+                        turn_id: turn_context.sub_id.clone(),
+                        item_id: active.id(),
+                        delta,
+                        content_index,
+                    };
+                    sess.send_event(&turn_context, EventMsg::ReasoningRawContentDelta(event))
+                        .await;
+                } else {
+                    error_or_panic("ReasoningRawContentDelta without active item".to_string());
+                }
+            }
+        }
+    };
+
+    flush_assistant_text_segments_all(
+        &sess,
+        &turn_context,
+        plan_mode_state.as_mut(),
+        &mut assistant_message_stream_parsers,
+    )
+    .await;
+
+    drain_in_flight(&mut in_flight, sess.clone(), turn_context.clone()).await?;
+
+    if cancellation_token.is_cancelled() {
+        return Err(CodexErr::TurnAborted);
+    }
+
+    if should_emit_turn_diff {
+        let unified_diff = {
+            let mut tracker = turn_diff_tracker.lock().await;
+            tracker.get_unified_diff()
+        };
+        if let Ok(Some(unified_diff)) = unified_diff {
+            let msg = EventMsg::TurnDiff(TurnDiffEvent { unified_diff });
+            sess.clone().send_event(&turn_context, msg).await;
+        }
+    }
+
+    outcome
+}
+
+pub(super) fn get_last_assistant_message_from_turn(responses: &[ResponseItem]) -> Option<String> {
+    for item in responses.iter().rev() {
+        if let Some(message) = last_assistant_message_from_item(item, /*plan_mode*/ false) {
+            return Some(message);
+        }
+    }
+    None
 }
 
 use crate::memories::prompts::build_memory_tool_developer_instructions;

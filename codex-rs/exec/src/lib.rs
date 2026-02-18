@@ -158,6 +158,7 @@ enum InitialOperation {
     Review {
         review_request: ReviewRequest,
     },
+    Archive,
 }
 
 enum StdinPromptBehavior {
@@ -586,36 +587,40 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
             (InitialOperation::Review { review_request }, summary)
         }
         (Some(ExecCommand::Resume(args)), root_prompt, imgs) => {
-            let prompt_arg = args
-                .prompt
-                .clone()
-                .or_else(|| {
-                    if args.last {
-                        args.session_id.clone()
-                    } else {
-                        None
-                    }
-                })
-                .or(root_prompt);
-            let prompt_text = resolve_prompt(prompt_arg);
-            let mut items: Vec<UserInput> = imgs
-                .into_iter()
-                .chain(args.images.iter().cloned())
-                .map(|path| UserInput::LocalImage { path })
-                .collect();
-            items.push(UserInput::Text {
-                text: prompt_text.clone(),
-                // CLI input doesn't track UI element ranges, so none are available here.
-                text_elements: Vec::new(),
-            });
-            let output_schema = load_output_schema(output_schema_path.clone());
-            (
-                InitialOperation::UserTurn {
-                    items,
-                    output_schema,
-                },
-                prompt_text,
-            )
+            if args.archive {
+                (InitialOperation::Archive, "[archive]".to_string())
+            } else {
+                let prompt_arg = args
+                    .prompt
+                    .clone()
+                    .or_else(|| {
+                        if args.last {
+                            args.session_id.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .or(root_prompt);
+                let prompt_text = resolve_prompt(prompt_arg);
+                let mut items: Vec<UserInput> = imgs
+                    .into_iter()
+                    .chain(args.images.iter().cloned())
+                    .map(|path| UserInput::LocalImage { path })
+                    .collect();
+                items.push(UserInput::Text {
+                    text: prompt_text.clone(),
+                    // CLI input doesn't track UI element ranges, so none are available here.
+                    text_elements: Vec::new(),
+                });
+                let output_schema = load_output_schema(output_schema_path.clone());
+                (
+                    InitialOperation::UserTurn {
+                        items,
+                        output_schema,
+                    },
+                    prompt_text,
+                )
+            }
         }
         (None, root_prompt, imgs) => {
             let prompt_text = resolve_root_prompt(root_prompt);
@@ -712,7 +717,6 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
     let session_configured = fallback_session_configured;
 
     exec_span.record("thread.id", primary_thread_id_for_span.as_str());
-
     // Print the effective configuration and initial request so users can see what Codex
     // is using.
     event_processor.print_config_summary(&config, &prompt_summary, &session_configured);
@@ -796,6 +800,11 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
             ));
             let task_id = response.turn.id;
             info!("Sent review request with event ID: {task_id}");
+            task_id
+        }
+        InitialOperation::Archive => {
+            let task_id = thread.submit(Op::Archive).await?;
+            info!("Sent archive request with event ID: {task_id}");
             task_id
         }
     };

@@ -1,3 +1,4 @@
+mod archive;
 mod compact;
 mod ghost_snapshot;
 mod regular;
@@ -50,6 +51,8 @@ use codex_protocol::protocol::WarningEvent;
 use codex_protocol::user_input::UserInput;
 
 use codex_features::Feature;
+pub(crate) use archive::ArchiveTask;
+pub(crate) use archive::run_inline_archive;
 pub(crate) use compact::CompactTask;
 pub(crate) use ghost_snapshot::GhostSnapshotTask;
 pub(crate) use regular::RegularTask;
