@@ -84,6 +84,7 @@ enum InitialOperation {
     Review {
         review_request: ReviewRequest,
     },
+    Archive,
 }
 
 #[derive(Clone)]
@@ -425,9 +426,16 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         let resume_path = resolve_resume_path(&config, args).await?;
 
         if let Some(path) = resume_path {
-            thread_manager
-                .resume_thread_from_rollout(config.clone(), path, auth_manager.clone())
-                .await?
+            if args.archive {
+                // Fork the thread (preserves the anchor) then archive the fork.
+                thread_manager
+                    .fork_thread(usize::MAX, config.clone(), path, false)
+                    .await?
+            } else {
+                thread_manager
+                    .resume_thread_from_rollout(config.clone(), path, auth_manager.clone())
+                    .await?
+            }
         } else {
             thread_manager.start_thread(config.clone()).await?
         }
@@ -441,36 +449,40 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
             (InitialOperation::Review { review_request }, summary)
         }
         (Some(ExecCommand::Resume(args)), root_prompt, imgs) => {
-            let prompt_arg = args
-                .prompt
-                .clone()
-                .or_else(|| {
-                    if args.last {
-                        args.session_id.clone()
-                    } else {
-                        None
-                    }
-                })
-                .or(root_prompt);
-            let prompt_text = resolve_prompt(prompt_arg);
-            let mut items: Vec<UserInput> = imgs
-                .into_iter()
-                .chain(args.images.into_iter())
-                .map(|path| UserInput::LocalImage { path })
-                .collect();
-            items.push(UserInput::Text {
-                text: prompt_text.clone(),
-                // CLI input doesn't track UI element ranges, so none are available here.
-                text_elements: Vec::new(),
-            });
-            let output_schema = load_output_schema(output_schema_path.clone());
-            (
-                InitialOperation::UserTurn {
-                    items,
-                    output_schema,
-                },
-                prompt_text,
-            )
+            if args.archive {
+                (InitialOperation::Archive, "[archive]".to_string())
+            } else {
+                let prompt_arg = args
+                    .prompt
+                    .clone()
+                    .or_else(|| {
+                        if args.last {
+                            args.session_id.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .or(root_prompt);
+                let prompt_text = resolve_prompt(prompt_arg);
+                let mut items: Vec<UserInput> = imgs
+                    .into_iter()
+                    .chain(args.images.into_iter())
+                    .map(|path| UserInput::LocalImage { path })
+                    .collect();
+                items.push(UserInput::Text {
+                    text: prompt_text.clone(),
+                    // CLI input doesn't track UI element ranges, so none are available here.
+                    text_elements: Vec::new(),
+                });
+                let output_schema = load_output_schema(output_schema_path.clone());
+                (
+                    InitialOperation::UserTurn {
+                        items,
+                        output_schema,
+                    },
+                    prompt_text,
+                )
+            }
         }
         (None, root_prompt, imgs) => {
             let prompt_text = resolve_prompt(root_prompt);
@@ -578,6 +590,11 @@ pub async fn run_main(cli: Cli, arg0_paths: Arg0DispatchPaths) -> anyhow::Result
         InitialOperation::Review { review_request } => {
             let task_id = thread.submit(Op::Review { review_request }).await?;
             info!("Sent review request with event ID: {task_id}");
+            task_id
+        }
+        InitialOperation::Archive => {
+            let task_id = thread.submit(Op::Archive).await?;
+            info!("Sent archive request with event ID: {task_id}");
             task_id
         }
     };

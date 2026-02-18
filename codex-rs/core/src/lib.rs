@@ -45,6 +45,8 @@ pub mod instructions;
 pub mod landlock;
 pub mod mcp;
 mod mcp_connection_manager;
+#[allow(dead_code)]
+mod memory_experiment; // Fork: project-scoped memory system
 pub mod models_manager;
 mod network_policy_decision;
 pub mod network_proxy_loader;

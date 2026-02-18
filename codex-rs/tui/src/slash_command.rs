@@ -29,6 +29,7 @@ pub enum SlashCommand {
     Fork,
     Init,
     Compact,
+    Archive,
     Plan,
     Collab,
     Agent,
@@ -69,6 +70,7 @@ impl SlashCommand {
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
+            SlashCommand::Archive => "extract memories from conversation into memory files",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
@@ -136,6 +138,7 @@ impl SlashCommand {
             | SlashCommand::Fork
             | SlashCommand::Init
             | SlashCommand::Compact
+            | SlashCommand::Archive
             // | SlashCommand::Undo
             | SlashCommand::Model
             | SlashCommand::Provider

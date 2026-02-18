@@ -90,6 +90,6 @@ fn create_minimax_provider() -> ModelProviderInfo {
         stream_idle_timeout_ms: Some(300_000),
         requires_openai_auth: false,
         supports_websockets: false,
-        system_role: Some("user".to_string()),
+        system_role: None,
     }
 }

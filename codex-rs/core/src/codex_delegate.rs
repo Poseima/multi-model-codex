@@ -36,6 +36,7 @@ use codex_protocol::protocol::InitialHistory;
 /// The returned `events_rx` yields non-approval events emitted by the sub-agent.
 /// Approval requests are handled via `parent_session` and are not surfaced.
 /// The returned `ops_tx` allows the caller to submit additional `Op`s to the sub-agent.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_codex_thread_interactive(
     config: Config,
     auth_manager: Arc<AuthManager>,
@@ -44,6 +45,7 @@ pub(crate) async fn run_codex_thread_interactive(
     parent_ctx: Arc<TurnContext>,
     cancel_token: CancellationToken,
     initial_history: Option<InitialHistory>,
+    sub_agent_source: SubAgentSource,
 ) -> Result<Codex, CodexErr> {
     let (tx_sub, rx_sub) = async_channel::bounded(SUBMISSION_CHANNEL_CAPACITY);
     let (tx_ops, rx_ops) = async_channel::bounded(SUBMISSION_CHANNEL_CAPACITY);
@@ -55,7 +57,7 @@ pub(crate) async fn run_codex_thread_interactive(
         Arc::clone(&parent_session.services.skills_manager),
         Arc::clone(&parent_session.services.file_watcher),
         initial_history.unwrap_or(InitialHistory::New),
-        SessionSource::SubAgent(SubAgentSource::Review),
+        SessionSource::SubAgent(sub_agent_source),
         parent_session.services.agent_control.clone(),
         Vec::new(),
         false,
@@ -111,6 +113,7 @@ pub(crate) async fn run_codex_thread_one_shot(
     parent_ctx: Arc<TurnContext>,
     cancel_token: CancellationToken,
     initial_history: Option<InitialHistory>,
+    sub_agent_source: SubAgentSource,
 ) -> Result<Codex, CodexErr> {
     // Use a child token so we can stop the delegate after completion without
     // requiring the caller to cancel the parent token.
@@ -123,6 +126,7 @@ pub(crate) async fn run_codex_thread_one_shot(
         parent_ctx,
         child_cancel.clone(),
         initial_history,
+        sub_agent_source,
     )
     .await?;
 

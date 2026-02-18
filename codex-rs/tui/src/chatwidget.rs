@@ -230,6 +230,7 @@ use crate::exec_cell::CommandOutput;
 use crate::exec_cell::ExecCell;
 use crate::exec_cell::new_active_exec_command;
 use crate::exec_command::strip_bash_lc_and_escape;
+use crate::fork_memory;
 use crate::get_git_diff::get_git_diff;
 use crate::history_cell;
 use crate::history_cell::AgentMessageCell;
@@ -3542,6 +3543,9 @@ impl ChatWidget {
                 self.clear_token_usage();
                 self.app_event_tx.send(AppEvent::CodexOp(Op::Compact));
             }
+            SlashCommand::Archive => {
+                self.app_event_tx.send(AppEvent::CodexOp(Op::Archive));
+            }
             SlashCommand::Review => {
                 self.open_review_popup();
             }
@@ -4463,6 +4467,25 @@ impl ChatWidget {
                 self.on_entered_review_mode(review_request, from_replay)
             }
             EventMsg::ExitedReviewMode(review) => self.on_exited_review_mode(review),
+            EventMsg::EnteredArchiveMode => {
+                self.add_to_history(history_cell::new_review_status_line(
+                    ">> Memory archive started <<".to_string(),
+                ));
+                self.request_redraw();
+            }
+            EventMsg::ExitedArchiveMode => {
+                self.add_to_history(history_cell::new_review_status_line(
+                    "<< Memory archive finished >>".to_string(),
+                ));
+                self.request_redraw();
+            }
+            // Fork: memory retrieval events.
+            EventMsg::MemoryRetrieveBegin(ev) => {
+                self.on_collab_event(fork_memory::retrieve_begin(ev));
+            }
+            EventMsg::MemoryRetrieveEnd(ev) => {
+                self.on_collab_event(fork_memory::retrieve_end(ev));
+            }
             EventMsg::ContextCompacted(_) => self.on_agent_message("Context compacted".to_owned()),
             EventMsg::CollabAgentSpawnBegin(_) => {}
             EventMsg::CollabAgentSpawnEnd(ev) => self.on_collab_event(multi_agents::spawn_end(ev)),
