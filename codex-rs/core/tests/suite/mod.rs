@@ -57,6 +57,9 @@ mod image_rollout;
 mod items;
 mod json_result;
 mod live_cli;
+mod live_reload;
+mod memories;
+mod memory_experiment; // Fork: memory system integration tests
 mod model_overrides;
 mod model_switching;
 mod model_visible_layout;

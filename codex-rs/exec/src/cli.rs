@@ -194,6 +194,10 @@ struct ResumeArgsRaw {
     )]
     images: Vec<PathBuf>,
 
+    /// Trigger memory archive instead of sending a prompt.
+    #[arg(long = "archive", default_value_t = false)]
+    archive: bool,
+
     /// Prompt to send after resuming the session. If `-` is used, read from stdin.
     #[arg(value_name = "PROMPT", value_hint = clap::ValueHint::Other)]
     prompt: Option<String>,
@@ -214,6 +218,9 @@ pub struct ResumeArgs {
     /// Optional image(s) to attach to the prompt sent after resuming.
     pub images: Vec<PathBuf>,
 
+    /// Trigger memory archive instead of sending a prompt.
+    pub archive: bool,
+
     /// Prompt to send after resuming the session. If `-` is used, read from stdin.
     pub prompt: Option<String>,
 }
@@ -232,6 +239,7 @@ impl From<ResumeArgsRaw> for ResumeArgs {
             last: raw.last,
             all: raw.all,
             images: raw.images,
+            archive: raw.archive,
             prompt,
         }
     }

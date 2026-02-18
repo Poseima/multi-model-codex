@@ -20,6 +20,7 @@ use crate::realtime_conversation::REALTIME_USER_TEXT_PREFIX;
 use crate::realtime_conversation::prefix_realtime_v2_text;
 use crate::review_prompts::resolve_review_request;
 use crate::session::spawn_review_thread;
+use crate::tasks::ArchiveTask;
 use crate::tasks::CompactTask;
 use crate::tasks::UserShellCommandMode;
 use crate::tasks::UserShellCommandTask;
@@ -487,6 +488,74 @@ pub async fn compact(sess: &Arc<Session>, sub_id: String) {
     .await;
 }
 
+pub async fn archive(sess: &Arc<Session>, sub_id: String) {
+    let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+    sess.spawn_task(turn_context, Vec::new(), ArchiveTask::new())
+        .await;
+}
+
+pub async fn drop_memories(sess: &Arc<Session>, config: &Arc<Config>, sub_id: String) {
+    let turn_context = sess.new_default_turn_with_sub_id(sub_id.clone()).await;
+    let project_root =
+        crate::memory_experiment::get_project_memory_root(&config.codex_home, &turn_context.cwd);
+
+    let remove_result = match tokio::fs::remove_dir_all(&project_root).await {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err),
+    };
+
+    if let Err(err) = remove_result {
+        sess.send_event_raw(Event {
+            id: sub_id,
+            msg: EventMsg::Error(ErrorEvent {
+                message: format!(
+                    "Memory drop failed for {}: {err}",
+                    project_root.display()
+                ),
+                codex_error_info: Some(CodexErrorInfo::Other),
+            }),
+        })
+        .await;
+        return;
+    }
+
+    if let Err(err) = crate::memory_experiment::ensure_layout(&project_root).await {
+        sess.send_event_raw(Event {
+            id: sub_id,
+            msg: EventMsg::Error(ErrorEvent {
+                message: format!(
+                    "Memory drop removed files but failed recreating {}: {err}",
+                    project_root.display()
+                ),
+                codex_error_info: Some(CodexErrorInfo::Other),
+            }),
+        })
+        .await;
+        return;
+    }
+
+    sess.send_event_raw(Event {
+        id: sub_id,
+        msg: EventMsg::Warning(WarningEvent {
+            message: format!("Dropped memories at {}.", project_root.display()),
+        }),
+    })
+    .await;
+}
+
+pub async fn update_memories(sess: &Arc<Session>, config: &Arc<Config>, sub_id: String) {
+    let turn_context = sess.new_default_turn_with_sub_id(sub_id.clone()).await;
+    crate::memory_experiment::ensure_clues_fresh(&config.codex_home, &turn_context.cwd).await;
+    sess.send_event_raw(Event {
+        id: sub_id,
+        msg: EventMsg::Warning(WarningEvent {
+            message: "Memory clues update triggered.".to_string(),
+        }),
+    })
+    .await;
+}
+
 pub async fn thread_rollback(sess: &Arc<Session>, sub_id: String, num_turns: u32) {
     if num_turns == 0 {
         sess.send_event_raw(Event {
@@ -861,6 +930,18 @@ pub(super) async fn submission_loop(
                 }
                 Op::Compact => {
                     compact(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::Archive => {
+                    archive(&sess, sub.id.clone()).await;
+                    false
+                }
+                Op::DropMemories => {
+                    drop_memories(&sess, &config, sub.id.clone()).await;
+                    false
+                }
+                Op::UpdateMemories => {
+                    update_memories(&sess, &config, sub.id.clone()).await;
                     false
                 }
                 Op::ThreadRollback { num_turns } => {

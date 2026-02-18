@@ -2650,6 +2650,25 @@ impl Session {
         {
             developer_sections.push(memory_prompt);
         }
+        if crate::memory_experiment::is_enabled(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        ) {
+            crate::memory_experiment::ensure_clues_fresh(
+                &turn_context.config.codex_home,
+                &turn_context.cwd,
+            )
+            .await;
+            if let Some(clues_prompt) = crate::memory_experiment::build_clues_prompt(
+                &turn_context.config.codex_home,
+                &turn_context.cwd,
+            )
+            .await
+            {
+                developer_sections.push(clues_prompt);
+            }
+        }
         // Add developer instructions from collaboration_mode if they exist and are non-empty
         if turn_context.config.include_collaboration_mode_instructions
             && let Some(collab_instructions) =

@@ -49,6 +49,7 @@ pub(crate) mod mcp;
 mod mcp_skill_dependencies;
 mod mcp_tool_approval_templates;
 mod mcp_tool_exposure;
+mod memory_experiment; // Fork: project-scoped memory system
 mod network_policy_decision;
 pub(crate) mod network_proxy_loader;
 pub use mcp::McpManager;
@@ -60,7 +61,6 @@ pub use codex_mcp::mcp_connection_manager;
 pub use codex_mcp::mcp_connection_manager::MCP_SANDBOX_STATE_CAPABILITY;
 pub use codex_mcp::mcp_connection_manager::MCP_SANDBOX_STATE_METHOD;
 pub use codex_mcp::mcp_connection_manager::SandboxState;
-mod mcp_openai_file;
 mod swappable_model_client;
 mod mcp_tool_call;
 pub(crate) mod mention_syntax;

@@ -739,6 +739,20 @@ pub enum Op {
     /// to generate a summary which will be returned as an AgentMessage event.
     Compact,
 
+    /// Run the memory archiver to extract reusable knowledge from conversation.
+    Archive,
+
+    /// Drop all persisted memory artifacts and memory-tracking DB rows.
+    DropMemories,
+
+    /// Trigger a single pass of the startup memory pipeline.
+    UpdateMemories,
+
+    /// Set a user-facing thread name in the persisted rollout metadata.
+    /// This is a local-only operation handled by codex-core; it does not
+    /// involve the model.
+    SetThreadName { name: String },
+
     /// Set whether the thread remains eligible for memory generation.
     ///
     /// This persists thread-level memory mode metadata without involving the
@@ -865,6 +879,10 @@ impl Op {
             Self::RefreshMcpServers { .. } => "refresh_mcp_servers",
             Self::ReloadUserConfig => "reload_user_config",
             Self::Compact => "compact",
+            Self::Archive => "archive",
+            Self::DropMemories => "drop_memories",
+            Self::UpdateMemories => "update_memories",
+            Self::SetThreadName { .. } => "set_thread_name",
             Self::SetThreadMemoryMode { .. } => "set_thread_memory_mode",
             Self::ThreadRollback { .. } => "thread_rollback",
             Self::Review { .. } => "review",
@@ -1421,6 +1439,18 @@ pub enum EventMsg {
     /// Exited review mode with an optional final result to apply.
     ExitedReviewMode(ExitedReviewModeEvent),
 
+    /// Entered archive mode (memory experiment).
+    EnteredArchiveMode,
+
+    /// Exited archive mode (memory experiment).
+    ExitedArchiveMode,
+
+    /// Memory retrieval started (memory experiment).
+    MemoryRetrieveBegin(MemoryRetrieveBeginEvent),
+
+    /// Memory retrieval completed (memory experiment).
+    MemoryRetrieveEnd(MemoryRetrieveEndEvent),
+
     RawResponseItem(RawResponseItemEvent),
 
     ItemStarted(ItemStartedEvent),
@@ -1901,6 +1931,19 @@ impl HasLegacyEvent for EventMsg {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct ExitedReviewModeEvent {
     pub review_output: Option<ReviewOutputEvent>,
+}
+
+/// Fork: memory retrieval started event.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct MemoryRetrieveBeginEvent {
+    pub query: String,
+}
+
+/// Fork: memory retrieval completed event.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct MemoryRetrieveEndEvent {
+    pub query: String,
+    pub success: bool,
 }
 
 // Individual event payload types matching each `EventMsg` variant.
@@ -2568,6 +2611,7 @@ pub enum InternalSessionSource {
 pub enum SubAgentSource {
     Review,
     Compact,
+    Archive,
     ThreadSpawn {
         parent_thread_id: ThreadId,
         depth: i32,
@@ -2579,6 +2623,7 @@ pub enum SubAgentSource {
         agent_role: Option<String>,
     },
     MemoryConsolidation,
+    MemoryRetrieval,
     Other(String),
 }
 
@@ -2678,7 +2723,9 @@ impl fmt::Display for SubAgentSource {
         match self {
             SubAgentSource::Review => f.write_str("review"),
             SubAgentSource::Compact => f.write_str("compact"),
+            SubAgentSource::Archive => f.write_str("archive"),
             SubAgentSource::MemoryConsolidation => f.write_str("memory_consolidation"),
+            SubAgentSource::MemoryRetrieval => f.write_str("memory_retrieval"),
             SubAgentSource::ThreadSpawn {
                 parent_thread_id,
                 depth,

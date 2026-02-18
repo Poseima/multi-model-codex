@@ -1,0 +1,133 @@
+//! Fork: memory retrieval tool handler.
+//!
+//! Provides the `memory_retrieve` tool that lets the main agent load project
+//! memory files on demand, guided by memory clues in the system prompt.
+
+use codex_protocol::protocol::EventMsg;
+use codex_protocol::protocol::MemoryRetrieveBeginEvent;
+use codex_protocol::protocol::MemoryRetrieveEndEvent;
+use codex_tools::JsonSchema;
+use codex_tools::ResponsesApiTool;
+use codex_tools::ToolName;
+use codex_tools::ToolSpec;
+use serde::Deserialize;
+use std::collections::BTreeMap;
+
+use crate::function_tool::FunctionCallError;
+use crate::memory_experiment;
+use crate::tools::context::FunctionToolOutput;
+use crate::tools::context::ToolInvocation;
+use crate::tools::context::ToolPayload;
+use crate::tools::handlers::parse_arguments;
+use crate::tools::registry::ToolHandler;
+
+pub struct MemoryRetrieveHandler;
+
+/// Build the JSON schema tool spec for `memory_retrieve`.
+pub fn tool_spec() -> ToolSpec {
+    let mut properties = BTreeMap::new();
+    properties.insert(
+        "query".to_string(),
+        JsonSchema::string(Some(
+            "Detailed description of what context you need from project memories".to_string(),
+        )),
+    );
+
+    ToolSpec::Function(ResponsesApiTool {
+        name: "memory_retrieve".to_string(),
+        description: "Research project memories and return synthesized findings for your query. \
+            Use when memory clues in the system prompt match your task."
+            .to_string(),
+        strict: false,
+        defer_loading: None,
+        parameters: JsonSchema::object(
+            properties,
+            Some(vec!["query".to_string()]),
+            Some(false.into()),
+        ),
+        output_schema: None,
+    })
+}
+
+#[derive(Deserialize)]
+struct MemoryRetrieveArgs {
+    #[serde(default)]
+    query: String,
+}
+
+impl ToolHandler for MemoryRetrieveHandler {
+    type Output = FunctionToolOutput;
+
+    fn tool_name(&self) -> ToolName {
+        ToolName::plain("memory_retrieve")
+    }
+
+    fn spec(&self) -> Option<ToolSpec> {
+        Some(tool_spec())
+    }
+
+    async fn handle(&self, invocation: ToolInvocation) -> Result<Self::Output, FunctionCallError> {
+        let ToolInvocation {
+            session,
+            turn,
+            payload,
+            ..
+        } = invocation;
+
+        let arguments = match payload {
+            ToolPayload::Function { arguments } => arguments,
+            _ => {
+                return Err(FunctionCallError::RespondToModel(
+                    "memory_retrieve handler received unsupported payload".to_string(),
+                ));
+            }
+        };
+
+        let args: MemoryRetrieveArgs = parse_arguments(&arguments)?;
+
+        // Check if experiment is active.
+        if !memory_experiment::is_enabled(&turn.config.codex_home, &turn.cwd, &turn.features) {
+            return Ok(FunctionToolOutput::from_text(
+                "Memory experiment is not enabled for this project. \
+                 No memories available."
+                    .to_string(),
+                Some(false),
+            ));
+        }
+
+        let project_root =
+            memory_experiment::get_project_memory_root(&turn.config.codex_home, &turn.cwd);
+
+        // Emit begin event so TUI can show "Retrieving memories".
+        session
+            .send_event(
+                turn.as_ref(),
+                EventMsg::MemoryRetrieveBegin(MemoryRetrieveBeginEvent {
+                    query: args.query.clone(),
+                }),
+            )
+            .await;
+
+        let result =
+            memory_experiment::retrieval::retrieve(&project_root, &args.query, &session, &turn)
+                .await;
+
+        let success = result.is_ok();
+
+        // Emit end event so TUI can show "Memory retrieved".
+        session
+            .send_event(
+                turn.as_ref(),
+                EventMsg::MemoryRetrieveEnd(MemoryRetrieveEndEvent {
+                    query: args.query.clone(),
+                    success,
+                }),
+            )
+            .await;
+
+        let content = result.map_err(FunctionCallError::RespondToModel)?;
+        let output = format!("<memory triggered>\n{content}\n</memory triggered>");
+
+        Ok(FunctionToolOutput::from_text(output, Some(true)))
+    }
+}

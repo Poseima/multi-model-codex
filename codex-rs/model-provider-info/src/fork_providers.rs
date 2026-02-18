@@ -95,6 +95,6 @@ fn create_minimax_provider() -> ModelProviderInfo {
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
         supports_websockets: false,
-        system_role: Some("user".to_string()),
+        system_role: None,
     }
 }
