@@ -115,6 +115,8 @@ pub enum Feature {
     Sqlite,
     /// Enable startup memory extraction and file-backed memory consolidation.
     MemoryTool,
+    /// Enable the fork memory experiment (project-scoped file-based memories).
+    MemoryExperiment,
     /// Append additional AGENTS.md guidance to user instructions.
     ChildAgentsMd,
     /// Enforce UTF8 output in Powershell.
@@ -497,6 +499,12 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::MemoryTool,
         key: "memory_tool",
+        stage: Stage::UnderDevelopment,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::MemoryExperiment,
+        key: "memory_experiment",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
     },
