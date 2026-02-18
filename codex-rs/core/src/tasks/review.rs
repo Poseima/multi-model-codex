@@ -21,6 +21,7 @@ use crate::codex::TurnContext;
 use crate::codex_delegate::run_codex_thread_one_shot;
 use crate::config::Constrained;
 use crate::features::Feature;
+use crate::protocol::SubAgentSource;
 use crate::review_format::format_review_findings_block;
 use crate::review_format::render_review_output_text;
 use crate::state::TaskKind;
@@ -122,6 +123,7 @@ async fn start_review_conversation(
         SubAgentSource::Review,
         None,
         None,
+        SubAgentSource::Review,
     )
     .await)
         .ok()

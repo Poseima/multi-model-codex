@@ -97,6 +97,8 @@ fn event_msg_persistence_mode(ev: &EventMsg) -> Option<EventPersistenceMode> {
         | EventMsg::ContextCompacted(_)
         | EventMsg::EnteredReviewMode(_)
         | EventMsg::ExitedReviewMode(_)
+        | EventMsg::EnteredArchiveMode
+        | EventMsg::ExitedArchiveMode
         | EventMsg::ThreadRolledBack(_)
         | EventMsg::UndoCompleted(_)
         | EventMsg::TurnAborted(_)
@@ -175,6 +177,8 @@ fn event_msg_persistence_mode(ev: &EventMsg) -> Option<EventPersistenceMode> {
         | EventMsg::CollabWaitingBegin(_)
         | EventMsg::CollabCloseBegin(_)
         | EventMsg::CollabResumeBegin(_)
-        | EventMsg::ImageGenerationBegin(_) => None,
+        | EventMsg::ImageGenerationBegin(_)
+        | EventMsg::MemoryRetrieveBegin(_)
+        | EventMsg::MemoryRetrieveEnd(_) => None,
     }
 }

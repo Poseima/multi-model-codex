@@ -191,9 +191,14 @@ impl<'a> ChatRequestBuilder<'a> {
                         json!(text)
                     };
 
+                    // Fork: remap "developer" to "user" (not system_role) for
+                    // non-OpenAI providers. Many Chat Completions APIs (e.g.
+                    // MiniMax) only accept "system" as the first message;
+                    // remapping developer→system would scatter system messages
+                    // throughout the conversation and trigger API errors.
                     let effective_role =
                         if role == "developer" && !provider.supports_developer_role() {
-                            system_role
+                            "user"
                         } else {
                             role.as_str()
                         };

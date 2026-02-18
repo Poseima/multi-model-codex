@@ -167,6 +167,8 @@ use crate::error::CodexErr;
 use crate::error::Result as CodexResult;
 #[cfg(test)]
 use crate::exec::StreamOutput;
+use crate::memory_experiment; // Fork: project-scoped memory system
+use crate::swappable_model_client::SwappableModelClient;
 use codex_config::CONFIG_TOML_FILE;
 
 mod rollout_reconstruction;
@@ -3330,6 +3332,27 @@ impl Session {
         {
             developer_sections.push(memory_prompt);
         }
+        // Fork: auto-regenerate clues if memories exist but clues are missing.
+        if memory_experiment::is_enabled(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        ) {
+            memory_experiment::ensure_clues_fresh(
+                &turn_context.config.codex_home,
+                &turn_context.cwd,
+            )
+            .await;
+        }
+        // Fork: inject project memory clues into system prompt.
+        if let Some(clues_prompt) = memory_experiment::build_clues_prompt(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+        )
+        .await
+        {
+            items.push(DeveloperInstructions::new(clues_prompt).into());
+        }
         // Add developer instructions from collaboration_mode if they exist and are non-empty
         if let Some(collab_instructions) =
             DeveloperInstructions::from_collaboration_mode(&collaboration_mode)
@@ -4131,6 +4154,10 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
                     handlers::compact(&sess, sub.id.clone()).await;
                     false
                 }
+                Op::Archive => {
+                    handlers::archive(&sess, sub.id.clone()).await;
+                    false
+                }
                 Op::DropMemories => {
                     handlers::drop_memories(&sess, &config, sub.id.clone()).await;
                     false
@@ -4218,6 +4245,7 @@ mod handlers {
     use crate::review_prompts::resolve_review_request;
     use crate::rollout::RolloutRecorder;
     use crate::rollout::session_index;
+    use crate::tasks::ArchiveTask;
     use crate::tasks::CompactTask;
     use crate::tasks::UndoTask;
     use crate::tasks::UserShellCommandMode;
@@ -4741,6 +4769,12 @@ mod handlers {
             CompactTask,
         )
         .await;
+    }
+
+    pub async fn archive(sess: &Arc<Session>, sub_id: String) {
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
+        sess.spawn_task(turn_context, Vec::new(), ArchiveTask::new())
+            .await;
     }
 
     pub async fn drop_memories(sess: &Arc<Session>, config: &Arc<Config>, sub_id: String) {
@@ -5745,6 +5779,9 @@ async fn run_auto_compact(
     turn_context: &Arc<TurnContext>,
     initial_context_injection: InitialContextInjection,
 ) -> CodexResult<()> {
+    // Fork: run memory archive before compaction when experiment is enabled.
+    crate::tasks::run_inline_archive(Arc::clone(sess), Arc::clone(turn_context)).await;
+
     if should_use_remote_compact_task(&turn_context.provider) {
         run_inline_remote_auto_compact_task(
             Arc::clone(sess),
