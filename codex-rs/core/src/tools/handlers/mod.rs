@@ -2,6 +2,7 @@ pub(crate) mod agent_jobs;
 pub mod apply_patch;
 mod artifacts;
 mod dynamic;
+pub(crate) mod fork_memory_retrieve; // Fork: memory retrieval tool
 mod grep_files;
 mod js_repl;
 mod list_dir;
