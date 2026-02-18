@@ -785,6 +785,8 @@ impl EventProcessor for EventProcessorWithHumanOutput {
             | EventMsg::UserMessage(_)
             | EventMsg::EnteredReviewMode(_)
             | EventMsg::ExitedReviewMode(_)
+            | EventMsg::EnteredArchiveMode
+            | EventMsg::ExitedArchiveMode
             | EventMsg::AgentMessageDelta(_)
             | EventMsg::AgentReasoningDelta(_)
             | EventMsg::AgentReasoningRawContentDelta(_)
@@ -801,6 +803,8 @@ impl EventProcessor for EventProcessorWithHumanOutput {
             | EventMsg::RequestUserInput(_)
             | EventMsg::CollabResumeBegin(_)
             | EventMsg::CollabResumeEnd(_)
+            | EventMsg::MemoryRetrieveBegin(_)
+            | EventMsg::MemoryRetrieveEnd(_)
             | EventMsg::DynamicToolCallRequest(_) => {}
         }
         CodexStatus::Running

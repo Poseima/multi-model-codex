@@ -359,6 +359,8 @@ async fn run_codex_tool_session_inner(
                     | EventMsg::UndoStarted(_)
                     | EventMsg::UndoCompleted(_)
                     | EventMsg::ExitedReviewMode(_)
+                    | EventMsg::EnteredArchiveMode
+                    | EventMsg::ExitedArchiveMode
                     | EventMsg::RequestUserInput(_)
                     | EventMsg::DynamicToolCallRequest(_)
                     | EventMsg::ContextCompacted(_)
@@ -374,6 +376,8 @@ async fn run_codex_tool_session_inner(
                     | EventMsg::CollabCloseEnd(_)
                     | EventMsg::CollabResumeBegin(_)
                     | EventMsg::CollabResumeEnd(_)
+                    | EventMsg::MemoryRetrieveBegin(_)
+                    | EventMsg::MemoryRetrieveEnd(_)
                     | EventMsg::DeprecationNotice(_) => {
                         // For now, we do not do anything extra for these
                         // events. Note that
