@@ -14,6 +14,7 @@ use std::sync::LazyLock;
 use toml::Value as TomlValue;
 
 const BUILT_IN_EXPLORER_CONFIG: &str = include_str!("builtins/explorer.toml");
+const BUILT_IN_MEMORY_RETRIEVER_CONFIG: &str = include_str!("builtins/memory_retriever.toml");
 const DEFAULT_ROLE_NAME: &str = "default";
 const AGENT_TYPE_UNAVAILABLE_ERROR: &str = "agent type is currently not available";
 
@@ -175,6 +176,19 @@ Rules:
                     }
                 ),
                 (
+                    "memory_retriever".to_string(),
+                    AgentRoleConfig {
+                        description: Some(
+                            "Use `memory_retriever` when the task relates to past work, \
+                             project history, or previously discussed topics. The memory \
+                             retriever searches project-scoped memories (episodic and \
+                             semantic) to provide context from prior sessions."
+                                .to_string(),
+                        ),
+                        config_file: Some("memory_retriever.toml".to_string().parse().unwrap_or_default()),
+                    }
+                ),
+                (
                     "worker".to_string(),
                     AgentRoleConfig {
                         description: Some(r#"Use for execution and production work.
@@ -197,6 +211,7 @@ Rules:
     pub(super) fn config_file_contents(path: &Path) -> Option<&'static str> {
         match path.to_str()? {
             "explorer.toml" => Some(BUILT_IN_EXPLORER_CONFIG),
+            "memory_retriever.toml" => Some(BUILT_IN_MEMORY_RETRIEVER_CONFIG),
             _ => None,
         }
     }
@@ -480,10 +495,14 @@ writable_roots = ["./sandbox-root"]
     }
 
     #[test]
-    fn built_in_config_file_contents_resolves_explorer_only() {
+    fn built_in_config_file_contents_resolves_known_configs() {
         assert_eq!(
             built_in::config_file_contents(Path::new("explorer.toml")),
             Some(BUILT_IN_EXPLORER_CONFIG)
+        );
+        assert_eq!(
+            built_in::config_file_contents(Path::new("memory_retriever.toml")),
+            Some(BUILT_IN_MEMORY_RETRIEVER_CONFIG)
         );
         assert_eq!(
             built_in::config_file_contents(Path::new("missing.toml")),

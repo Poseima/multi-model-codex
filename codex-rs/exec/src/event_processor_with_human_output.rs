@@ -803,8 +803,6 @@ impl EventProcessor for EventProcessorWithHumanOutput {
             | EventMsg::RequestUserInput(_)
             | EventMsg::CollabResumeBegin(_)
             | EventMsg::CollabResumeEnd(_)
-            | EventMsg::MemoryRetrieveBegin(_)
-            | EventMsg::MemoryRetrieveEnd(_)
             | EventMsg::DynamicToolCallRequest(_) => {}
         }
         CodexStatus::Running
