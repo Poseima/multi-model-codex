@@ -172,8 +172,6 @@ fn event_msg_persistence_mode(ev: &EventMsg) -> Option<EventPersistenceMode> {
         | EventMsg::CollabAgentInteractionBegin(_)
         | EventMsg::CollabWaitingBegin(_)
         | EventMsg::CollabCloseBegin(_)
-        | EventMsg::CollabResumeBegin(_)
-        | EventMsg::MemoryRetrieveBegin(_)
-        | EventMsg::MemoryRetrieveEnd(_) => None,
+        | EventMsg::CollabResumeBegin(_) => None,
     }
 }

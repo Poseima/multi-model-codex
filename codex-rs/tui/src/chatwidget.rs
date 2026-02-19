@@ -230,7 +230,6 @@ use crate::exec_cell::CommandOutput;
 use crate::exec_cell::ExecCell;
 use crate::exec_cell::new_active_exec_command;
 use crate::exec_command::strip_bash_lc_and_escape;
-use crate::fork_memory;
 use crate::get_git_diff::get_git_diff;
 use crate::history_cell;
 use crate::history_cell::AgentMessageCell;
@@ -4478,13 +4477,6 @@ impl ChatWidget {
                     "<< Memory archive finished >>".to_string(),
                 ));
                 self.request_redraw();
-            }
-            // Fork: memory retrieval events.
-            EventMsg::MemoryRetrieveBegin(ev) => {
-                self.on_collab_event(fork_memory::retrieve_begin(ev));
-            }
-            EventMsg::MemoryRetrieveEnd(ev) => {
-                self.on_collab_event(fork_memory::retrieve_end(ev));
             }
             EventMsg::ContextCompacted(_) => self.on_agent_message("Context compacted".to_owned()),
             EventMsg::CollabAgentSpawnBegin(_) => {}

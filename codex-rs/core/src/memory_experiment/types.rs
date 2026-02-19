@@ -3,6 +3,7 @@
 //! Memory files use YAML frontmatter (delimited by `---`) followed by
 //! markdown content. The frontmatter is parsed into [`MemoryMetadata`].
 
+use codex_protocol::openai_models::ReasoningEffort;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -39,18 +40,17 @@ pub(crate) struct MemoryClue {
     pub expires: Option<String>,
 }
 
-/// Experiment-local configuration read from `config.toml` in the project
-/// memory directory. All fields are optional with sensible defaults.
-#[derive(Debug, Clone, Deserialize)]
+/// Resolved experiment configuration with all defaults applied.
+///
+/// Built from layered merging: hardcoded defaults < global config < project config.
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ExperimentConfig {
-    /// Model used for retrieval ranking (fast model).
-    #[serde(default = "default_retrieval_model")]
     pub retrieval_model: String,
-    /// Model used for archiving extraction.
-    #[serde(default = "default_archive_model")]
+    pub retrieval_provider: Option<String>,
+    pub retrieval_reasoning_effort: Option<ReasoningEffort>,
     pub archive_model: String,
-    /// Number of days before episodic memories expire.
-    #[serde(default = "default_episodic_expiry_days")]
+    pub archive_provider: Option<String>,
+    pub archive_reasoning_effort: Option<ReasoningEffort>,
     pub episodic_expiry_days: u32,
 }
 
@@ -58,18 +58,78 @@ impl Default for ExperimentConfig {
     fn default() -> Self {
         Self {
             retrieval_model: default_retrieval_model(),
+            retrieval_provider: default_retrieval_provider(),
+            retrieval_reasoning_effort: None,
             archive_model: default_archive_model(),
+            archive_provider: default_archive_provider(),
+            archive_reasoning_effort: None,
             episodic_expiry_days: default_episodic_expiry_days(),
         }
     }
 }
 
+/// Raw config layer deserialized from a single TOML file. All fields are
+/// `Option` so we can distinguish "explicitly set" from "missing" during merge.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(crate) struct ExperimentConfigRaw {
+    pub retrieval_model: Option<String>,
+    pub retrieval_provider: Option<String>,
+    pub retrieval_reasoning_effort: Option<ReasoningEffort>,
+    pub archive_model: Option<String>,
+    pub archive_provider: Option<String>,
+    pub archive_reasoning_effort: Option<ReasoningEffort>,
+    pub episodic_expiry_days: Option<u32>,
+}
+
+impl ExperimentConfigRaw {
+    /// Merge `other` on top of `self`. Fields set in `other` win.
+    pub(crate) fn merge(self, other: Self) -> Self {
+        Self {
+            retrieval_model: other.retrieval_model.or(self.retrieval_model),
+            retrieval_provider: other.retrieval_provider.or(self.retrieval_provider),
+            retrieval_reasoning_effort: other
+                .retrieval_reasoning_effort
+                .or(self.retrieval_reasoning_effort),
+            archive_model: other.archive_model.or(self.archive_model),
+            archive_provider: other.archive_provider.or(self.archive_provider),
+            archive_reasoning_effort: other
+                .archive_reasoning_effort
+                .or(self.archive_reasoning_effort),
+            episodic_expiry_days: other.episodic_expiry_days.or(self.episodic_expiry_days),
+        }
+    }
+}
+
+impl From<ExperimentConfigRaw> for ExperimentConfig {
+    fn from(raw: ExperimentConfigRaw) -> Self {
+        Self {
+            retrieval_model: raw.retrieval_model.unwrap_or_else(default_retrieval_model),
+            retrieval_provider: raw.retrieval_provider.or_else(default_retrieval_provider),
+            retrieval_reasoning_effort: raw.retrieval_reasoning_effort,
+            archive_model: raw.archive_model.unwrap_or_else(default_archive_model),
+            archive_provider: raw.archive_provider.or_else(default_archive_provider),
+            archive_reasoning_effort: raw.archive_reasoning_effort,
+            episodic_expiry_days: raw
+                .episodic_expiry_days
+                .unwrap_or_else(default_episodic_expiry_days),
+        }
+    }
+}
+
 fn default_retrieval_model() -> String {
-    "gpt-5.3-codex-spark".to_string()
+    "MiniMax-M2.5".to_string()
+}
+
+fn default_retrieval_provider() -> Option<String> {
+    Some("minimax".to_string())
 }
 
 fn default_archive_model() -> String {
-    "gpt-5.3-codex".to_string()
+    "MiniMax-M2.5".to_string()
+}
+
+fn default_archive_provider() -> Option<String> {
+    Some("minimax".to_string())
 }
 
 fn default_episodic_expiry_days() -> u32 {
@@ -179,16 +239,63 @@ Fixed the CSRF token validation.
     #[test]
     fn experiment_config_defaults() {
         let config = ExperimentConfig::default();
-        assert_eq!(config.retrieval_model, "gpt-5.3-codex-spark");
-        assert_eq!(config.archive_model, "gpt-5.3-codex");
+        assert_eq!(config.retrieval_model, "MiniMax-M2.5");
+        assert_eq!(config.retrieval_provider, Some("minimax".to_string()));
+        assert_eq!(config.retrieval_reasoning_effort, None);
+        assert_eq!(config.archive_model, "MiniMax-M2.5");
+        assert_eq!(config.archive_provider, Some("minimax".to_string()));
+        assert_eq!(config.archive_reasoning_effort, None);
         assert_eq!(config.episodic_expiry_days, 30);
     }
 
     #[test]
-    fn experiment_config_deserializes_partial_toml() {
+    fn raw_config_deserializes_partial_toml() {
         let toml_str = "episodic_expiry_days = 14";
-        let config: ExperimentConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.episodic_expiry_days, 14);
-        assert_eq!(config.retrieval_model, "gpt-5.3-codex-spark");
+        let raw: ExperimentConfigRaw = toml::from_str(toml_str).unwrap();
+        assert_eq!(raw.episodic_expiry_days, Some(14));
+        assert_eq!(raw.retrieval_model, None);
+    }
+
+    #[test]
+    fn raw_config_deserializes_provider_and_reasoning_effort() {
+        let toml_str = r#"
+retrieval_model = "gpt-5.3-codex-spark"
+retrieval_provider = "openai"
+retrieval_reasoning_effort = "low"
+
+archive_model = "gpt-5.3-codex"
+archive_provider = "openrouter"
+archive_reasoning_effort = "medium"
+"#;
+        let raw: ExperimentConfigRaw = toml::from_str(toml_str).unwrap();
+        assert_eq!(raw.retrieval_provider, Some("openai".to_string()));
+        assert_eq!(raw.retrieval_reasoning_effort, Some(ReasoningEffort::Low));
+        assert_eq!(raw.archive_provider, Some("openrouter".to_string()));
+        assert_eq!(raw.archive_reasoning_effort, Some(ReasoningEffort::Medium));
+    }
+
+    #[test]
+    fn raw_config_merge_project_overrides_global() {
+        let global = ExperimentConfigRaw {
+            retrieval_model: Some("global-model".to_string()),
+            retrieval_provider: Some("openai".to_string()),
+            ..Default::default()
+        };
+        let project = ExperimentConfigRaw {
+            retrieval_model: Some("project-model".to_string()),
+            ..Default::default()
+        };
+        let merged = global.merge(project);
+        // Project value wins for retrieval_model.
+        assert_eq!(merged.retrieval_model, Some("project-model".to_string()));
+        // Global value fills the gap for retrieval_provider.
+        assert_eq!(merged.retrieval_provider, Some("openai".to_string()));
+    }
+
+    #[test]
+    fn raw_config_into_config_applies_defaults() {
+        let raw = ExperimentConfigRaw::default();
+        let config: ExperimentConfig = raw.into();
+        assert_eq!(config, ExperimentConfig::default());
     }
 }

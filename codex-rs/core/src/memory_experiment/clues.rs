@@ -2,7 +2,7 @@
 //!
 //! Clues are generated from YAML frontmatter of memory files and stored as
 //! `memory_clues.md` in the project memory directory. The main agent uses
-//! these clues to decide when to call the `memory_retrieve` tool.
+//! these clues to decide when to spawn a `memory_retriever` agent.
 
 use crate::memory_experiment::get_project_memory_root;
 use crate::memory_experiment::is_memory_empty;
@@ -215,7 +215,7 @@ mod tests {
         let rendered = template.render().unwrap();
         assert!(rendered.contains("## Project Memory"));
         assert!(rendered.contains("test clues"));
-        assert!(rendered.contains("memory_retrieve"));
+        assert!(rendered.contains("spawn_agent"));
     }
 
     #[tokio::test]
@@ -348,7 +348,7 @@ mod tests {
         assert!(result.is_some());
         let rendered = result.unwrap();
         assert!(rendered.contains("## Project Memory"));
-        assert!(rendered.contains("memory_retrieve"));
+        assert!(rendered.contains("spawn_agent"));
         assert!(rendered.contains("[auth]"));
         assert!(rendered.contains("Auth flow"));
     }

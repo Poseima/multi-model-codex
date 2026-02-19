@@ -24,3 +24,12 @@ If no memories are relevant to the query, say so clearly and briefly.
 
 Do NOT reproduce entire files — extract and synthesize the relevant parts.
 Keep the result focused and actionable.
+
+## Time Awareness
+You will be given the current time. For every memory file you reference:
+1. Check the `last_updated` field in the YAML frontmatter
+2. Check the `expires` field if present (episodic memories)
+3. In your research result, note the age of each referenced memory:
+   - If `last_updated` is more than 30 days ago, mark it as **[STALE]** and warn the information may be outdated
+   - If `expires` is in the past, mark it as **[EXPIRED]** and warn the information may no longer be valid
+   - Otherwise, note the date briefly (e.g. "as of 2026-02-15")
