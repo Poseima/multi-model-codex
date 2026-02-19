@@ -64,7 +64,10 @@ impl ToolsConfig {
         let include_js_repl = features.enabled(Feature::JsRepl);
         let include_js_repl_tools_only =
             include_js_repl && features.enabled(Feature::JsReplToolsOnly);
-        let include_collab_tools = features.enabled(Feature::Collab);
+        // Fork: memory_retriever role requires spawn_agent, so enable collab
+        // tools whenever the memory experiment is active.
+        let include_collab_tools =
+            features.enabled(Feature::Collab) || features.enabled(Feature::MemoryExperiment);
         let include_collaboration_modes_tools = features.enabled(Feature::CollaborationModes);
         let include_search_tool = features.enabled(Feature::Apps);
 
@@ -1587,14 +1590,6 @@ pub(crate) fn build_specs(
         let test_sync_handler = Arc::new(TestSyncHandler);
         builder.push_spec_with_parallel_support(create_test_sync_tool(), true);
         builder.register_handler("test_sync_tool", test_sync_handler);
-    }
-
-    // Fork: memory retrieval tool
-    {
-        use crate::tools::handlers::fork_memory_retrieve;
-        let handler = Arc::new(fork_memory_retrieve::MemoryRetrieveHandler);
-        builder.push_spec(fork_memory_retrieve::tool_spec());
-        builder.register_handler("memory_retrieve", handler);
     }
 
     match config.web_search_mode {

@@ -90,6 +90,7 @@ impl ToolHandler for MultiAgentHandler {
 
 mod spawn {
     use super::*;
+    use crate::agent::fork_memory_role;
     use crate::agent::role::apply_role_to_config;
 
     use crate::agent::exceeds_thread_spawn_depth_limit;
@@ -148,6 +149,8 @@ mod spawn {
         apply_role_to_config(&mut config, role_name)
             .await
             .map_err(FunctionCallError::RespondToModel)?;
+        // Fork: inject memory clues when spawning a memory_retriever agent.
+        fork_memory_role::enrich_config_if_memory_role(&mut config, role_name, &turn.cwd).await;
         apply_spawn_agent_overrides(&mut config, child_depth);
 
         let result = session
