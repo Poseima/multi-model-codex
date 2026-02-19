@@ -108,8 +108,16 @@ async fn start_archive_conversation(
     // No MCP servers needed — the archive agent only reads/writes memory files.
     sub_agent_config.mcp_servers = Constrained::allow_only(std::collections::HashMap::new());
 
-    // Inherit the parent's model and provider — no override needed.
     let project_root = memory_experiment::get_project_memory_root(&config.codex_home, &ctx.cwd);
+
+    // Apply model/provider/reasoning overrides from the experiment config.
+    let exp_config = memory_experiment::read_config(&config.codex_home, &project_root);
+    memory_experiment::apply_model_override(
+        &mut sub_agent_config,
+        &exp_config.archive_model,
+        exp_config.archive_provider.as_deref(),
+        exp_config.archive_reasoning_effort,
+    );
 
     // Ensure directory structure exists before starting sub-agent.
     if let Err(e) = memory_experiment::ensure_layout(&project_root).await {
@@ -228,6 +236,7 @@ async fn exit_archive_mode(
     const ARCHIVE_USER_MESSAGE_ID: &str = "archive_user";
     const ARCHIVE_ASSISTANT_MESSAGE_ID: &str = "archive_assistant";
 
+    let archive_succeeded = last_message.is_some();
     let (user_msg, assistant_msg) = if let Some(summary) = last_message {
         let user_text =
             "[System: memory archiving complete. The archive agent has finished writing memory files.]"
@@ -273,6 +282,16 @@ async fn exit_archive_mode(
     session
         .send_event(ctx.as_ref(), EventMsg::ExitedArchiveMode)
         .await;
+
+    // Regenerate clues index so the next build_initial_context() picks up
+    // new/updated memory files written by the archive agent.
+    if archive_succeeded {
+        let project_root =
+            memory_experiment::get_project_memory_root(&ctx.config.codex_home, &ctx.cwd);
+        if let Err(e) = memory_experiment::clues::regenerate_clues(&project_root).await {
+            warn!("post-archive clues regeneration failed: {e}");
+        }
+    }
 
     if compact_after {
         // Compact after archiving to clean the context.

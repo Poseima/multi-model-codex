@@ -6,29 +6,33 @@
 //!
 //! ## Storage layout
 //! ```text
-//! {codex_home}/memories_experiment/{project_name}/
-//! ├── config.toml          ← presence = experiment enabled
-//! ├── memory_clues.md      ← loaded into system prompt
-//! ├── semantic/             ← persistent concept memories
-//! └── episodic/             ← time-limited event memories
+//! {codex_home}/memories_experiment/
+//! ├── config.toml                       ← global defaults (all projects)
+//! └── {project_name}/
+//!     ├── config.toml                   ← per-project overrides
+//!     ├── memory_clues.md               ← loaded into system prompt
+//!     ├── semantic/                     ← persistent concept memories
+//!     └── episodic/                     ← time-limited event memories
 //! ```
 //!
 
 pub(crate) mod archiver;
 pub(crate) mod clues;
 pub(crate) mod expiration;
-pub(crate) mod retrieval;
 pub(crate) mod types;
 
+use crate::config::Config;
 use crate::features::Feature;
 use crate::features::Features;
 use crate::git_info::get_git_repo_root;
+use codex_protocol::openai_models::ReasoningEffort;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::path::Path;
 use std::path::PathBuf;
 use types::ExperimentConfig;
+use types::ExperimentConfigRaw;
 
 // Re-export the public API items used by upstream hooks.
 pub(crate) use clues::build_clues_prompt;
@@ -64,14 +68,56 @@ pub(crate) fn get_project_memory_root(codex_home: &Path, cwd: &Path) -> PathBuf 
     codex_home.join(EXPERIMENT_DIR).join(dir_name)
 }
 
-/// Read the experiment config from the project memory directory.
-/// Returns defaults if the file is missing or unparseable.
-pub(crate) fn read_config(project_root: &Path) -> ExperimentConfig {
-    let config_path = project_root.join("config.toml");
-    std::fs::read_to_string(config_path)
+/// Read the experiment config with layered merging:
+///
+/// 1. Hardcoded defaults (MiniMax M2.5, applied via `From<ExperimentConfigRaw>`)
+/// 2. Global config at `{codex_home}/memories_experiment/config.toml`
+/// 3. Per-project config at `{project_root}/config.toml`
+///
+/// Higher-priority layers override lower ones field-by-field.
+pub(crate) fn read_config(codex_home: &Path, project_root: &Path) -> ExperimentConfig {
+    let global_path = codex_home.join(EXPERIMENT_DIR).join("config.toml");
+    let project_path = project_root.join("config.toml");
+
+    let global_raw = read_raw_config(&global_path);
+    let project_raw = read_raw_config(&project_path);
+
+    global_raw.merge(project_raw).into()
+}
+
+/// Read a single raw config file. Returns default (all `None`) if missing or
+/// unparseable.
+fn read_raw_config(path: &Path) -> ExperimentConfigRaw {
+    std::fs::read_to_string(path)
         .ok()
         .and_then(|s| toml::from_str(&s).ok())
         .unwrap_or_default()
+}
+
+/// Apply model, provider, and reasoning effort overrides to a sub-agent config.
+///
+/// Sets `config.model` unconditionally. If `provider_id` is given and exists
+/// in `config.model_providers`, also updates `model_provider` and
+/// `model_provider_id`. If `reasoning_effort` is given, sets
+/// `model_reasoning_effort`.
+pub(crate) fn apply_model_override(
+    config: &mut Config,
+    model: &str,
+    provider_id: Option<&str>,
+    reasoning_effort: Option<ReasoningEffort>,
+) {
+    config.model = Some(model.to_string());
+
+    if let Some(pid) = provider_id
+        && let Some(provider_info) = config.model_providers.get(pid)
+    {
+        config.model_provider = provider_info.clone();
+        config.model_provider_id = pid.to_string();
+    }
+
+    if let Some(effort) = reasoning_effort {
+        config.model_reasoning_effort = Some(effort);
+    }
 }
 
 /// Ensure the project memory directory structure exists.
@@ -173,21 +219,55 @@ mod tests {
 
     #[test]
     fn read_config_returns_defaults_when_missing() {
-        let config = read_config(Path::new("/tmp/nonexistent"));
-        assert_eq!(config.episodic_expiry_days, 30);
+        let nonexistent = Path::new("/tmp/nonexistent");
+        let config = read_config(nonexistent, nonexistent);
+        assert_eq!(config, ExperimentConfig::default());
     }
 
     #[test]
-    fn read_config_parses_custom_values() {
+    fn read_config_parses_project_values() {
         let tmp = tempfile::tempdir().unwrap();
+        let project_root = tmp.path().join(EXPERIMENT_DIR).join("my-project");
+        std::fs::create_dir_all(&project_root).unwrap();
         std::fs::write(
-            tmp.path().join("config.toml"),
+            project_root.join("config.toml"),
             "episodic_expiry_days = 7\nretrieval_model = \"custom-model\"",
         )
         .unwrap();
-        let config = read_config(tmp.path());
+        let config = read_config(tmp.path(), &project_root);
         assert_eq!(config.episodic_expiry_days, 7);
         assert_eq!(config.retrieval_model, "custom-model");
+    }
+
+    #[test]
+    fn read_config_layers_global_and_project() {
+        let tmp = tempfile::tempdir().unwrap();
+        let codex_home = tmp.path();
+        let global_dir = codex_home.join(EXPERIMENT_DIR);
+        let project_root = global_dir.join("my-project");
+        std::fs::create_dir_all(&project_root).unwrap();
+
+        // Global sets retrieval_model and archive_model.
+        std::fs::write(
+            global_dir.join("config.toml"),
+            "retrieval_model = \"global-retrieval\"\narchive_model = \"global-archive\"",
+        )
+        .unwrap();
+
+        // Project overrides only retrieval_model.
+        std::fs::write(
+            project_root.join("config.toml"),
+            "retrieval_model = \"project-retrieval\"",
+        )
+        .unwrap();
+
+        let config = read_config(codex_home, &project_root);
+        // Project wins for retrieval_model.
+        assert_eq!(config.retrieval_model, "project-retrieval");
+        // Global fills the gap for archive_model.
+        assert_eq!(config.archive_model, "global-archive");
+        // Hardcoded default for everything else.
+        assert_eq!(config.retrieval_provider, Some("minimax".to_string()));
     }
 
     #[tokio::test]
@@ -250,5 +330,50 @@ mod tests {
         ensure_layout(&root).await.unwrap();
         std::fs::write(root.join("semantic/.gitkeep"), "").unwrap();
         assert!(is_memory_empty(&root).await);
+    }
+
+    #[test]
+    fn apply_model_override_sets_model() {
+        let mut config = crate::config::test_config();
+        apply_model_override(&mut config, "gpt-5.3-codex-spark", None, None);
+        assert_eq!(config.model, Some("gpt-5.3-codex-spark".to_string()));
+    }
+
+    #[test]
+    fn apply_model_override_sets_provider_when_found() {
+        let mut config = crate::config::test_config();
+        // "openai" is a built-in provider that should exist in model_providers.
+        let has_openai = config.model_providers.contains_key("openai");
+        apply_model_override(&mut config, "gpt-5.3-codex", Some("openai"), None);
+        assert_eq!(config.model, Some("gpt-5.3-codex".to_string()));
+        if has_openai {
+            assert_eq!(config.model_provider_id, "openai");
+        }
+    }
+
+    #[test]
+    fn apply_model_override_ignores_unknown_provider() {
+        let mut config = crate::config::test_config();
+        let original_provider_id = config.model_provider_id.clone();
+        apply_model_override(
+            &mut config,
+            "some-model",
+            Some("nonexistent-provider"),
+            None,
+        );
+        // Provider ID should remain unchanged when the provider is not found.
+        assert_eq!(config.model_provider_id, original_provider_id);
+    }
+
+    #[test]
+    fn apply_model_override_sets_reasoning_effort() {
+        let mut config = crate::config::test_config();
+        apply_model_override(
+            &mut config,
+            "gpt-5.3-codex",
+            None,
+            Some(ReasoningEffort::Low),
+        );
+        assert_eq!(config.model_reasoning_effort, Some(ReasoningEffort::Low));
     }
 }
