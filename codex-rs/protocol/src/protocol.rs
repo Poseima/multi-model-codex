@@ -1191,12 +1191,6 @@ pub enum EventMsg {
     /// Exited archive mode (memory experiment).
     ExitedArchiveMode,
 
-    /// Memory retrieval started (memory experiment).
-    MemoryRetrieveBegin(MemoryRetrieveBeginEvent),
-
-    /// Memory retrieval completed (memory experiment).
-    MemoryRetrieveEnd(MemoryRetrieveEndEvent),
-
     RawResponseItem(RawResponseItemEvent),
 
     ItemStarted(ItemStartedEvent),
@@ -1508,19 +1502,6 @@ impl HasLegacyEvent for EventMsg {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct ExitedReviewModeEvent {
     pub review_output: Option<ReviewOutputEvent>,
-}
-
-/// Fork: memory retrieval started event.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
-pub struct MemoryRetrieveBeginEvent {
-    pub query: String,
-}
-
-/// Fork: memory retrieval completed event.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
-pub struct MemoryRetrieveEndEvent {
-    pub query: String,
-    pub success: bool,
 }
 
 // Individual event payload types matching each `EventMsg` variant.
