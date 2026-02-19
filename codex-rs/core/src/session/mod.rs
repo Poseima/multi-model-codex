@@ -1134,6 +1134,25 @@ impl Session {
         }
     }
 
+    /// Fork: returns base instructions with memory content appended when the
+    /// memory experiment is enabled.
+    pub(crate) async fn get_composed_base_instructions(
+        &self,
+        codex_home: &Path,
+        cwd: &Path,
+        features: &codex_features::Features,
+    ) -> BaseInstructions {
+        let base = {
+            let state = self.state.lock().await;
+            state.session_configuration.base_instructions.clone()
+        };
+        let text = crate::memory_experiment::compose_base_instructions_with_memory(
+            &base, codex_home, cwd, features,
+        )
+        .await;
+        BaseInstructions { text }
+    }
+
     // Merges connector IDs into the session-level explicit connector selection.
     pub(crate) async fn merge_connector_selection(
         &self,
@@ -2642,32 +2661,21 @@ impl Session {
         {
             developer_sections.push(developer_instructions.to_string());
         }
-        // Add developer instructions for memories.
-        if turn_context.features.enabled(Feature::MemoryTool)
+        // Add developer instructions for memories. When the fork memory
+        // experiment is active, memory content is appended to base instructions
+        // instead so it stays in the system prompt prefix.
+        let memory_experiment_active = crate::memory_experiment::is_enabled(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        );
+        if !memory_experiment_active
+            && turn_context.features.enabled(Feature::MemoryTool)
             && turn_context.config.memories.use_memories
             && let Some(memory_prompt) =
                 build_memory_tool_developer_instructions(&turn_context.config.codex_home).await
         {
             developer_sections.push(memory_prompt);
-        }
-        if crate::memory_experiment::is_enabled(
-            &turn_context.config.codex_home,
-            &turn_context.cwd,
-            &turn_context.features,
-        ) {
-            crate::memory_experiment::ensure_clues_fresh(
-                &turn_context.config.codex_home,
-                &turn_context.cwd,
-            )
-            .await;
-            if let Some(clues_prompt) = crate::memory_experiment::build_clues_prompt(
-                &turn_context.config.codex_home,
-                &turn_context.cwd,
-            )
-            .await
-            {
-                developer_sections.push(clues_prompt);
-            }
         }
         // Add developer instructions from collaboration_mode if they exist and are non-empty
         if turn_context.config.include_collaboration_mode_instructions

@@ -1025,7 +1025,13 @@ async fn run_sampling_request(
     )
     .await?;
 
-    let base_instructions = sess.get_base_instructions().await;
+    let base_instructions = sess
+        .get_composed_base_instructions(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        )
+        .await;
 
     let tool_runtime = ToolCallRuntime::new(
         Arc::clone(&router),

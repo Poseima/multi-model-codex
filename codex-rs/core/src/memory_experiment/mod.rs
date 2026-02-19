@@ -19,6 +19,7 @@
 pub(crate) mod archiver;
 pub(crate) mod clues;
 pub(crate) mod expiration;
+pub(crate) mod system_prompt;
 pub(crate) mod types;
 
 use crate::config::Config;
@@ -37,6 +38,7 @@ use types::ExperimentConfigRaw;
 // Re-export the public API items used by upstream hooks.
 pub(crate) use clues::build_clues_prompt;
 pub(crate) use clues::ensure_clues_fresh;
+pub(crate) use system_prompt::compose_base_instructions_with_memory;
 
 /// Subdirectory name under codex_home for experiment storage.
 const EXPERIMENT_DIR: &str = "memories_experiment";
