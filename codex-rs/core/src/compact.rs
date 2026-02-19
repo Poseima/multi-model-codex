@@ -128,7 +128,14 @@ async fn run_compact_task_inner(
         let turn_input_len = turn_input.len();
         let prompt = Prompt {
             input: turn_input,
-            base_instructions: sess.get_base_instructions().await,
+            // Fork: use composed instructions so compaction model sees memory content.
+            base_instructions: sess
+                .get_composed_base_instructions(
+                    &turn_context.config.codex_home,
+                    &turn_context.cwd,
+                    &turn_context.features,
+                )
+                .await,
             personality: turn_context.personality,
             ..Default::default()
         };

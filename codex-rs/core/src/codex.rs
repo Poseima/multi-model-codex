@@ -1703,6 +1703,26 @@ impl Session {
         }
     }
 
+    /// Fork: returns base instructions with memory content appended when the
+    /// memory experiment is enabled. Reads memory files from disk on each call
+    /// so the system prompt reflects the latest archive output.
+    pub(crate) async fn get_composed_base_instructions(
+        &self,
+        codex_home: &Path,
+        cwd: &Path,
+        features: &Features,
+    ) -> BaseInstructions {
+        let base = {
+            let state = self.state.lock().await;
+            state.session_configuration.base_instructions.clone()
+        };
+        let composed = memory_experiment::compose_base_instructions_with_memory(
+            &base, codex_home, cwd, features,
+        )
+        .await;
+        BaseInstructions { text: composed }
+    }
+
     pub(crate) async fn merge_mcp_tool_selection(&self, tool_names: Vec<String>) -> Vec<String> {
         let mut state = self.state.lock().await;
         state.merge_mcp_tool_selection(tool_names)
@@ -2957,33 +2977,21 @@ impl Session {
             developer_sections.push(developer_instructions.to_string());
         }
         // Add developer instructions for memories.
-        if turn_context.features.enabled(Feature::MemoryTool)
+        // Fork: when memory experiment is enabled, both memory tool instructions
+        // and clues are appended to the system prompt (base_instructions) instead
+        // of being injected as developer messages. See get_composed_base_instructions().
+        let memory_experiment_active = memory_experiment::is_enabled(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        );
+        if !memory_experiment_active
+            && turn_context.features.enabled(Feature::MemoryTool)
             && turn_context.config.memories.use_memories
             && let Some(memory_prompt) =
                 build_memory_tool_developer_instructions(&turn_context.config.codex_home).await
         {
             developer_sections.push(memory_prompt);
-        }
-        // Fork: auto-regenerate clues if memories exist but clues are missing.
-        if memory_experiment::is_enabled(
-            &turn_context.config.codex_home,
-            &turn_context.cwd,
-            &turn_context.features,
-        ) {
-            memory_experiment::ensure_clues_fresh(
-                &turn_context.config.codex_home,
-                &turn_context.cwd,
-            )
-            .await;
-        }
-        // Fork: inject project memory clues into system prompt.
-        if let Some(clues_prompt) = memory_experiment::build_clues_prompt(
-            &turn_context.config.codex_home,
-            &turn_context.cwd,
-        )
-        .await
-        {
-            items.push(DeveloperInstructions::new(clues_prompt).into());
         }
         // Add developer instructions from collaboration_mode if they exist and are non-empty
         let (collaboration_mode, base_instructions) = {
@@ -3151,7 +3159,14 @@ impl Session {
 
     pub(crate) async fn recompute_token_usage(&self, turn_context: &TurnContext) {
         let history = self.clone_history().await;
-        let base_instructions = self.get_base_instructions().await;
+        // Fork: use composed instructions so token estimate includes memory content.
+        let base_instructions = self
+            .get_composed_base_instructions(
+                &turn_context.config.codex_home,
+                &turn_context.cwd,
+                &turn_context.features,
+            )
+            .await;
         let Some(estimated_total_tokens) =
             history.estimate_token_count_with_base_instructions(&base_instructions)
         else {
@@ -5447,7 +5462,14 @@ async fn run_sampling_request(
     )
     .await?;
 
-    let base_instructions = sess.get_base_instructions().await;
+    // Fork: compose base instructions with memory content when experiment is active.
+    let base_instructions = sess
+        .get_composed_base_instructions(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        )
+        .await;
 
     let prompt = build_prompt(
         input,

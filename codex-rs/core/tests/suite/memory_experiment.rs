@@ -45,8 +45,8 @@ fn enable_experiment(project_root: &Path, clues_content: &str) {
 // Integration tests
 // ---------------------------------------------------------------------------
 
-/// When memory clues exist, they should appear in the developer messages
-/// sent to the model (injected via `build_initial_context()`).
+/// When memory clues exist, they should appear in the system prompt
+/// (instructions field) rather than as separate developer messages.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn memory_clues_injected_in_system_prompt() -> Result<()> {
     skip_if_no_network!(Ok(()));
@@ -77,27 +77,33 @@ async fn memory_clues_injected_in_system_prompt() -> Result<()> {
     test.submit_turn("tell me about auth").await?;
 
     let request = mock.single_request();
-    // Clues should appear in developer messages (DeveloperInstructions).
+    // Clues should appear in the instructions (system prompt), not developer messages.
+    let instructions = request.instructions_text();
+    assert!(
+        instructions.contains("Project Memory"),
+        "expected 'Project Memory' in instructions, got: {instructions}"
+    );
+    assert!(
+        instructions.contains("auth, JWT"),
+        "expected memory clues keywords in instructions, got: {instructions}"
+    );
+    assert!(
+        instructions.contains("spawn_agent"),
+        "expected spawn_agent instruction in instructions, got: {instructions}"
+    );
+    // Verify clues are NOT in developer messages (moved to system prompt).
     let developer_texts = request.message_input_texts("developer");
     let all_developer = developer_texts.join("\n");
     assert!(
-        all_developer.contains("Project Memory"),
-        "expected 'Project Memory' in developer messages, got: {all_developer}"
-    );
-    assert!(
-        all_developer.contains("auth, JWT"),
-        "expected memory clues keywords in developer messages, got: {all_developer}"
-    );
-    assert!(
-        all_developer.contains("spawn_agent"),
-        "expected spawn_agent instruction in developer messages, got: {all_developer}"
+        !all_developer.contains("Project Memory"),
+        "memory clues should NOT be in developer messages when experiment is active"
     );
 
     Ok(())
 }
 
-/// When no memory clues exist, the system prompt should NOT contain
-/// "Project Memory" instructions.
+/// When no memory clues exist, neither the system prompt nor developer
+/// messages should contain "Project Memory" instructions.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn no_clues_no_memory_prompt() -> Result<()> {
     skip_if_no_network!(Ok(()));
@@ -120,11 +126,16 @@ async fn no_clues_no_memory_prompt() -> Result<()> {
     test.submit_turn("hello").await?;
 
     let request = mock.single_request();
+    let instructions = request.instructions_text();
+    assert!(
+        !instructions.contains("Project Memory"),
+        "should NOT have memory clues in instructions when experiment is not enabled"
+    );
     let developer_texts = request.message_input_texts("developer");
     let all_developer = developer_texts.join("\n");
     assert!(
         !all_developer.contains("Project Memory"),
-        "should NOT have memory clues when experiment is not enabled"
+        "should NOT have memory clues in developer messages when experiment is not enabled"
     );
 
     Ok(())

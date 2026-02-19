@@ -91,7 +91,14 @@ async fn run_remote_compact_task_inner_impl(
     sess.emit_turn_item_started(turn_context, &compaction_item)
         .await;
     let mut history = sess.clone_history().await;
-    let base_instructions = sess.get_base_instructions().await;
+    // Fork: use composed instructions so token estimation includes memory content.
+    let base_instructions = sess
+        .get_composed_base_instructions(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        )
+        .await;
     let deleted_items = trim_function_call_history_to_fit_context_window(
         &mut history,
         turn_context.as_ref(),
