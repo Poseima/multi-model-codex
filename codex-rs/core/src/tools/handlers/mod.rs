@@ -4,7 +4,6 @@ pub(crate) mod apply_patch;
 pub(crate) mod apply_patch_spec;
 mod dynamic;
 pub(crate) mod extension_tools;
-pub(crate) mod fork_memory_retrieve; // Fork: memory retrieval tool
 mod goal;
 pub(crate) mod goal_spec;
 mod mcp;

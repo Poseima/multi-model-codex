@@ -70,7 +70,7 @@ pub(crate) fn build_specs_with_discoverable_tools(
     };
     let default_wait_timeout_ms =
         DEFAULT_WAIT_TIMEOUT_MS.clamp(min_wait_timeout_ms, MAX_WAIT_TIMEOUT_MS);
-    let mut builder = build_tool_registry_builder(
+    build_tool_registry_builder(
         config,
         ToolRegistryBuildParams {
             mcp_tools: mcp_tools.as_deref(),
@@ -85,16 +85,7 @@ pub(crate) fn build_specs_with_discoverable_tools(
                 max_timeout_ms: MAX_WAIT_TIMEOUT_MS,
             },
         },
-    );
-
-    {
-        use crate::tools::handlers::fork_memory_retrieve;
-
-        builder.register_handler(std::sync::Arc::new(
-            fork_memory_retrieve::MemoryRetrieveHandler,
-        ));
-    }
-    builder
+    )
 }
 
 #[cfg(test)]
