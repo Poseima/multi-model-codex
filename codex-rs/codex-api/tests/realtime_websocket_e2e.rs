@@ -64,6 +64,7 @@ fn test_provider() -> Provider {
             retry_transport: false,
         },
         stream_idle_timeout: Duration::from_secs(5),
+        system_role: None,
     }
 }
 
