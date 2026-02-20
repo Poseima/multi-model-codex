@@ -9,16 +9,11 @@ use crate::memory_experiment::is_memory_empty;
 use crate::memory_experiment::types::MemoryClue;
 use crate::memory_experiment::types::MemoryType;
 use crate::memory_experiment::types::parse_frontmatter;
-use askama::Template;
 use std::fmt::Write as _;
 use std::path::Path;
 use tracing::warn;
 
-#[derive(Template)]
-#[template(path = "memory_experiment/clues.md", escape = "none")]
-struct ProjectMemoryCluesTemplate<'a> {
-    clues_content: &'a str,
-}
+const CLUES_TEMPLATE: &str = include_str!("../../templates/memory_experiment/clues.md");
 
 /// Build the memory clues prompt for system prompt injection.
 ///
@@ -32,10 +27,7 @@ pub(crate) async fn build_clues_prompt(codex_home: &Path, cwd: &Path) -> Option<
     if trimmed.is_empty() {
         return None;
     }
-    let template = ProjectMemoryCluesTemplate {
-        clues_content: trimmed,
-    };
-    template.render().ok()
+    Some(CLUES_TEMPLATE.replace("{{ clues_content }}", trimmed))
 }
 
 /// Regenerate `memory_clues.md` by scanning all memory files.
@@ -209,10 +201,7 @@ mod tests {
 
     #[test]
     fn clue_template_renders() {
-        let template = ProjectMemoryCluesTemplate {
-            clues_content: "test clues",
-        };
-        let rendered = template.render().unwrap();
+        let rendered = CLUES_TEMPLATE.replace("{{ clues_content }}", "test clues");
         assert!(rendered.contains("## Project Memory"));
         assert!(rendered.contains("test clues"));
         assert!(rendered.contains("spawn_agent"));
