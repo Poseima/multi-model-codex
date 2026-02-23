@@ -6301,6 +6301,7 @@ impl ChatWidget {
             tx.send(AppEvent::PersistModelSelection {
                 model: model.clone(),
                 effort,
+                provider: None,
             });
         })];
 
@@ -6519,7 +6520,7 @@ impl ChatWidget {
                 collaboration_mode: None,
                 personality: None,
             }));
-        if let Some(id) = provider_id.clone() {
+        if let Some(id) = provider_id {
             self.app_event_tx
                 .send(AppEvent::CodexOp(Op::OverrideProvider { provider_id: id }));
         }

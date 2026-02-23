@@ -220,10 +220,9 @@ impl ToolHandler for StructuredEditHandler {
                             turn: turn.as_ref(),
                             call_id: call_id.clone(),
                             tool_name: tool_name.to_string(),
-                            network_attempt_id: None,
                         };
                         let out = orchestrator
-                            .run(&mut runtime, &req, &tool_ctx, &turn, turn.approval_policy)
+                            .run(&mut runtime, &req, &tool_ctx, &turn, *turn.approval_policy)
                             .await
                             .map(|result| result.output);
                         let event_ctx = ToolEventCtx::new(
