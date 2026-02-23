@@ -303,6 +303,7 @@ async fn exit_archive_mode(
             if let Err(e) = crate::compact_remote::run_inline_remote_auto_compact_task(
                 Arc::clone(&session),
                 Arc::clone(&ctx),
+                crate::compact::InitialContextInjection::DoNotInject,
             )
             .await
             {
