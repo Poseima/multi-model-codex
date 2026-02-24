@@ -1848,14 +1848,6 @@ pub(crate) fn build_specs(
         builder.register_handler("test_sync_tool", test_sync_handler);
     }
 
-    // Fork: memory retrieval tool
-    {
-        use crate::tools::handlers::fork_memory_retrieve;
-        let handler = Arc::new(fork_memory_retrieve::MemoryRetrieveHandler);
-        builder.push_spec(fork_memory_retrieve::tool_spec());
-        builder.register_handler("memory_retrieve", handler);
-    }
-
     match config.web_search_mode {
         Some(WebSearchMode::Cached) => {
             builder.push_spec(ToolSpec::WebSearch {
