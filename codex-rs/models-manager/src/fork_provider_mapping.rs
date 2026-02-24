@@ -9,14 +9,9 @@
 /// from model slugs that happen to contain slashes.
 /// Fork: resolve a model slug to its fork provider ID, if any.
 ///
-/// Looks up the slug in the built-in presets and extracts the provider
-/// prefix from the matching preset ID. Returns `None` for built-in
-/// OpenAI models (no fork provider).
+/// Returns `None` for built-in OpenAI models (no fork provider).
 pub fn provider_for_model_slug(slug: &str) -> Option<String> {
-    super::model_presets::builtin_model_presets(None)
-        .iter()
-        .find(|p| p.model == slug)
-        .and_then(|p| provider_for_preset(&p.id).map(String::from))
+    provider_for_preset(slug).map(String::from)
 }
 
 pub fn provider_for_preset(preset_id: &str) -> Option<&str> {
