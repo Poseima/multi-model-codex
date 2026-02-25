@@ -76,6 +76,10 @@ fn load_managed_admin_config(
 pub(crate) async fn load_managed_admin_requirements_layer(
     override_base64: Option<&str>,
 ) -> io::Result<Option<RequirementsLayerEntry>> {
+    if codex_utils_home_dir::is_embedded_mode() && override_base64.is_none() {
+        return Ok(None);
+    }
+
     if let Some(encoded) = override_base64 {
         let trimmed = encoded.trim();
         if trimmed.is_empty() {
