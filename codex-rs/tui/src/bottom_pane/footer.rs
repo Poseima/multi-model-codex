@@ -461,7 +461,6 @@ pub(crate) fn single_line_footer_layout(
     (SummaryLeft::None, true)
 }
 
-#[cfg(test)]
 pub(crate) fn mode_indicator_line(
     indicator: Option<CollaborationModeIndicator>,
     show_cycle_hint: bool,

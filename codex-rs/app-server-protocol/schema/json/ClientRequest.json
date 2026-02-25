@@ -1054,7 +1054,8 @@
       "description": "Initial collaboration mode to use when the TUI starts.",
       "enum": [
         "plan",
-        "default"
+        "default",
+        "dawn"
       ],
       "type": "string"
     },
@@ -1139,6 +1140,10 @@
         "atlas"
       ],
       "type": "string"
+    },
+    "ProviderListParams": {
+      "description": "List configured model providers.",
+      "type": "object"
     },
     "ReadOnlyAccess": {
       "oneOf": [
@@ -2842,6 +2847,13 @@
           ],
           "description": "Override the personality for this turn and subsequent turns."
         },
+        "providerId": {
+          "description": "Override the model provider for this turn and subsequent turns.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "sandboxPolicy": {
           "anyOf": [
             {
@@ -3713,6 +3725,30 @@
         "params"
       ],
       "title": "ExperimentalFeature/listRequest",
+      "type": "object"
+    },
+    {
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/RequestId"
+        },
+        "method": {
+          "enum": [
+            "provider/list"
+          ],
+          "title": "Provider/listRequestMethod",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/definitions/ProviderListParams"
+        }
+      },
+      "required": [
+        "id",
+        "method",
+        "params"
+      ],
+      "title": "Provider/listRequest",
       "type": "object"
     },
     {
