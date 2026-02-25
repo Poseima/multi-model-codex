@@ -44,6 +44,13 @@ pub(super) async fn load_config_layers_internal(
     overrides: LoaderOverrides,
     strict_config: bool,
 ) -> io::Result<LoadedConfigLayers> {
+    if codex_utils_home_dir::is_embedded_mode() {
+        return Ok(LoadedConfigLayers {
+            managed_config: None,
+            managed_config_from_mdm: None,
+        });
+    }
+
     #[cfg(target_os = "macos")]
     let LoaderOverrides {
         managed_config_path,
