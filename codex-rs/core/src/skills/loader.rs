@@ -228,7 +228,11 @@ fn skill_roots_from_layer_stack_inner(
                 });
 
                 // `$HOME/.agents/skills` (user-installed skills).
-                if let Some(home_dir) = home_dir {
+                // Skipped in embedded mode to prevent leakage from a standalone
+                // Codex installation.
+                if let Some(home_dir) = home_dir
+                    && !codex_utils_home_dir::is_embedded_mode()
+                {
                     roots.push(SkillRoot {
                         path: home_dir.join(AGENTS_DIR_NAME).join(SKILLS_DIR_NAME),
                         scope: SkillScope::User,
