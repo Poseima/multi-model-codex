@@ -120,7 +120,6 @@
 //! - If repeated space events are seen before timeout, we proceed with hold-to-talk.
 //! - While recording, repeated space events keep the recording alive; if they stop for a short
 //!   window, we stop and transcribe.
-use crate::bottom_pane::footer::mode_indicator_line;
 use crate::key_hint;
 use crate::key_hint::KeyBinding;
 use crate::key_hint::has_ctrl_or_alt;
@@ -422,6 +421,13 @@ enum ActivePopup {
 }
 
 const FOOTER_SPACING_HEIGHT: u16 = 0;
+
+fn mode_indicator_line(
+    indicator: Option<CollaborationModeIndicator>,
+    show_cycle_hint: bool,
+) -> Option<Line<'static>> {
+    indicator.map(|mode| Line::from(vec![mode.styled_span(show_cycle_hint)]))
+}
 
 impl ChatComposer {
     pub fn new(
