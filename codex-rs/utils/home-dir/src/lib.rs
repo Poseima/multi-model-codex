@@ -2,6 +2,16 @@ use codex_utils_absolute_path::AbsolutePathBuf;
 use dirs::home_dir;
 use std::path::PathBuf;
 
+const CODEX_EMBEDDED_MODE_ENV: &str = "CODEX_EMBEDDED_MODE";
+
+/// Returns true when running as an embedded component (e.g., inside Dawn).
+/// In embedded mode, system-level config sources (`/etc/codex/`, macOS MDM,
+/// `$HOME/.agents/`) are skipped to prevent leakage from a user's standalone
+/// Codex installation.
+pub fn is_embedded_mode() -> bool {
+    std::env::var(CODEX_EMBEDDED_MODE_ENV).is_ok_and(|v| v == "1")
+}
+
 /// Returns the path to the Codex configuration directory, which can be
 /// specified by the `CODEX_HOME` environment variable. If not set, defaults to
 /// `~/.codex`.
@@ -130,5 +140,11 @@ mod tests {
         expected.push(".codex");
         let expected = AbsolutePathBuf::from_absolute_path(expected).expect("absolute home");
         assert_eq!(resolved, expected);
+    }
+
+    #[test]
+    fn is_embedded_mode_returns_false_by_default() {
+        // The env var is not set in normal test runs.
+        assert!(!super::is_embedded_mode());
     }
 }
