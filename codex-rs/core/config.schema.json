@@ -466,6 +466,9 @@
             "memories": {
               "type": "boolean"
             },
+            "memory_experiment": {
+              "type": "boolean"
+            },
             "memory_tool": {
               "type": "boolean"
             },
@@ -4261,6 +4264,9 @@
           "type": "boolean"
         },
         "memories": {
+          "type": "boolean"
+        },
+        "memory_experiment": {
           "type": "boolean"
         },
         "memory_tool": {
