@@ -4263,6 +4263,10 @@ async fn collab_mode_shift_tab_cycles_only_when_idle() {
 
     let initial = chat.current_collaboration_mode().clone();
     chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
+    assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Dawn);
+    assert_eq!(chat.current_collaboration_mode(), &initial);
+
+    chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
     assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Plan);
     assert_eq!(chat.current_collaboration_mode(), &initial);
 

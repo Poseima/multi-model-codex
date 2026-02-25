@@ -938,6 +938,30 @@
             },
             "method": {
               "enum": [
+                "provider/list"
+              ],
+              "title": "Provider/listRequestMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/ProviderListParams"
+            }
+          },
+          "required": [
+            "id",
+            "method",
+            "params"
+          ],
+          "title": "Provider/listRequest",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/RequestId"
+            },
+            "method": {
+              "enum": [
                 "mcpServer/oauth/login"
               ],
               "title": "McpServer/oauth/loginRequestMethod",
@@ -3732,6 +3756,40 @@
             "type"
           ],
           "title": "ExitedReviewModeEventMsg",
+          "type": "object"
+        },
+        {
+          "description": "Entered archive mode (memory experiment).",
+          "properties": {
+            "type": {
+              "enum": [
+                "entered_archive_mode"
+              ],
+              "title": "EnteredArchiveModeEventMsgType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "EnteredArchiveModeEventMsg",
+          "type": "object"
+        },
+        {
+          "description": "Exited archive mode (memory experiment).",
+          "properties": {
+            "type": {
+              "enum": [
+                "exited_archive_mode"
+              ],
+              "title": "ExitedArchiveModeEventMsgType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "ExitedArchiveModeEventMsg",
           "type": "object"
         },
         {
@@ -10240,7 +10298,8 @@
         "description": "Initial collaboration mode to use when the TUI starts.",
         "enum": [
           "plan",
-          "default"
+          "default",
+          "dawn"
         ],
         "type": "string"
       },
@@ -10758,6 +10817,71 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "ProviderInfo": {
+        "description": "Summary of a configured model provider.",
+        "properties": {
+          "baseUrl": {
+            "description": "Base URL for the provider's API.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "envKey": {
+            "description": "Environment variable that stores the API key.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Key in the providers map (e.g. `\"openai\"`, `\"ollama\"`).",
+            "type": "string"
+          },
+          "name": {
+            "description": "Friendly display name.",
+            "type": "string"
+          },
+          "requiresOpenaiAuth": {
+            "description": "Whether this provider requires OpenAI authentication.",
+            "type": "boolean"
+          },
+          "wireApi": {
+            "description": "Wire protocol: `\"responses\"` or `\"chat\"`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "requiresOpenaiAuth",
+          "wireApi"
+        ],
+        "type": "object"
+      },
+      "ProviderListParams": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "description": "List configured model providers.",
+        "title": "ProviderListParams",
+        "type": "object"
+      },
+      "ProviderListResponse": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "description": "Response for `provider/list`.",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/definitions/v2/ProviderInfo"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ProviderListResponse",
         "type": "object"
       },
       "RateLimitSnapshot": {
@@ -12322,7 +12446,9 @@
             "enum": [
               "review",
               "compact",
-              "memory_consolidation"
+              "archive",
+              "memory_consolidation",
+              "memory_retrieval"
             ],
             "type": "string"
           },
@@ -14500,6 +14626,13 @@
               }
             ],
             "description": "Override the personality for this turn and subsequent turns."
+          },
+          "providerId": {
+            "description": "Override the model provider for this turn and subsequent turns.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sandboxPolicy": {
             "anyOf": [

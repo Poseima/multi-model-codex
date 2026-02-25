@@ -86,7 +86,8 @@
       "description": "Initial collaboration mode to use when the TUI starts.",
       "enum": [
         "plan",
-        "default"
+        "default",
+        "dawn"
       ],
       "type": "string"
     },
@@ -527,6 +528,13 @@
         }
       ],
       "description": "Override the personality for this turn and subsequent turns."
+    },
+    "providerId": {
+      "description": "Override the model provider for this turn and subsequent turns.",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "sandboxPolicy": {
       "anyOf": [

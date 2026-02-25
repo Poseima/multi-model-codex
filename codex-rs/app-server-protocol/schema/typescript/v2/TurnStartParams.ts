@@ -41,4 +41,7 @@ outputSchema?: JsonValue | null, /**
  * For `collaboration_mode.settings.developer_instructions`, `null` means
  * "use the built-in instructions for the selected mode".
  */
-collaborationMode?: CollaborationMode | null};
+collaborationMode?: CollaborationMode | null, /**
+ * Override the model provider for this turn and subsequent turns.
+ */
+providerId: string | null};

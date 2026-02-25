@@ -5,19 +5,12 @@ expression: popup
   Select Model and Effort
   Access legacy models by running codex -m <model_name> or in your config.toml
 
-› 1. gpt-5.2-codex (default)        Frontier agentic coding model.
-  2. gpt-5.1-codex-max              Codex-optimized flagship for deep and fast
-                                    reasoning.
-  3. gpt-5.2                        Latest frontier model with improvements
-                                    across knowledge, reasoning and coding
-  4. gpt-5.1-codex-mini             Optimized for codex. Cheaper, faster, but
-                                    less capable.
-  5. z-ai/glm-4.5-air:free          Zhipu AI's GLM-4.5 model via OpenRouter.
-  6. xiaomi/mimo-v2-flash:free      Xiaomi's 309B MoE model. Top open-source
-                                    on SWE-bench.
-  7. google/gemini-2.0-flash-001    Google's Gemini 2.0 Flash model via
-                                    OpenRouter.
-  8. google/gemini-3-flash-preview  Google's Gemini 3 Flash preview model via
-                                    OpenRouter.
+› 1. gpt-5.2-codex (default)  Frontier agentic coding model.
+  2. gpt-5.1-codex-max        Codex-optimized flagship for deep and fast
+                              reasoning.
+  3. gpt-5.2                  Latest frontier model with improvements across
+                              knowledge, reasoning and coding
+  4. gpt-5.1-codex-mini       Optimized for codex. Cheaper, faster, but less
+                              capable.
 
   Press enter to select reasoning effort, or esc to dismiss.

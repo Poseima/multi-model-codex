@@ -1488,15 +1488,6 @@ impl Session {
             config.js_repl_node_module_dirs.clone(),
         ));
 
-        let prewarm_model_info = models_manager
-            .get_model_info(session_configuration.collaboration_mode.model(), &config)
-            .await;
-        let startup_regular_task = RegularTask::with_startup_prewarm(
-            services.model_client.clone_inner(),
-            services.otel_manager.clone(),
-            prewarm_model_info,
-        );
-        state.set_startup_regular_task(startup_regular_task);
         let sess = Arc::new(Session {
             conversation_id,
             tx_event: tx_event.clone(),
@@ -2224,7 +2215,7 @@ impl Session {
             .turn_metadata_state
             .current_header_value();
         RegularTask::with_startup_prewarm(
-            self.services.model_client.clone(),
+            self.services.model_client.clone_inner(),
             startup_prompt,
             startup_turn_context,
             startup_turn_metadata_header,

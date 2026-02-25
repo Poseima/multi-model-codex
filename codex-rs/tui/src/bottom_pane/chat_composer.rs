@@ -4200,7 +4200,10 @@ impl ChatComposer {
                     let full =
                         mode_indicator_line(self.collaboration_mode_indicator, show_cycle_hint);
                     let compact = mode_indicator_line(self.collaboration_mode_indicator, false);
-                    let full_width = full.as_ref().map(|l| l.width() as u16).unwrap_or(0);
+                    let full_width = full
+                        .as_ref()
+                        .map(|l: &Line<'_>| l.width() as u16)
+                        .unwrap_or(0);
                     if can_show_left_with_context(hint_rect, left_width, full_width) {
                         full
                     } else {
@@ -4211,9 +4214,14 @@ impl ChatComposer {
                         footer_props.context_window_percent,
                         footer_props.context_window_used_tokens,
                         self.context_window_total,
+                        left_mode_indicator,
+                        show_cycle_hint,
                     ))
                 };
-                let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
+                let right_width = right_line
+                    .as_ref()
+                    .map(|l: &Line<'_>| l.width() as u16)
+                    .unwrap_or(0);
                 if status_line_active
                     && let Some(max_left) = max_left_width_for_right(hint_rect, right_width)
                     && left_width > max_left

@@ -2567,6 +2567,40 @@
           "type": "object"
         },
         {
+          "description": "Entered archive mode (memory experiment).",
+          "properties": {
+            "type": {
+              "enum": [
+                "entered_archive_mode"
+              ],
+              "title": "EnteredArchiveModeEventMsgType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "EnteredArchiveModeEventMsg",
+          "type": "object"
+        },
+        {
+          "description": "Exited archive mode (memory experiment).",
+          "properties": {
+            "type": {
+              "enum": [
+                "exited_archive_mode"
+              ],
+              "title": "ExitedArchiveModeEventMsgType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "title": "ExitedArchiveModeEventMsg",
+          "type": "object"
+        },
+        {
           "properties": {
             "item": {
               "$ref": "#/definitions/ResponseItem"
@@ -3817,7 +3851,8 @@
       "description": "Initial collaboration mode to use when the TUI starts.",
       "enum": [
         "plan",
-        "default"
+        "default",
+        "dawn"
       ],
       "type": "string"
     },
@@ -8120,6 +8155,40 @@
         "type"
       ],
       "title": "ExitedReviewModeEventMsg",
+      "type": "object"
+    },
+    {
+      "description": "Entered archive mode (memory experiment).",
+      "properties": {
+        "type": {
+          "enum": [
+            "entered_archive_mode"
+          ],
+          "title": "EnteredArchiveModeEventMsgType",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "EnteredArchiveModeEventMsg",
+      "type": "object"
+    },
+    {
+      "description": "Exited archive mode (memory experiment).",
+      "properties": {
+        "type": {
+          "enum": [
+            "exited_archive_mode"
+          ],
+          "title": "ExitedArchiveModeEventMsgType",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ExitedArchiveModeEventMsg",
       "type": "object"
     },
     {
