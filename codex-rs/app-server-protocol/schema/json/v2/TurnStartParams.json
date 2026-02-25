@@ -275,7 +275,8 @@
       "description": "Initial collaboration mode to use when the TUI starts.",
       "enum": [
         "plan",
-        "default"
+        "default",
+        "dawn"
       ],
       "type": "string"
     },
@@ -829,6 +830,13 @@
         }
       ],
       "description": "@deprecated `friendly` and `pragmatic` no longer select a style. Changing this does not rewrite the thread's existing instructions."
+    },
+    "providerId": {
+      "description": "Override the model provider for this turn and subsequent turns.",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "sandboxPolicy": {
       "anyOf": [
