@@ -87,6 +87,25 @@ impl ToolHandler for ViewImageHandler {
             }
         };
 
+        // Detect when the model is trying to view an inline image that is already
+        // embedded in the conversation context (for example path = "Image #1.png"
+        // or "[Image #1]"). The UI may expose the label, but it is not a real
+        // filesystem path.
+        let path_stem = std::path::Path::new(&args.path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(&args.path);
+        let normalized = path_stem.trim_matches(|c| c == '[' || c == ']');
+        if normalized.starts_with("Image #") {
+            return Err(FunctionCallError::RespondToModel(
+                "That image is already embedded in the conversation context \
+                 (you received it as an inline image, not as a file on disk). \
+                 You can view and analyze its contents directly — \
+                 no need to call view_image."
+                    .to_string(),
+            ));
+        }
+
         let abs_path = turn.resolve_path(Some(args.path));
         let Some(environment) = turn.environment.as_ref() else {
             return Err(FunctionCallError::RespondToModel(
