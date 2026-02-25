@@ -193,7 +193,7 @@ Built-in providers and profiles take precedence when keys collide. User-defined 
 The MiniMax provider (`minimax`) and model (`codex-MiniMax-M2.1`) were added following this exact process. Use them as a reference:
 
 - Provider: `create_minimax_provider()` in `fork_providers.rs`
-- Preset: `minimax/codex-MiniMax-M2.1` in `model_presets.rs`
-- Model info: `slug.starts_with("codex-MiniMax")` branch in `model_info.rs`
+- Catalog entry: `codex-MiniMax-M2.1` in `models_manager/fork_catalog.rs`
+- Model info fallback: `slug.starts_with("codex-MiniMax")` branch in `models_manager/fork_model_info.rs`
 - Profile: `m21` in `built_in_profiles()` in `profile.rs`
 - System role: set to `"user"` because the MiniMax API does not accept the `"system"` message role

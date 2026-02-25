@@ -10,6 +10,7 @@ use crate::error::Result as CoreResult;
 use crate::model_provider_info::ModelProviderInfo;
 use crate::models_manager::collaboration_mode_presets::CollaborationModesConfig;
 use crate::models_manager::collaboration_mode_presets::builtin_collaboration_mode_presets;
+use crate::models_manager::fork_catalog::merge_with_fork_models;
 use crate::models_manager::model_info;
 use codex_api::ModelsClient;
 use codex_api::ReqwestTransport;
@@ -327,7 +328,7 @@ impl ModelsManager {
     fn load_remote_models_from_file() -> Result<Vec<ModelInfo>, std::io::Error> {
         let file_contents = include_str!("../../models.json");
         let response: ModelsResponse = serde_json::from_str(file_contents)?;
-        Ok(response.models)
+        Ok(merge_with_fork_models(response.models))
     }
 
     /// Attempt to satisfy the refresh from the cache when it matches the provider and TTL.
@@ -1005,6 +1006,20 @@ mod tests {
         assert!(
             !response.models.is_empty(),
             "bundled models.json should contain at least one model"
+        );
+    }
+
+    #[test]
+    fn bundled_catalog_includes_fork_models() {
+        let models = ModelsManager::load_remote_models_from_file()
+            .expect("bundled models should deserialize and merge fork additions");
+        assert!(
+            models.iter().any(|model| model.slug == "MiniMax-M2.5"),
+            "bundled catalog should include MiniMax-M2.5"
+        );
+        assert!(
+            models.iter().any(|model| model.slug == "glm-5"),
+            "bundled catalog should include glm-5"
         );
     }
 }
