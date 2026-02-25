@@ -15,12 +15,35 @@ pub fn provider_for_model_slug(slug: &str) -> Option<String> {
 }
 
 pub fn provider_for_preset(preset_id: &str) -> Option<&str> {
-    let slash_pos = preset_id.find('/')?;
-    let prefix = &preset_id[..slash_pos];
-    match prefix {
-        "openrouter" | "minimax" | "volcengine" | "zhipu" => Some(prefix),
-        _ => None,
+    if let Some(slash_pos) = preset_id.find('/') {
+        let prefix = &preset_id[..slash_pos];
+        return match prefix {
+            "openrouter" | "minimax" | "volcengine" | "zhipu" => Some(prefix),
+            _ => None,
+        };
     }
+
+    if preset_id.starts_with("codex-MiniMax") || preset_id.starts_with("MiniMax-") {
+        return Some("minimax");
+    }
+
+    if preset_id.starts_with("glm-") {
+        return Some("zhipu");
+    }
+
+    if preset_id.starts_with("z-ai/glm")
+        || preset_id.starts_with("xiaomi/mimo")
+        || preset_id.starts_with("google/gemini-2")
+        || preset_id.starts_with("google/gemini-3")
+    {
+        return Some("openrouter");
+    }
+
+    if preset_id.starts_with("ark-") {
+        return Some("volcengine");
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -72,5 +95,17 @@ mod tests {
     #[test]
     fn unknown_provider_prefix_returns_none() {
         assert_eq!(None, provider_for_preset("unknown/some-model"));
+    }
+
+    #[test]
+    fn minimax_raw_slug_returns_minimax() {
+        assert_eq!(Some("minimax"), provider_for_preset("MiniMax-M2.5"));
+        assert_eq!(Some("minimax"), provider_for_preset("codex-MiniMax-M2.1"));
+    }
+
+    #[test]
+    fn zhipu_raw_slug_returns_zhipu() {
+        assert_eq!(Some("zhipu"), provider_for_preset("glm-5"));
+        assert_eq!(Some("zhipu"), provider_for_preset("glm-4.7"));
     }
 }
