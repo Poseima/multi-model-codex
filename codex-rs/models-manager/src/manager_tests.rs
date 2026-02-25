@@ -876,3 +876,17 @@ fn bundled_models_json_roundtrips() {
         "bundled models.json should contain at least one model"
     );
 }
+
+#[test]
+fn bundled_catalog_includes_fork_models() {
+    let models = ModelsManager::load_remote_models_from_file()
+        .expect("bundled models should deserialize and merge fork additions");
+    assert!(
+        models.iter().any(|model| model.slug == "MiniMax-M2.5"),
+        "bundled catalog should include MiniMax-M2.5"
+    );
+    assert!(
+        models.iter().any(|model| model.slug == "glm-5"),
+        "bundled catalog should include glm-5"
+    );
+}

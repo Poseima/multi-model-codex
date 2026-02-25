@@ -16,7 +16,7 @@ use codex_protocol::openai_models::default_input_modalities;
 use super::model_info::BASE_INSTRUCTIONS;
 
 const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
-    include_str!("../../prompt_with_text_editor_instructions.md");
+    include_str!("../../core/prompt_with_text_editor_instructions.md");
 
 const CONTEXT_WINDOW_272K: i64 = 272_000;
 
@@ -52,6 +52,7 @@ macro_rules! fork_model_info {
             context_window: Some(CONTEXT_WINDOW_272K),
             max_context_window: Some(CONTEXT_WINDOW_272K),
             auto_compact_token_limit: None,
+            auto_compact_percent: None,
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: default_input_modalities(),
