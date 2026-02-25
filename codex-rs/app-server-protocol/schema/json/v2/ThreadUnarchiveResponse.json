@@ -679,7 +679,9 @@
           "enum": [
             "review",
             "compact",
-            "memory_consolidation"
+            "archive",
+            "memory_consolidation",
+            "memory_retrieval"
           ],
           "type": "string"
         },
