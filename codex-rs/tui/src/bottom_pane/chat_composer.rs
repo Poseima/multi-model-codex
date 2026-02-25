@@ -4288,7 +4288,10 @@ impl ChatComposer {
                         self.collaboration_mode_indicator,
                         /*show_cycle_hint*/ false,
                     );
-                    let full_width = full.as_ref().map(|l| l.width() as u16).unwrap_or(0);
+                    let full_width = full
+                        .as_ref()
+                        .map(|l: &Line<'_>| l.width() as u16)
+                        .unwrap_or(0);
                     if can_show_left_with_context(hint_rect, left_width, full_width) {
                         full
                     } else {
