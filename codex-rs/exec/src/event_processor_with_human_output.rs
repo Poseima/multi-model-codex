@@ -851,6 +851,8 @@ impl EventProcessor for EventProcessorWithHumanOutput {
             | EventMsg::UserMessage(_)
             | EventMsg::EnteredReviewMode(_)
             | EventMsg::ExitedReviewMode(_)
+            | EventMsg::EnteredArchiveMode
+            | EventMsg::ExitedArchiveMode
             | EventMsg::AgentMessageDelta(_)
             | EventMsg::AgentReasoningDelta(_)
             | EventMsg::AgentReasoningRawContentDelta(_)
