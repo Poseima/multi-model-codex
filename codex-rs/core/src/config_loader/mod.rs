@@ -386,21 +386,41 @@ async fn load_requirements_toml(
 
 #[cfg(unix)]
 fn system_requirements_toml_file() -> io::Result<AbsolutePathBuf> {
+    if codex_utils_home_dir::is_embedded_mode() {
+        let home = codex_utils_home_dir::find_codex_home()?;
+        return AbsolutePathBuf::from_absolute_path(
+            home.join("_embedded").join("requirements.toml"),
+        );
+    }
     AbsolutePathBuf::from_absolute_path(Path::new("/etc/codex/requirements.toml"))
 }
 
 #[cfg(windows)]
 fn system_requirements_toml_file() -> io::Result<AbsolutePathBuf> {
+    if codex_utils_home_dir::is_embedded_mode() {
+        let home = codex_utils_home_dir::find_codex_home()?;
+        return AbsolutePathBuf::from_absolute_path(
+            home.join("_embedded").join("requirements.toml"),
+        );
+    }
     windows_system_requirements_toml_file()
 }
 
 #[cfg(unix)]
 fn system_config_toml_file() -> io::Result<AbsolutePathBuf> {
+    if codex_utils_home_dir::is_embedded_mode() {
+        let home = codex_utils_home_dir::find_codex_home()?;
+        return AbsolutePathBuf::from_absolute_path(home.join("_embedded").join("config.toml"));
+    }
     AbsolutePathBuf::from_absolute_path(Path::new(SYSTEM_CONFIG_TOML_FILE_UNIX))
 }
 
 #[cfg(windows)]
 fn system_config_toml_file() -> io::Result<AbsolutePathBuf> {
+    if codex_utils_home_dir::is_embedded_mode() {
+        let home = codex_utils_home_dir::find_codex_home()?;
+        return AbsolutePathBuf::from_absolute_path(home.join("_embedded").join("config.toml"));
+    }
     windows_system_config_toml_file()
 }
 

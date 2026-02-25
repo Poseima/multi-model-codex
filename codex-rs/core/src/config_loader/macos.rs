@@ -65,6 +65,10 @@ pub(crate) async fn load_managed_admin_requirements_toml(
     target: &mut ConfigRequirementsWithSources,
     override_base64: Option<&str>,
 ) -> io::Result<()> {
+    if codex_utils_home_dir::is_embedded_mode() && override_base64.is_none() {
+        return Ok(());
+    }
+
     if let Some(encoded) = override_base64 {
         let trimmed = encoded.trim();
         if trimmed.is_empty() {
