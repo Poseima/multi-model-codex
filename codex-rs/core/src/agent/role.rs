@@ -394,40 +394,21 @@ Rules:
                         nickname_candidates: None,
                     }
                 ),
+                // Awaiter is temp removed by upstream
                 (
                     "memory_retriever".to_string(),
                     AgentRoleConfig {
                         description: Some(
-                            "Use `memory_retriever` to research project-scoped memory files and synthesize findings for the parent agent."
+                            "Use `memory_retriever` when the task relates to past work, \
+                             project history, or previously discussed topics. The memory \
+                             retriever searches project-scoped memories (episodic and \
+                             semantic) to provide context from prior sessions."
                                 .to_string(),
                         ),
-                        config_file: Some(
-                            "memory_retriever.toml"
-                                .to_string()
-                                .parse()
-                                .unwrap_or_default(),
-                        ),
+                        config_file: Some("memory_retriever.toml".to_string().parse().unwrap_or_default()),
                         nickname_candidates: None,
                     }
                 ),
-                // Awaiter is temp removed
-//                 (
-//                     "awaiter".to_string(),
-//                     AgentRoleConfig {
-//                         description: Some(r#"Use an `awaiter` agent EVERY TIME you must run a command that will take some very long time.
-// This includes, but not only:
-// * testing
-// * monitoring of a long running process
-// * explicit ask to wait for something
-//
-// Rules:
-// - When an awaiter is running, you can work on something else. If you need to wait for its completion, use the largest possible timeout.
-// - Be patient with the `awaiter`.
-// - Do not use an awaiter for every compilation/test if it won't take time. Only use if for long running commands.
-// - Close the awaiter when you're done with it."#.to_string()),
-//                         config_file: Some("awaiter.toml".to_string().parse().unwrap_or_default()),
-//                     }
-//                 )
             ])
         });
         &CONFIG
