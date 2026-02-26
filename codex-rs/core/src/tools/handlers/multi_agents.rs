@@ -152,6 +152,12 @@ mod spawn {
         apply_role_to_config(&mut config, role_name)
             .await
             .map_err(FunctionCallError::RespondToModel)?;
+        crate::agent::fork_memory_role::enrich_config_if_memory_role(
+            &mut config,
+            role_name,
+            &turn.cwd,
+        )
+        .await;
         apply_spawn_agent_runtime_overrides(&mut config, turn.as_ref())?;
         apply_spawn_agent_overrides(&mut config, child_depth);
 
