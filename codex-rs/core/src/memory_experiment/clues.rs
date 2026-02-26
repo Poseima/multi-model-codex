@@ -33,9 +33,12 @@ pub(crate) async fn build_clues_prompt(codex_home: &Path, cwd: &Path) -> Option<
 /// Regenerate `memory_clues.md` by scanning all memory files.
 ///
 /// Called after archiving to keep the system prompt index fresh.
+/// If `semantic/user-preferences.md` exists, its body is included as a
+/// dedicated "User Preferences" section in the clues index.
 pub(crate) async fn regenerate_clues(project_root: &Path) -> std::io::Result<()> {
     let clues = scan_clues(project_root).await?;
-    let content = format_clues(&clues);
+    let prefs_body = read_preferences_body(project_root).await;
+    let content = format_clues(&clues, prefs_body.as_deref());
     tokio::fs::write(project_root.join("memory_clues.md"), content).await
 }
 
@@ -63,6 +66,21 @@ pub(crate) async fn ensure_clues_fresh(codex_home: &Path, cwd: &Path) {
     if let Err(e) = regenerate_clues(&project_root).await {
         warn!("auto-regenerate clues failed: {e}");
     }
+}
+
+/// Read the body of `semantic/user-preferences.md`, if it exists.
+///
+/// Returns the markdown body (after frontmatter) trimmed, or `None` if the
+/// file doesn't exist or can't be parsed.
+async fn read_preferences_body(project_root: &Path) -> Option<String> {
+    let path = project_root.join("semantic/user-preferences.md");
+    let content = tokio::fs::read_to_string(&path).await.ok()?;
+    let (_meta, body) = parse_frontmatter(&content)?;
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.to_string())
 }
 
 /// Scan semantic/ and episodic/ directories for memory files and extract clues.
@@ -112,8 +130,17 @@ async fn scan_clues(project_root: &Path) -> std::io::Result<Vec<MemoryClue>> {
 }
 
 /// Format clues into the markdown content for `memory_clues.md`.
-fn format_clues(clues: &[MemoryClue]) -> String {
+///
+/// If `preferences_body` is provided, a "User Preferences" section is
+/// appended so the main agent sees project-level preferences immediately.
+fn format_clues(clues: &[MemoryClue], preferences_body: Option<&str>) -> String {
     let mut out = String::new();
+
+    if let Some(prefs) = preferences_body {
+        out.push_str("### User Preferences\n");
+        out.push_str(prefs);
+        out.push_str("\n\n");
+    }
 
     let semantic: Vec<_> = clues
         .iter()
@@ -170,7 +197,7 @@ mod tests {
 
     #[test]
     fn format_clues_empty() {
-        assert_eq!(format_clues(&[]), "No memories yet.\n");
+        assert_eq!(format_clues(&[], None), "No memories yet.\n");
     }
 
     #[test]
@@ -191,12 +218,35 @@ mod tests {
                 expires: Some("2026-03-15".to_string()),
             },
         ];
-        let result = format_clues(&clues);
+        let result = format_clues(&clues, None);
         assert!(result.contains("### Semantic Memories"));
         assert!(result.contains("[auth, JWT] \u{2192} semantic/auth-flow.md"));
         assert!(result.contains("### Episodic Memories"));
         assert!(result.contains("(expires: 2026-03-15)"));
         assert!(result.contains("desc: Fixed CSRF"));
+    }
+
+    #[test]
+    fn format_clues_includes_user_preferences() {
+        let clues = vec![MemoryClue {
+            keywords: vec!["test".to_string()],
+            filename: "semantic/test.md".to_string(),
+            summary: "Test".to_string(),
+            memory_type: MemoryType::Semantic,
+            expires: None,
+        }];
+        let prefs = "- Prefers pnpm over npm\n- Always run tests before committing";
+        let result = format_clues(&clues, Some(prefs));
+        assert!(result.starts_with("### User Preferences\n"));
+        assert!(result.contains("Prefers pnpm over npm"));
+        assert!(result.contains("Always run tests before committing"));
+        assert!(result.contains("### Semantic Memories"));
+    }
+
+    #[test]
+    fn format_clues_no_preferences_when_none() {
+        let result = format_clues(&[], None);
+        assert!(!result.contains("User Preferences"));
     }
 
     #[test]
@@ -399,6 +449,37 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(content, custom_clues);
+    }
+
+    #[tokio::test]
+    async fn regenerate_clues_includes_user_preferences() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let semantic = root.join("semantic");
+        tokio::fs::create_dir_all(&semantic).await.unwrap();
+        tokio::fs::write(
+            semantic.join("auth.md"),
+            "---\ntype: semantic\nkeywords: [auth]\nsummary: Auth flow\ncreated: \"2026-01-01T00:00:00Z\"\nlast_updated: \"2026-01-01T00:00:00Z\"\n---\n\nContent.",
+        )
+        .await
+        .unwrap();
+        tokio::fs::write(
+            semantic.join("user-preferences.md"),
+            "---\ntype: semantic\nkeywords: [preferences]\nsummary: User preferences\ncreated: \"2026-01-01T00:00:00Z\"\nlast_updated: \"2026-01-01T00:00:00Z\"\n---\n\n- Prefers pnpm over npm\n- Always run tests first",
+        )
+        .await
+        .unwrap();
+
+        regenerate_clues(root).await.unwrap();
+
+        let content = tokio::fs::read_to_string(root.join("memory_clues.md"))
+            .await
+            .unwrap();
+        assert!(content.contains("### User Preferences"));
+        assert!(content.contains("Prefers pnpm over npm"));
+        assert!(content.contains("Always run tests first"));
+        // The preferences file should also appear in the semantic index.
+        assert!(content.contains("semantic/user-preferences.md"));
     }
 
     #[tokio::test]
