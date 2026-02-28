@@ -25,7 +25,11 @@ pub struct CollaborationModesConfig {
 pub(crate) fn builtin_collaboration_mode_presets(
     collaboration_modes_config: CollaborationModesConfig,
 ) -> Vec<CollaborationModeMask> {
-    vec![plan_preset(), default_preset(collaboration_modes_config), dawn_preset()]
+    vec![
+        plan_preset(),
+        default_preset(collaboration_modes_config),
+        dawn_preset(),
+    ]
 }
 
 fn plan_preset() -> CollaborationModeMask {

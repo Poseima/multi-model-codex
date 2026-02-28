@@ -160,7 +160,7 @@ mod tests {
             Some("request_user_input is unavailable in Pair Programming mode".to_string())
         );
         assert_eq!(
-            request_user_input_unavailable_message(ModeKind::Dawn),
+            request_user_input_unavailable_message(ModeKind::Dawn, false),
             Some("request_user_input is unavailable in Dawn mode".to_string())
         );
     }
