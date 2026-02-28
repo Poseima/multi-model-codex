@@ -130,6 +130,7 @@ pub struct ToolsConfig {
     pub experimental_supported_tools: Vec<String>,
     pub agent_jobs_tools: bool,
     pub agent_jobs_worker_tools: bool,
+    pub view_image_enabled: bool,
     pub agent_type_description: String,
 }
 
@@ -233,6 +234,7 @@ impl ToolsConfig {
                 SessionSource::SubAgent(SubAgentSource::Other(label))
                     if label.starts_with("agent_job:")
             );
+        let view_image_enabled = model_info.input_modalities.contains(&InputModality::Image);
 
         Self {
             available_models: available_models.to_vec(),
@@ -270,6 +272,7 @@ impl ToolsConfig {
             experimental_supported_tools: model_info.experimental_supported_tools.clone(),
             agent_jobs_tools: include_agent_jobs,
             agent_jobs_worker_tools,
+            view_image_enabled,
             agent_type_description: String::new(),
         }
     }
