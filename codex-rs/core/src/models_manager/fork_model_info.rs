@@ -4,6 +4,7 @@
 /// hardcoded definitions from `model_info.rs`, fork-specific models that are not
 /// in the remote metadata need a local fallback. This file provides `ModelInfo`
 /// for those models, keeping the fork diff to a 2-line hook in upstream code.
+use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
 use codex_protocol::openai_models::ModelInfo;
@@ -49,6 +50,8 @@ macro_rules! fork_model_info {
             input_modalities: default_input_modalities(),
             prefer_websockets: false,
             used_fallback_model_metadata: false,
+            availability_nux: None,
+            default_reasoning_summary: ReasoningSummary::Auto,
         };
 
         $(

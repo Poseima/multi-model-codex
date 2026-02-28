@@ -62,11 +62,62 @@ fn expected_visible_models() -> Vec<Model> {
     // Mirror `ModelsManager::build_available_models()` default selection after auth filtering.
     ModelPreset::mark_default_by_picker_visibility(&mut presets);
 
-    presets
+    let mut models: Vec<Model> = presets
         .iter()
         .filter(|preset| preset.show_in_picker)
         .map(model_from_preset)
-        .collect()
+        .collect();
+
+    // Fork catalog models are merged at runtime by `merge_with_fork_models()` in ModelsManager.
+    // They have higher priority numbers so they appear after upstream models.
+    models.extend(fork_catalog_expected_models());
+
+    models
+}
+
+/// Expected Model entries for fork catalog models (MiniMax, Zhipu).
+///
+/// These are added by `merge_with_fork_models()` at runtime and are not in the
+/// bundled `models.json`, so we construct them manually for test assertions.
+fn fork_catalog_expected_models() -> Vec<Model> {
+    let fork_reasoning_efforts = vec![
+        ReasoningEffortOption {
+            reasoning_effort: codex_protocol::openai_models::ReasoningEffort::Low,
+            description: "Fast responses with lighter reasoning".to_string(),
+        },
+        ReasoningEffortOption {
+            reasoning_effort: codex_protocol::openai_models::ReasoningEffort::Medium,
+            description: "Balances speed and reasoning depth for everyday tasks".to_string(),
+        },
+        ReasoningEffortOption {
+            reasoning_effort: codex_protocol::openai_models::ReasoningEffort::High,
+            description: "Greater reasoning depth for complex problems".to_string(),
+        },
+    ];
+
+    [
+        ("codex-MiniMax-M2.1", "MiniMax coding model"),
+        ("MiniMax-M2.5", "MiniMax coding model"),
+        ("glm-5", "Zhipu GLM coding model"),
+        ("glm-4.7", "Zhipu GLM coding model"),
+    ]
+    .into_iter()
+    .map(|(slug, description)| Model {
+        id: slug.to_string(),
+        model: slug.to_string(),
+        upgrade: None,
+        upgrade_info: None,
+        availability_nux: None,
+        display_name: slug.to_string(),
+        description: description.to_string(),
+        hidden: false,
+        supported_reasoning_efforts: fork_reasoning_efforts.clone(),
+        default_reasoning_effort: codex_protocol::openai_models::ReasoningEffort::Medium,
+        input_modalities: codex_protocol::openai_models::default_input_modalities(),
+        supports_personality: false,
+        is_default: false,
+    })
+    .collect()
 }
 
 #[tokio::test]

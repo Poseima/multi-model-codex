@@ -461,6 +461,7 @@ pub(crate) fn single_line_footer_layout(
     (SummaryLeft::None, true)
 }
 
+#[cfg(test)]
 pub(crate) fn mode_indicator_line(
     indicator: Option<CollaborationModeIndicator>,
     show_cycle_hint: bool,
@@ -1059,9 +1060,7 @@ mod tests {
                     | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match props.mode {
-                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => {
-                        props.is_task_running
-                    }
+                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => props.is_task_running,
                     FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
