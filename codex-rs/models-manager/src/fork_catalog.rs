@@ -4,6 +4,7 @@
 //! To keep fork provider models visible in `/model` without forking that large
 //! JSON file, we merge a small list of fork models at runtime.
 
+use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
 use codex_protocol::openai_models::ModelInfo;
@@ -11,6 +12,7 @@ use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::openai_models::ReasoningEffortPreset;
 use codex_protocol::openai_models::TruncationPolicyConfig;
+use codex_protocol::openai_models::WebSearchToolType;
 use codex_protocol::openai_models::default_input_modalities;
 
 const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
@@ -68,19 +70,22 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
         model_messages: None,
         supports_reasoning_summaries: false,
+        default_reasoning_summary: ReasoningSummary::Auto,
         support_verbosity: false,
         default_verbosity: None,
         apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+        web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(10_000),
         supports_parallel_tool_calls: false,
+        supports_image_detail_original: false,
         context_window: Some(context_window),
+        max_context_window: Some(context_window),
         auto_compact_token_limit: None,
-        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
         input_modalities: default_input_modalities(),
-        prefer_websockets: false,
         used_fallback_model_metadata: false,
+        supports_search_tool: false,
     }
 }
 
@@ -101,19 +106,22 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
         model_messages: None,
         supports_reasoning_summaries: false,
+        default_reasoning_summary: ReasoningSummary::Auto,
         support_verbosity: false,
         default_verbosity: None,
         apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+        web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(10_000),
         supports_parallel_tool_calls: false,
+        supports_image_detail_original: false,
         context_window: Some(context_window),
+        max_context_window: Some(context_window),
         auto_compact_token_limit: None,
-        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
         input_modalities: default_input_modalities(),
-        prefer_websockets: false,
         used_fallback_model_metadata: false,
+        supports_search_tool: false,
     }
 }
 
