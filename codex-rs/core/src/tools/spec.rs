@@ -24,6 +24,7 @@ use codex_protocol::dynamic_tools::DynamicToolSpec;
 use codex_protocol::models::VIEW_IMAGE_TOOL_NAME;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
+use codex_protocol::openai_models::InputModality;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::SubAgentSource;
@@ -60,6 +61,7 @@ pub(crate) struct ToolsConfig {
     pub experimental_supported_tools: Vec<String>,
     pub agent_jobs_tools: bool,
     pub agent_jobs_worker_tools: bool,
+    pub view_image_enabled: bool,
 }
 
 pub(crate) struct ToolsConfigParams<'a> {
@@ -129,6 +131,8 @@ impl ToolsConfig {
                     if label.starts_with("agent_job:")
             );
 
+        let view_image_enabled = model_info.input_modalities.contains(&InputModality::Image);
+
         Self {
             shell_type,
             shell_command_backend,
@@ -145,6 +149,7 @@ impl ToolsConfig {
             experimental_supported_tools: model_info.experimental_supported_tools.clone(),
             agent_jobs_tools: include_agent_jobs,
             agent_jobs_worker_tools,
+            view_image_enabled,
         }
     }
 
@@ -1862,8 +1867,10 @@ pub(crate) fn build_specs(
         Some(WebSearchMode::Disabled) | None => {}
     }
 
-    builder.push_spec_with_parallel_support(create_view_image_tool(), true);
-    builder.register_handler("view_image", view_image_handler);
+    if config.view_image_enabled {
+        builder.push_spec_with_parallel_support(create_view_image_tool(), true);
+        builder.register_handler("view_image", view_image_handler);
+    }
 
     if config.collab_tools {
         let multi_agent_handler = Arc::new(MultiAgentHandler);
