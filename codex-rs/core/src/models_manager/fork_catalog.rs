@@ -7,13 +7,13 @@
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
-use codex_protocol::openai_models::InputModality;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::openai_models::ReasoningEffortPreset;
 use codex_protocol::openai_models::TruncationPolicyConfig;
 use codex_protocol::openai_models::WebSearchToolType;
+use codex_protocol::openai_models::default_input_modalities;
 
 const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
     include_str!("../../prompt_with_text_editor_instructions.md");
@@ -74,16 +74,16 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(10_000),
         supports_parallel_tool_calls: false,
+        supports_image_detail_original: false,
         context_window: Some(context_window),
         auto_compact_token_limit: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
-        input_modalities: vec![InputModality::Text],
-        supports_image_detail_original: false,
-        prefer_websockets: false,
+        input_modalities: default_input_modalities(),
         used_fallback_model_metadata: false,
         availability_nux: None,
         default_reasoning_summary: ReasoningSummary::Auto,
+        supports_search_tool: false,
     }
 }
 
@@ -108,16 +108,16 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(10_000),
         supports_parallel_tool_calls: false,
+        supports_image_detail_original: false,
         context_window: Some(context_window),
         auto_compact_token_limit: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
-        input_modalities: vec![InputModality::Text],
-        supports_image_detail_original: false,
-        prefer_websockets: false,
+        input_modalities: default_input_modalities(),
         used_fallback_model_metadata: false,
         availability_nux: None,
         default_reasoning_summary: ReasoningSummary::Auto,
+        supports_search_tool: false,
     }
 }
 

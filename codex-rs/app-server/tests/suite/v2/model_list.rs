@@ -113,7 +113,7 @@ fn fork_catalog_expected_models() -> Vec<Model> {
         hidden: false,
         supported_reasoning_efforts: fork_reasoning_efforts.clone(),
         default_reasoning_effort: codex_protocol::openai_models::ReasoningEffort::Medium,
-        input_modalities: codex_protocol::openai_models::default_input_modalities(),
+        input_modalities: vec![codex_protocol::openai_models::InputModality::Text],
         supports_personality: false,
         is_default: false,
     })
