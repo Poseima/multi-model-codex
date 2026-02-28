@@ -7,11 +7,11 @@
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
+use codex_protocol::openai_models::InputModality;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::TruncationPolicyConfig;
 use codex_protocol::openai_models::WebSearchToolType;
-use codex_protocol::openai_models::default_input_modalities;
 
 use super::model_info::BASE_INSTRUCTIONS;
 
@@ -54,7 +54,7 @@ macro_rules! fork_model_info {
             auto_compact_token_limit: None,
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
-            input_modalities: default_input_modalities(),
+            input_modalities: vec![InputModality::Text],
             used_fallback_model_metadata: false,
             supports_search_tool: false,
         };
