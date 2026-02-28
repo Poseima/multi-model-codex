@@ -4,6 +4,7 @@
 //! To keep fork provider models visible in `/model` without forking that large
 //! JSON file, we merge a small list of fork models at runtime.
 
+use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
 use codex_protocol::openai_models::ModelInfo;
@@ -78,6 +79,8 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         input_modalities: default_input_modalities(),
         prefer_websockets: false,
         used_fallback_model_metadata: false,
+        availability_nux: None,
+        default_reasoning_summary: ReasoningSummary::Auto,
     }
 }
 
@@ -108,6 +111,8 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         input_modalities: default_input_modalities(),
         prefer_websockets: false,
         used_fallback_model_metadata: false,
+        availability_nux: None,
+        default_reasoning_summary: ReasoningSummary::Auto,
     }
 }
 
