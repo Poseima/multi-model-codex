@@ -378,7 +378,7 @@ pub fn build_tool_registry_plan(
         );
     }
 
-    if config.has_environment {
+    if config.has_environment && config.view_image_enabled {
         plan.push_spec(
             create_view_image_tool(ViewImageToolOptions {
                 can_request_original_image_detail: config.can_request_original_image_detail,
