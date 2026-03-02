@@ -49,10 +49,18 @@ const EXPERIMENT_DIR: &str = "memories_experiment";
 /// - The `memory_experiment` feature flag is enabled in global config, OR
 /// - A per-project `{project_memory_root}/config.toml` exists (backward compat).
 pub(crate) fn is_enabled(codex_home: &Path, cwd: &Path, features: &Features) -> bool {
-    features.enabled(Feature::MemoryExperiment)
-        || get_project_memory_root(codex_home, cwd)
-            .join("config.toml")
-            .exists()
+    let flag = features.enabled(Feature::MemoryExperiment);
+    let config_path = get_project_memory_root(codex_home, cwd).join("config.toml");
+    let config_exists = config_path.exists();
+    let result = flag || config_exists;
+    tracing::debug!(
+        feature_flag = flag,
+        config_exists,
+        config_path = %config_path.display(),
+        result,
+        "memory_experiment::is_enabled"
+    );
+    result
 }
 
 /// Derive the project-scoped memory root directory.
