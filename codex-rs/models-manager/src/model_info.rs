@@ -80,7 +80,11 @@ pub fn with_config_overrides(mut model: ModelInfo, config: &ModelsManagerConfig)
         let uses_local_personality_template = model.used_fallback_model_metadata
             && matches!(
                 model.slug.as_str(),
-                "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality"
+                "gpt-5.3-codex"
+                    | "gpt-5.2-codex"
+                    | "exp-codex-personality"
+                    | "gpt-5.3"
+                    | "gpt-5.2"
             );
         if !config.personality_enabled
             && let Some(model_messages) = model.model_messages.as_mut()
@@ -195,7 +199,8 @@ pub fn model_info_from_slug(slug: &str) -> ModelInfo {
 
 fn local_model_messages_for_slug(slug: &str) -> ModelMessages {
     match slug {
-        "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality" => ModelMessages {
+        "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality" | "gpt-5.3"
+        | "gpt-5.2" => ModelMessages {
             persistent_instructions: None,
             tools: None,
             instructions_template: Some(format!(
