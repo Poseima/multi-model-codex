@@ -28,6 +28,10 @@ impl SessionTask for CompactTask {
         input: Vec<UserInput>,
         _cancellation_token: CancellationToken,
     ) -> Option<String> {
+        // Fork: run memory archive before compaction so memories are persisted
+        // before the context is compressed. Same as run_auto_compact().
+        super::run_inline_archive(session.clone_session(), Arc::clone(&ctx)).await;
+
         let session = session.clone_session();
         let _ = if crate::compact::should_use_remote_compact_task(&ctx.provider) {
             let _ = session.services.session_telemetry.counter(

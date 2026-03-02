@@ -98,16 +98,18 @@ pub(crate) fn model_info_from_slug(slug: &str) -> ModelInfo {
 
 fn local_personality_messages_for_slug(slug: &str) -> Option<ModelMessages> {
     match slug {
-        "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality" => Some(ModelMessages {
-            instructions_template: Some(format!(
-                "{DEFAULT_PERSONALITY_HEADER}\n\n{PERSONALITY_PLACEHOLDER}\n\n{BASE_INSTRUCTIONS}"
-            )),
-            instructions_variables: Some(ModelInstructionsVariables {
-                personality_default: Some(String::new()),
-                personality_friendly: Some(LOCAL_FRIENDLY_TEMPLATE.to_string()),
-                personality_pragmatic: Some(LOCAL_PRAGMATIC_TEMPLATE.to_string()),
-            }),
-        }),
+        "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality" | "gpt-5.3" | "gpt-5.2" => {
+            Some(ModelMessages {
+                instructions_template: Some(format!(
+                    "{DEFAULT_PERSONALITY_HEADER}\n\n{PERSONALITY_PLACEHOLDER}\n\n{BASE_INSTRUCTIONS}"
+                )),
+                instructions_variables: Some(ModelInstructionsVariables {
+                    personality_default: Some(String::new()),
+                    personality_friendly: Some(LOCAL_FRIENDLY_TEMPLATE.to_string()),
+                    personality_pragmatic: Some(LOCAL_PRAGMATIC_TEMPLATE.to_string()),
+                }),
+            })
+        }
         _ => None,
     }
 }
