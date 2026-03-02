@@ -173,7 +173,7 @@ async fn start_archive_conversation(
         input
     };
 
-    (run_codex_thread_one_shot(
+    match run_codex_thread_one_shot(
         sub_agent_config,
         session.auth_manager(),
         session.models_manager(),
@@ -184,9 +184,17 @@ async fn start_archive_conversation(
         None,
         SubAgentSource::Archive,
     )
-    .await)
-        .ok()
-        .map(|io| io.rx_event)
+    .await
+    {
+        Ok(io) => {
+            tracing::info!("archive sub-agent spawned successfully");
+            Some(io.rx_event)
+        }
+        Err(e) => {
+            warn!("archive sub-agent failed to spawn: {e}");
+            None
+        }
+    }
 }
 
 /// Forward archive subagent events to the parent TUI.
@@ -324,7 +332,18 @@ async fn exit_archive_mode(
 /// No-ops when the memory experiment is not enabled for the current project.
 /// Failures are logged but do not propagate — archive must never block compaction.
 pub(crate) async fn run_inline_archive(session: Arc<Session>, ctx: Arc<TurnContext>) {
-    if !memory_experiment::is_enabled(&ctx.config.codex_home, &ctx.cwd, &ctx.features) {
+    let feature_flag = ctx
+        .features
+        .enabled(crate::features::Feature::MemoryExperiment);
+    let enabled = memory_experiment::is_enabled(&ctx.config.codex_home, &ctx.cwd, &ctx.features);
+    tracing::info!(
+        enabled,
+        feature_flag,
+        codex_home = %ctx.config.codex_home.display(),
+        cwd = %ctx.cwd.display(),
+        "run_inline_archive: memory experiment check"
+    );
+    if !enabled {
         return;
     }
 
@@ -351,10 +370,20 @@ pub(crate) async fn run_inline_archive(session: Arc<Session>, ctx: Arc<TurnConte
     )
     .await
     {
-        Some(receiver) => process_archive_events(session_ctx, ctx.clone(), receiver).await,
-        None => None,
+        Some(receiver) => {
+            tracing::info!("run_inline_archive: archive conversation started, processing events");
+            process_archive_events(session_ctx, ctx.clone(), receiver).await
+        }
+        None => {
+            tracing::warn!("run_inline_archive: start_archive_conversation returned None");
+            None
+        }
     };
 
+    tracing::info!(
+        archive_succeeded = output.is_some(),
+        "run_inline_archive: finished, calling exit_archive_mode"
+    );
     // Record handoff but do NOT compact — the caller (run_auto_compact) handles that.
     exit_archive_mode(session, output, ctx, false).await;
 }
