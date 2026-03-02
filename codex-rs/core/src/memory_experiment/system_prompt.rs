@@ -24,7 +24,14 @@ pub(crate) async fn compose_base_instructions_with_memory(
     cwd: &Path,
     features: &Features,
 ) -> String {
-    if !memory_experiment::is_enabled(codex_home, cwd, features) {
+    let enabled = memory_experiment::is_enabled(codex_home, cwd, features);
+    tracing::debug!(
+        enabled,
+        codex_home = %codex_home.display(),
+        cwd = %cwd.display(),
+        "compose_base_instructions_with_memory: experiment check"
+    );
+    if !enabled {
         return base_instructions.to_string();
     }
 
@@ -43,8 +50,14 @@ pub(crate) async fn compose_base_instructions_with_memory(
     // then append the clues content.
     memory_experiment::ensure_clues_fresh(codex_home, cwd).await;
     if let Some(clues_prompt) = memory_experiment::build_clues_prompt(codex_home, cwd).await {
+        tracing::debug!(
+            clues_len = clues_prompt.len(),
+            "compose_base_instructions_with_memory: appending clues to system prompt"
+        );
         composed.push_str("\n\n");
         composed.push_str(&clues_prompt);
+    } else {
+        tracing::debug!("compose_base_instructions_with_memory: no clues found to append");
     }
 
     composed
