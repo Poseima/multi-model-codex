@@ -327,7 +327,54 @@ async fn exit_archive_mode(
     }
 }
 
-/// Run archive inline (not as a spawned task). Used by auto-compact.
+struct InlineArchiveRunGuard {
+    session: Arc<Session>,
+}
+
+impl InlineArchiveRunGuard {
+    fn new(session: Arc<Session>) -> Self {
+        Self { session }
+    }
+}
+
+impl Drop for InlineArchiveRunGuard {
+    fn drop(&mut self) {
+        self.session.finish_inline_archive();
+    }
+}
+
+/// Spawn archive in the background and return immediately.
+///
+/// No-ops when the memory experiment is disabled or an inline archive run is
+/// already in progress for this session.
+pub(crate) fn spawn_inline_archive(session: Arc<Session>, ctx: Arc<TurnContext>) {
+    let feature_flag = ctx
+        .features
+        .enabled(crate::features::Feature::MemoryExperiment);
+    let enabled = memory_experiment::is_enabled(&ctx.config.codex_home, &ctx.cwd, &ctx.features);
+    tracing::info!(
+        enabled,
+        feature_flag,
+        codex_home = %ctx.config.codex_home.display(),
+        cwd = %ctx.cwd.display(),
+        "spawn_inline_archive: memory experiment check"
+    );
+    if !enabled {
+        return;
+    }
+
+    if !session.try_start_inline_archive() {
+        tracing::info!("spawn_inline_archive: archive already running, skipping");
+        return;
+    }
+
+    tokio::spawn(async move {
+        let _archive_run_guard = InlineArchiveRunGuard::new(Arc::clone(&session));
+        run_inline_archive(session, ctx).await;
+    });
+}
+
+/// Run archive inline on the current task.
 ///
 /// No-ops when the memory experiment is not enabled for the current project.
 /// Failures are logged but do not propagate — archive must never block compaction.

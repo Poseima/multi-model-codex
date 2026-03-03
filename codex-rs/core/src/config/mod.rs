@@ -252,6 +252,8 @@ pub struct Config {
 
     /// Token usage threshold triggering auto-compaction of conversation history.
     pub model_auto_compact_token_limit: Option<i64>,
+    /// Per-model token thresholds triggering auto-compaction, keyed by exact model slug.
+    pub model_auto_compact_token_limits: HashMap<String, i64>,
 
     /// Key into the model_providers map that specifies which provider to use.
     pub model_provider_id: String,
@@ -802,6 +804,7 @@ impl Config {
         ModelsManagerConfig {
             model_context_window: self.model_context_window,
             model_auto_compact_token_limit: self.model_auto_compact_token_limit,
+            model_auto_compact_token_limits: self.model_auto_compact_token_limits.clone(),
             tool_output_token_limit: self.tool_output_token_limit,
             base_instructions: self.base_instructions.clone(),
             personality_enabled: self.features.enabled(Feature::Personality),
@@ -2280,6 +2283,10 @@ impl Config {
             review_model,
             model_context_window: cfg.model_context_window,
             model_auto_compact_token_limit: cfg.model_auto_compact_token_limit,
+            model_auto_compact_token_limits: cfg
+                .model_auto_compact_token_limits
+                .clone()
+                .unwrap_or_default(),
             model_provider_id,
             model_provider,
             cwd: resolved_cwd,

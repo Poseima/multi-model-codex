@@ -82,6 +82,8 @@ pub struct ConfigToml {
 
     /// Token usage threshold triggering auto-compaction of conversation history.
     pub model_auto_compact_token_limit: Option<i64>,
+    /// Per-model token thresholds triggering auto-compaction, keyed by exact model slug.
+    pub model_auto_compact_token_limits: Option<HashMap<String, i64>>,
 
     /// Default approval policy for executing commands.
     pub approval_policy: Option<AskForApproval>,
