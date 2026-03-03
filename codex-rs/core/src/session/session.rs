@@ -63,6 +63,7 @@ pub(crate) struct Session {
     pub(super) git_enrichment_policy: GitEnrichmentPolicy,
     pub(super) fork_persistence: ForkPersistence,
     pub(super) next_internal_sub_id: AtomicU64,
+    pub(super) inline_archive_running: AtomicBool,
 }
 
 #[derive(Clone)]
@@ -1226,6 +1227,7 @@ impl Session {
                 git_enrichment_policy,
                 fork_persistence,
                 next_internal_sub_id: AtomicU64::new(0),
+                inline_archive_running: AtomicBool::new(false),
             });
             if let Some(network_policy_decider_session) = network_policy_decider_session {
                 let mut guard = network_policy_decider_session.write().await;
