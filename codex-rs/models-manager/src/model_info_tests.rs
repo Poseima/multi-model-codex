@@ -23,6 +23,10 @@ fn config_with_personality(personality: Option<Personality>) -> ModelsManagerCon
     }
 }
 
+fn test_config() -> ModelsManagerConfig {
+    ModelsManagerConfig::default()
+}
+
 #[test]
 fn base_instruction_override_is_literal_and_preserves_catalog_messages() {
     let override_instructions = "override {{ personality }}";
@@ -350,4 +354,63 @@ fn model_context_window_uses_model_value_without_override() {
     let updated = with_config_overrides(model.clone(), &config);
 
     assert_eq!(updated, model);
+}
+
+#[test]
+fn per_model_auto_compact_limit_overrides_global_default() {
+    let model = model_info_from_slug("gpt-5.3-codex");
+    let mut config = test_config();
+    config.model_auto_compact_token_limit = Some(111);
+    config
+        .model_auto_compact_token_limits
+        .insert("gpt-5.3-codex".to_string(), 222);
+
+    let updated = with_config_overrides(model.clone(), &config);
+    let mut expected = model;
+    expected.auto_compact_token_limit = Some(222);
+
+    assert_eq!(updated, expected);
+}
+
+#[test]
+fn global_auto_compact_limit_used_when_per_model_is_missing() {
+    let model = model_info_from_slug("gpt-5.3-codex");
+    let mut config = test_config();
+    config.model_auto_compact_token_limit = Some(111);
+    config
+        .model_auto_compact_token_limits
+        .insert("gpt-5.1-codex".to_string(), 222);
+
+    let updated = with_config_overrides(model.clone(), &config);
+    let mut expected = model;
+    expected.auto_compact_token_limit = Some(111);
+
+    assert_eq!(updated, expected);
+}
+
+#[test]
+fn model_auto_compact_limit_is_preserved_when_no_config_override_exists() {
+    let mut model = model_info_from_slug("gpt-5.3-codex");
+    model.auto_compact_token_limit = Some(333);
+    let config = test_config();
+
+    let updated = with_config_overrides(model.clone(), &config);
+
+    assert_eq!(updated, model);
+}
+
+#[test]
+fn per_model_auto_compact_limit_requires_exact_slug_match() {
+    let model = model_info_from_slug("gpt-5.3-codex");
+    let mut config = test_config();
+    config.model_auto_compact_token_limit = Some(111);
+    config
+        .model_auto_compact_token_limits
+        .insert("gpt-5.3".to_string(), 222);
+
+    let updated = with_config_overrides(model.clone(), &config);
+    let mut expected = model;
+    expected.auto_compact_token_limit = Some(111);
+
+    assert_eq!(updated, expected);
 }
