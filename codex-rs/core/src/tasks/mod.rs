@@ -55,7 +55,7 @@ use codex_protocol::user_input::UserInput;
 use codex_features::Feature;
 use codex_protocol::models::ContentItem;
 pub(crate) use archive::ArchiveTask;
-pub(crate) use archive::run_inline_archive;
+pub(crate) use archive::spawn_inline_archive;
 pub(crate) use compact::CompactTask;
 pub(crate) use regular::RegularTask;
 pub(crate) use review::ReviewTask;

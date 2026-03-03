@@ -814,7 +814,8 @@ async fn run_auto_compact(
     reason: CompactionReason,
     phase: CompactionPhase,
 ) -> CodexResult<bool> {
-    crate::tasks::run_inline_archive(Arc::clone(sess), Arc::clone(turn_context)).await;
+    crate::tasks::spawn_inline_archive(Arc::clone(sess), Arc::clone(turn_context));
+
     if should_use_remote_compact_task(turn_context.provider.info()) {
         if turn_context.features.enabled(Feature::RemoteCompactionV2) {
             run_inline_remote_auto_compact_task_v2(
