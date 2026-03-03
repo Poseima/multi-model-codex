@@ -629,6 +629,8 @@ pub struct Config {
 
     /// Token usage threshold triggering auto-compaction of conversation history.
     pub model_auto_compact_token_limit: Option<i64>,
+    /// Per-model token thresholds triggering auto-compaction, keyed by exact model slug.
+    pub model_auto_compact_token_limits: HashMap<String, i64>,
 
     /// Controls whether `model_auto_compact_token_limit` applies to the full
     /// active context or only tokens after the carried compaction-window prefix.
@@ -1465,6 +1467,7 @@ impl Config {
         ModelsManagerConfig {
             model_context_window: self.model_context_window,
             model_auto_compact_token_limit: self.model_auto_compact_token_limit,
+            model_auto_compact_token_limits: self.model_auto_compact_token_limits.clone(),
             tool_output_token_limit: self.tool_output_token_limit,
             base_instructions: self.base_instructions.clone(),
             personality_enabled: self.features.enabled(Feature::Personality),
@@ -3759,6 +3762,10 @@ impl Config {
             review_model,
             model_context_window: cfg.model_context_window,
             model_auto_compact_token_limit: cfg.model_auto_compact_token_limit,
+            model_auto_compact_token_limits: cfg
+                .model_auto_compact_token_limits
+                .clone()
+                .unwrap_or_default(),
             model_auto_compact_token_limit_scope: cfg
                 .model_auto_compact_token_limit_scope
                 .unwrap_or_default(),
