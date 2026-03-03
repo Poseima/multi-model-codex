@@ -30,7 +30,12 @@ pub(crate) fn with_config_overrides(mut model: ModelInfo, config: &Config) -> Mo
     if let Some(context_window) = config.model_context_window {
         model.context_window = Some(context_window);
     }
-    if let Some(auto_compact_token_limit) = config.model_auto_compact_token_limit {
+    if let Some(auto_compact_token_limit) = config
+        .model_auto_compact_token_limits
+        .get(&model.slug)
+        .copied()
+        .or(config.model_auto_compact_token_limit)
+    {
         model.auto_compact_token_limit = Some(auto_compact_token_limit);
     }
     if let Some(token_limit) = config.tool_output_token_limit {
@@ -154,5 +159,64 @@ mod tests {
         let updated = with_config_overrides(model.clone(), &config);
 
         assert_eq!(updated, model);
+    }
+
+    #[test]
+    fn per_model_auto_compact_limit_overrides_global_default() {
+        let model = model_info_from_slug("gpt-5.3-codex");
+        let mut config = test_config();
+        config.model_auto_compact_token_limit = Some(111);
+        config
+            .model_auto_compact_token_limits
+            .insert("gpt-5.3-codex".to_string(), 222);
+
+        let updated = with_config_overrides(model.clone(), &config);
+        let mut expected = model;
+        expected.auto_compact_token_limit = Some(222);
+
+        assert_eq!(updated, expected);
+    }
+
+    #[test]
+    fn global_auto_compact_limit_used_when_per_model_is_missing() {
+        let model = model_info_from_slug("gpt-5.3-codex");
+        let mut config = test_config();
+        config.model_auto_compact_token_limit = Some(111);
+        config
+            .model_auto_compact_token_limits
+            .insert("gpt-5.1-codex".to_string(), 222);
+
+        let updated = with_config_overrides(model.clone(), &config);
+        let mut expected = model;
+        expected.auto_compact_token_limit = Some(111);
+
+        assert_eq!(updated, expected);
+    }
+
+    #[test]
+    fn model_auto_compact_limit_is_preserved_when_no_config_override_exists() {
+        let mut model = model_info_from_slug("gpt-5.3-codex");
+        model.auto_compact_token_limit = Some(333);
+        let config = test_config();
+
+        let updated = with_config_overrides(model.clone(), &config);
+
+        assert_eq!(updated, model);
+    }
+
+    #[test]
+    fn per_model_auto_compact_limit_requires_exact_slug_match() {
+        let model = model_info_from_slug("gpt-5.3-codex");
+        let mut config = test_config();
+        config.model_auto_compact_token_limit = Some(111);
+        config
+            .model_auto_compact_token_limits
+            .insert("gpt-5.3".to_string(), 222);
+
+        let updated = with_config_overrides(model.clone(), &config);
+        let mut expected = model;
+        expected.auto_compact_token_limit = Some(111);
+
+        assert_eq!(updated, expected);
     }
 }

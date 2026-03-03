@@ -50,3 +50,23 @@ override), not "inherit the global default". There is currently no separate
 config value for "follow the global default in Plan mode".
 
 Ctrl+C/Ctrl+D quitting uses a ~1 second double-press hint (`ctrl + c again to quit`).
+
+## Per-model compaction thresholds
+
+You can configure auto-compaction thresholds globally and per model:
+
+```toml
+# Global default threshold.
+model_auto_compact_token_limit = 180000
+
+# Per-model overrides (exact model slug match).
+[model_auto_compact_token_limits]
+"gpt-5.3-codex" = 220000
+"gpt-5.1-codex" = 160000
+```
+
+Resolution order is:
+
+1. `model_auto_compact_token_limits[<exact-slug>]`
+2. `model_auto_compact_token_limit`
+3. model metadata default

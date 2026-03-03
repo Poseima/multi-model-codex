@@ -2091,6 +2091,14 @@
       "format": "int64",
       "type": "integer"
     },
+    "model_auto_compact_token_limits": {
+      "additionalProperties": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "description": "Per-model token thresholds triggering auto-compaction, keyed by exact model slug.",
+      "type": "object"
+    },
     "model_catalog_json": {
       "allOf": [
         {

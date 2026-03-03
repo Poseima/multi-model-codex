@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 
 use crate::AuthManager;
@@ -656,6 +657,7 @@ pub(crate) struct Session {
     pub(crate) services: SessionServices,
     js_repl: Arc<JsReplHandle>,
     next_internal_sub_id: AtomicU64,
+    inline_archive_running: AtomicBool,
 }
 
 #[derive(Clone, Debug)]
@@ -1614,6 +1616,7 @@ impl Session {
             services,
             js_repl,
             next_internal_sub_id: AtomicU64::new(0),
+            inline_archive_running: AtomicBool::new(false),
         });
         if let Some(network_policy_decider_session) = network_policy_decider_session {
             let mut guard = network_policy_decider_session.write().await;
@@ -1764,6 +1767,22 @@ impl Session {
             .next_internal_sub_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         format!("auto-compact-{id}")
+    }
+
+    pub(crate) fn try_start_inline_archive(&self) -> bool {
+        self.inline_archive_running
+            .compare_exchange(
+                false,
+                true,
+                std::sync::atomic::Ordering::AcqRel,
+                std::sync::atomic::Ordering::Acquire,
+            )
+            .is_ok()
+    }
+
+    pub(crate) fn finish_inline_archive(&self) {
+        self.inline_archive_running
+            .store(false, std::sync::atomic::Ordering::Release);
     }
 
     pub(crate) async fn route_realtime_text_input(self: &Arc<Self>, text: String) {
@@ -5784,8 +5803,8 @@ async fn run_auto_compact(
     turn_context: &Arc<TurnContext>,
     initial_context_injection: InitialContextInjection,
 ) -> CodexResult<()> {
-    // Fork: run memory archive before compaction when experiment is enabled.
-    crate::tasks::run_inline_archive(Arc::clone(sess), Arc::clone(turn_context)).await;
+    // Fork: run memory archive concurrently with compaction when experiment is enabled.
+    crate::tasks::spawn_inline_archive(Arc::clone(sess), Arc::clone(turn_context));
 
     if should_use_remote_compact_task(&turn_context.provider) {
         run_inline_remote_auto_compact_task(
