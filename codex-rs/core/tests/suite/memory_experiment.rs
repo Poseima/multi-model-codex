@@ -6,10 +6,7 @@
 #![cfg(not(target_os = "windows"))]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::Hash;
-use std::hash::Hasher;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -24,14 +21,15 @@ use core_test_support::skip_if_no_network;
 use core_test_support::test_codex::test_codex;
 
 /// Replicate the project memory root derivation from `memory_experiment::mod.rs`.
-/// Since the test cwd is a temp dir (not a git repo), the cwd itself is hashed.
+/// For this integration harness (temp-dir cwd, no git repo), the directory name
+/// falls back to the cwd's final path component.
 fn compute_project_memory_root(codex_home: &Path, cwd: &Path) -> PathBuf {
-    let mut hasher = DefaultHasher::new();
-    cwd.hash(&mut hasher);
-    let hash = hasher.finish();
-    codex_home
-        .join("memories_experiment")
-        .join(format!("{hash:016x}"))
+    let dir_name = cwd
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(str::to_string)
+        .unwrap_or_else(|| "memory-test".to_string());
+    codex_home.join("memories_experiment").join(dir_name)
 }
 
 /// Enable the memory experiment by creating config.toml and memory_clues.md.
