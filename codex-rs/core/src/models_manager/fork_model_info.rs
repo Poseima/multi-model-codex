@@ -48,6 +48,7 @@ macro_rules! fork_model_info {
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: vec![InputModality::Text],
+            supports_image_detail_original: false,
             prefer_websockets: false,
             used_fallback_model_metadata: false,
             availability_nux: None,

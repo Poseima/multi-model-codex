@@ -244,6 +244,7 @@ Rules:
                                 .to_string(),
                         ),
                         config_file: Some("memory_retriever.toml".to_string().parse().unwrap_or_default()),
+                        nickname_candidates: None,
                     }
                 ),
             ])
