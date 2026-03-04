@@ -847,4 +847,21 @@ enabled = false
             None
         );
     }
+
+    #[test]
+    fn built_in_roles_include_memory_retriever() {
+        let roles = built_in::configs();
+        let memory_retriever = roles
+            .get("memory_retriever")
+            .expect("memory_retriever role should be present");
+
+        assert_eq!(
+            memory_retriever.config_file,
+            Some(PathBuf::from("memory_retriever.toml"))
+        );
+        assert!(
+            built_in::config_file_contents(Path::new("memory_retriever.toml")).is_some(),
+            "memory_retriever config file should resolve from built-ins"
+        );
+    }
 }

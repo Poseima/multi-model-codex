@@ -5925,6 +5925,7 @@ impl ChatWidget {
                         model: None,
                         effort: None,
                         summary: None,
+                        service_tier: None,
                         collaboration_mode: None,
                         personality: None,
                     }));
@@ -6308,6 +6309,7 @@ impl ChatWidget {
                 model: Some(model_for_action.clone()),
                 effort: Some(effort_for_action),
                 summary: None,
+                service_tier: None,
                 collaboration_mode: None,
                 personality: None,
             }));
@@ -6616,6 +6618,7 @@ impl ChatWidget {
                 model: Some(model.clone()),
                 effort: Some(effort),
                 summary: None,
+                service_tier: None,
                 collaboration_mode: None,
                 personality: None,
             }));
