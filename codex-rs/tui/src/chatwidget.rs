@@ -277,6 +277,7 @@ use self::skills::collect_tool_mentions;
 use self::skills::find_app_mentions;
 use self::skills::find_skill_mentions_with_tool_mentions;
 mod realtime;
+mod switch_account;
 use self::realtime::RealtimeConversationUiState;
 use self::realtime::RenderedUserMessageEvent;
 use crate::mention_codec::LinkedMention;
@@ -3862,6 +3863,9 @@ impl ChatWidget {
             SlashCommand::Provider => {
                 self.open_provider_popup();
             }
+            SlashCommand::SwitchAccount => {
+                self.open_switch_account_popup();
+            }
             SlashCommand::Personality => {
                 self.open_personality_popup();
             }
@@ -5948,6 +5952,101 @@ impl ChatWidget {
         header.push(Line::from("Select Provider".bold()));
         header.push(Line::from(
             "Switch between configured model providers.".dim(),
+        ));
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            header: Box::new(header),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            ..Default::default()
+        });
+    }
+
+    fn open_switch_account_popup(&mut self) {
+        let candidates = match switch_account::discover_switch_account_candidates(
+            self.config.codex_home.as_path(),
+        ) {
+            Ok(candidates) => candidates,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                let multi_auths_dir = self.config.codex_home.join("multi_auths");
+                self.add_info_message(
+                    "No account profiles found.".to_string(),
+                    Some(format!(
+                        "Create {}/ with one or more .json auth files.",
+                        multi_auths_dir.display()
+                    )),
+                );
+                return;
+            }
+            Err(err) => {
+                self.add_error_message(format!("Failed to read account profiles: {err}"));
+                return;
+            }
+        };
+
+        if candidates.is_empty() {
+            let multi_auths_dir = self.config.codex_home.join("multi_auths");
+            self.add_info_message(
+                "No account profiles found.".to_string(),
+                Some(format!(
+                    "Add .json auth files under {}.",
+                    multi_auths_dir.display()
+                )),
+            );
+            return;
+        }
+
+        let codex_home = self.config.codex_home.clone();
+        let auth_manager = Arc::clone(&self.auth_manager);
+        let items: Vec<SelectionItem> = candidates
+            .into_iter()
+            .map(|candidate| {
+                let path_for_action = candidate.path.clone();
+                let name_for_action = candidate.name.clone();
+                let codex_home_for_action = codex_home.clone();
+                let auth_manager_for_action = Arc::clone(&auth_manager);
+                let actions: Vec<SelectionAction> =
+                    vec![Box::new(
+                        move |tx| match switch_account::switch_account_auth(
+                            codex_home_for_action.as_path(),
+                            path_for_action.as_path(),
+                        ) {
+                            Ok(()) => {
+                                auth_manager_for_action.reload();
+                                tx.send(AppEvent::InsertHistoryCell(Box::new(
+                                    history_cell::new_info_event(
+                                        format!("Switched account to {name_for_action}."),
+                                        None,
+                                    ),
+                                )));
+                            }
+                            Err(err) => {
+                                tx.send(AppEvent::InsertHistoryCell(Box::new(
+                                    history_cell::new_error_event(format!(
+                                        "Failed to switch account: {err}"
+                                    )),
+                                )));
+                            }
+                        },
+                    )];
+
+                SelectionItem {
+                    name: candidate.name,
+                    description: candidate.description,
+                    selected_description: None,
+                    is_current: false,
+                    actions,
+                    disabled_reason: candidate.disabled_reason,
+                    dismiss_on_select: true,
+                    ..Default::default()
+                }
+            })
+            .collect();
+
+        let mut header = ColumnRenderable::new();
+        header.push(Line::from("Switch Account".bold()));
+        header.push(Line::from(
+            "Select an auth profile from CODEX_HOME/multi_auths.".dim(),
         ));
 
         self.bottom_pane.show_selection_view(SelectionViewParams {

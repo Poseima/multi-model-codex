@@ -1,0 +1,11 @@
+---
+source: tui/src/chatwidget/tests.rs
+expression: popup
+---
+  Switch Account
+  Select an auth profile from CODEX_HOME/multi_auths.
+
+› 1. a.json  API key
+  2. b.json  API key
+
+  Press enter to confirm or esc to go back
