@@ -4235,7 +4235,9 @@ impl ChatComposer {
                         FooterMode::ComposerHasDraft => !footer_props.is_task_running,
                         FooterMode::QuitShortcutReminder
                         | FooterMode::ShortcutOverlay
-                        | FooterMode::EscHint => false,
+                        | FooterMode::EscHint
+                        | FooterMode::ShortcutSummary
+                        | FooterMode::ContextOnly => false,
                     };
                 let mut truncated_status_line = if status_line_candidate {
                     status_line.as_ref().map(|line| {

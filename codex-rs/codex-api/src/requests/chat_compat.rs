@@ -482,6 +482,13 @@ mod tests {
         }
     }
 
+    fn provider_with(name: &str, base_url: &str) -> Provider {
+        let mut provider = provider();
+        provider.name = name.to_string();
+        provider.base_url = base_url.to_string();
+        provider
+    }
+
     #[test]
     fn attaches_conversation_and_subagent_headers() {
         let prompt_input = vec![ResponseItem::Message {
@@ -594,6 +601,74 @@ mod tests {
         assert_eq!(messages[4]["tool_call_id"], "call-b");
         assert_eq!(messages[5]["role"], "tool");
         assert_eq!(messages[5]["tool_call_id"], "call-c");
+    }
+
+    #[test]
+    fn remaps_developer_role_to_user_for_non_openai_provider() {
+        let prompt_input = vec![ResponseItem::Message {
+            id: None,
+            role: "developer".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "developer instruction".to_string(),
+            }],
+            end_turn: None,
+            phase: None,
+        }];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider_with("minimax", "https://api.minimax.chat/v1"))
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(messages[1]["role"], "user");
+        assert_eq!(messages[1]["content"], "developer instruction");
+    }
+
+    #[test]
+    fn keeps_developer_role_for_openai_provider() {
+        let prompt_input = vec![ResponseItem::Message {
+            id: None,
+            role: "developer".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "developer instruction".to_string(),
+            }],
+            end_turn: None,
+            phase: None,
+        }];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider())
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(messages[1]["role"], "developer");
+    }
+
+    #[test]
+    fn ignores_image_generation_response_items() {
+        let prompt_input = vec![ResponseItem::ImageGenerationCall {
+            id: "ig_123".to_string(),
+            status: "completed".to_string(),
+            revised_prompt: None,
+            result: "base64-image".to_string(),
+        }];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider())
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["role"], "system");
     }
 
     #[test]

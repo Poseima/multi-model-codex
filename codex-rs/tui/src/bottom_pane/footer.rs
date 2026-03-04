@@ -585,7 +585,9 @@ fn footer_from_props_lines(
             FooterMode::ComposerHasDraft => !props.is_task_running,
             FooterMode::QuitShortcutReminder
             | FooterMode::ShortcutOverlay
-            | FooterMode::EscHint => false,
+            | FooterMode::EscHint
+            | FooterMode::ShortcutSummary
+            | FooterMode::ContextOnly => false,
         }
     {
         return vec![status_line.clone().dim()];
@@ -1080,7 +1082,9 @@ mod tests {
                         FooterMode::ComposerHasDraft => !props.is_task_running,
                         FooterMode::QuitShortcutReminder
                         | FooterMode::ShortcutOverlay
-                        | FooterMode::EscHint => false,
+                        | FooterMode::EscHint
+                        | FooterMode::ShortcutSummary
+                        | FooterMode::ContextOnly => false,
                     };
                 let left_mode_indicator = if status_line_active {
                     None
