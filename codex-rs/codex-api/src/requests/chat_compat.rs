@@ -71,6 +71,7 @@ impl<'a> ChatRequestBuilder<'a> {
                     last_emitted_role = Some("assistant")
                 }
                 ResponseItem::FunctionCallOutput { .. } => last_emitted_role = Some("tool"),
+                ResponseItem::ImageGenerationCall { .. } => last_emitted_role = Some("assistant"),
                 ResponseItem::Reasoning { .. } | ResponseItem::Other => {}
                 ResponseItem::CustomToolCall { .. } => {}
                 ResponseItem::CustomToolCallOutput { .. } => {}
@@ -256,7 +257,9 @@ impl<'a> ChatRequestBuilder<'a> {
                                     FunctionCallOutputContentItem::InputText { text } => {
                                         json!({"type":"text","text": text})
                                     }
-                                    FunctionCallOutputContentItem::InputImage { image_url } => {
+                                    FunctionCallOutputContentItem::InputImage {
+                                        image_url, ..
+                                    } => {
                                         json!({"type":"image_url","image_url": {"url": image_url}})
                                     }
                                 })
@@ -301,6 +304,7 @@ impl<'a> ChatRequestBuilder<'a> {
                 }
                 ResponseItem::Reasoning { .. }
                 | ResponseItem::WebSearchCall { .. }
+                | ResponseItem::ImageGenerationCall { .. }
                 | ResponseItem::Other
                 | ResponseItem::Compaction { .. } => {
                     continue;
