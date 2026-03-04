@@ -15,6 +15,8 @@ pub enum SlashCommand {
     Model,
     Fast,
     Provider,
+    #[strum(serialize = "switch_account")]
+    SwitchAccount,
     Approvals,
     Permissions,
     #[strum(serialize = "setup-default-sandbox")]
@@ -95,6 +97,7 @@ impl SlashCommand {
             SlashCommand::Model => "choose what model and reasoning effort to use",
             SlashCommand::Fast => "toggle Fast mode to enable fastest inference at 2X plan usage",
             SlashCommand::Provider => "switch between configured model providers",
+            SlashCommand::SwitchAccount => "switch auth.json from CODEX_HOME/multi_auths",
             SlashCommand::Personality => "choose a communication style for Codex",
             SlashCommand::Realtime => "toggle realtime voice mode (experimental)",
             SlashCommand::Settings => "configure realtime microphone/speaker",
@@ -147,6 +150,7 @@ impl SlashCommand {
             | SlashCommand::Model
             | SlashCommand::Fast
             | SlashCommand::Provider
+            | SlashCommand::SwitchAccount
             | SlashCommand::Personality
             | SlashCommand::Approvals
             | SlashCommand::Permissions

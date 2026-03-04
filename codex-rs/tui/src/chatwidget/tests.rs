@@ -17,7 +17,9 @@ use crate::history_cell::UserHistoryCell;
 use crate::test_backend::VT100Backend;
 use crate::tui::FrameRequester;
 use assert_matches::assert_matches;
+use codex_core::AuthManager;
 use codex_core::CodexAuth;
+use codex_core::auth::AuthCredentialsStoreMode;
 use codex_core::config::Config;
 use codex_core::config::ConfigBuilder;
 use codex_core::config::Constrained;
@@ -5964,6 +5966,96 @@ async fn slash_exit_requests_exit() {
     chat.dispatch_command(SlashCommand::Exit);
 
     assert_matches!(rx.try_recv(), Ok(AppEvent::Exit(ExitMode::ShutdownFirst)));
+}
+
+#[tokio::test]
+async fn slash_switch_account_opens_picker_snapshot() {
+    let (mut chat, _rx, _op_rx) = make_chatwidget_manual(None).await;
+    let codex_home = tempdir().expect("tempdir");
+    let multi_auths = codex_home.path().join("multi_auths");
+    std::fs::create_dir_all(&multi_auths).expect("create multi_auths");
+    std::fs::write(multi_auths.join("b.json"), "{\"OPENAI_API_KEY\":\"sk-b\"}").expect("write b");
+    std::fs::write(multi_auths.join("a.json"), "{\"OPENAI_API_KEY\":\"sk-a\"}").expect("write a");
+
+    chat.config.codex_home = codex_home.path().to_path_buf();
+    chat.config.cli_auth_credentials_store_mode = AuthCredentialsStoreMode::File;
+    chat.auth_manager = AuthManager::shared(
+        chat.config.codex_home.clone(),
+        false,
+        chat.config.cli_auth_credentials_store_mode,
+    );
+
+    chat.dispatch_command(SlashCommand::SwitchAccount);
+
+    let popup = render_bottom_popup(&chat, 80);
+    assert_snapshot!("switch_account_selection_popup", popup);
+}
+
+#[tokio::test]
+async fn slash_switch_account_replaces_auth_and_writes_backup() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
+    let codex_home = tempdir().expect("tempdir");
+    let multi_auths = codex_home.path().join("multi_auths");
+    std::fs::create_dir_all(&multi_auths).expect("create multi_auths");
+    let active_auth = codex_home.path().join("auth.json");
+    std::fs::write(&active_auth, "{\"OPENAI_API_KEY\":\"sk-old\"}").expect("write old auth");
+    std::fs::write(
+        multi_auths.join("profile.json"),
+        "{\"OPENAI_API_KEY\":\"sk-new\"}",
+    )
+    .expect("write new auth");
+
+    chat.config.codex_home = codex_home.path().to_path_buf();
+    chat.config.cli_auth_credentials_store_mode = AuthCredentialsStoreMode::File;
+    chat.auth_manager = AuthManager::shared(
+        chat.config.codex_home.clone(),
+        false,
+        chat.config.cli_auth_credentials_store_mode,
+    );
+
+    chat.dispatch_command(SlashCommand::SwitchAccount);
+    chat.handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+    let current = std::fs::read_to_string(codex_home.path().join("auth.json")).expect("read auth");
+    assert_eq!(current, "{\"OPENAI_API_KEY\":\"sk-new\"}");
+    let backup =
+        std::fs::read_to_string(multi_auths.join("_last_auth_backup.json")).expect("read backup");
+    assert_eq!(backup, "{\"OPENAI_API_KEY\":\"sk-old\"}");
+
+    let cells = drain_insert_history(&mut rx);
+    let combined = cells
+        .iter()
+        .map(|lines| lines_to_single_string(lines))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        combined.contains("Switched account to profile.json."),
+        "expected switch account success message, got {combined:?}"
+    );
+}
+
+#[tokio::test]
+async fn slash_switch_account_reports_when_no_profiles_exist() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
+    let codex_home = tempdir().expect("tempdir");
+
+    chat.config.codex_home = codex_home.path().to_path_buf();
+    chat.config.cli_auth_credentials_store_mode = AuthCredentialsStoreMode::File;
+    chat.auth_manager = AuthManager::shared(
+        chat.config.codex_home.clone(),
+        false,
+        chat.config.cli_auth_credentials_store_mode,
+    );
+
+    chat.dispatch_command(SlashCommand::SwitchAccount);
+
+    let cells = drain_insert_history(&mut rx);
+    assert_eq!(cells.len(), 1);
+    let rendered = lines_to_single_string(&cells[0]);
+    assert!(
+        rendered.contains("No account profiles found."),
+        "expected no-profiles message, got {rendered:?}"
+    );
 }
 
 #[tokio::test]
