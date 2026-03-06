@@ -13,6 +13,7 @@ use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::openai_models::ReasoningEffortPreset;
 use codex_protocol::openai_models::TruncationPolicyConfig;
+use codex_protocol::openai_models::WebSearchToolType;
 
 const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
     include_str!("../../prompt_with_text_editor_instructions.md");
@@ -70,6 +71,7 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         support_verbosity: false,
         default_verbosity: None,
         apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+        web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(10_000),
         supports_parallel_tool_calls: false,
         context_window: Some(context_window),
@@ -103,6 +105,7 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         support_verbosity: false,
         default_verbosity: None,
         apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
+        web_search_tool_type: WebSearchToolType::Text,
         truncation_policy: TruncationPolicyConfig::bytes(10_000),
         supports_parallel_tool_calls: false,
         context_window: Some(context_window),
