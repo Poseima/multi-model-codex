@@ -38,6 +38,10 @@ impl SessionTask for ArchiveTask {
         TaskKind::Archive
     }
 
+    fn span_name(&self) -> &'static str {
+        "session_task.archive"
+    }
+
     async fn run(
         self: Arc<Self>,
         session: Arc<SessionTaskContext>,
