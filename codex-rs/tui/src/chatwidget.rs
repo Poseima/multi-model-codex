@@ -3909,6 +3909,9 @@ impl ChatWidget {
             SlashCommand::Clear => {
                 self.app_event_tx.send(AppEvent::ClearUi);
             }
+            SlashCommand::Profile => {
+                self.app_event_tx.send(AppEvent::ShowPromptProfile);
+            }
             SlashCommand::Resume => {
                 self.app_event_tx.send(AppEvent::OpenResumePicker);
             }
@@ -4336,6 +4339,47 @@ impl ChatWidget {
                         path: prepared_args,
                     });
                 self.bottom_pane.drain_pending_submission_state();
+            }
+            SlashCommand::Profile => {
+                if trimmed.is_empty() {
+                    self.dispatch_command(cmd);
+                    return;
+                }
+                let mut parts = trimmed.splitn(2, char::is_whitespace);
+                let action = parts.next().unwrap_or_default().to_ascii_lowercase();
+                let remainder = parts.next().map(str::trim).unwrap_or_default();
+                match action.as_str() {
+                    "show" => self.dispatch_command(cmd),
+                    "clear" => {
+                        if self.bottom_pane.is_task_running() {
+                            self.add_to_history(history_cell::new_error_event(
+                                "'/profile clear' is disabled while a task is in progress."
+                                    .to_string(),
+                            ));
+                            self.request_redraw();
+                            return;
+                        }
+                        self.app_event_tx.send(AppEvent::ClearPromptProfile);
+                    }
+                    "load" if !remainder.is_empty() => {
+                        if self.bottom_pane.is_task_running() {
+                            self.add_to_history(history_cell::new_error_event(
+                                "'/profile load' is disabled while a task is in progress."
+                                    .to_string(),
+                            ));
+                            self.request_redraw();
+                            return;
+                        }
+                        self.app_event_tx.send(AppEvent::LoadPromptProfile {
+                            path: PathBuf::from(remainder),
+                        });
+                    }
+                    _ => {
+                        self.add_error_message(
+                            "Usage: /profile [show|clear|load <path>]".to_string(),
+                        );
+                    }
+                }
             }
             _ => self.dispatch_command(cmd),
         }

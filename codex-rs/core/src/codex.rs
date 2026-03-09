@@ -92,6 +92,7 @@ use codex_protocol::models::format_allow_prefixes;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::permissions::FileSystemSandboxPolicy;
 use codex_protocol::permissions::NetworkSandboxPolicy;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::FileChange;
 use codex_protocol::protocol::HasLegacyEvent;
 use codex_protocol::protocol::ItemCompletedEvent;
@@ -366,6 +367,8 @@ impl Codex {
         session_source: SessionSource,
         agent_control: AgentControl,
         dynamic_tools: Vec<DynamicToolSpec>,
+        prompt_profile: Option<PromptSource>,
+        inherit_prompt_profile_from_history: bool,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -482,6 +485,11 @@ impl Codex {
         } else {
             dynamic_tools
         };
+        let prompt_profile = prompt_profile.or_else(|| {
+            inherit_prompt_profile_from_history
+                .then(|| conversation_history.get_prompt_profile())
+                .flatten()
+        });
 
         // TODO (aibrahim): Consolidate config.model and config.model_reasoning_effort into config.collaboration_mode
         // to avoid extracting these fields separately and constructing CollaborationMode here.
@@ -502,6 +510,7 @@ impl Codex {
             user_instructions,
             personality: config.personality,
             base_instructions,
+            prompt_profile,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -625,6 +634,10 @@ impl Codex {
 
     pub(crate) async fn agent_status(&self) -> AgentStatus {
         self.agent_status.borrow().clone()
+    }
+
+    pub(crate) async fn prompt_profile(&self) -> Option<PromptSource> {
+        self.session.prompt_profile().await
     }
 
     pub(crate) async fn thread_config_snapshot(&self) -> ThreadConfigSnapshot {
@@ -896,6 +909,9 @@ pub(crate) struct SessionConfiguration {
     /// Base instructions for the session.
     base_instructions: String,
 
+    /// Active normalized prompt profile for the session, if any.
+    prompt_profile: Option<PromptSource>,
+
     /// Compact prompt override.
     compact_prompt: Option<String>,
 
@@ -966,6 +982,9 @@ impl SessionConfiguration {
         if let Some(personality) = updates.personality {
             next_configuration.personality = Some(personality);
         }
+        if let Some(prompt_profile) = updates.prompt_profile.clone() {
+            next_configuration.prompt_profile = prompt_profile;
+        }
         if let Some(approval_policy) = updates.approval_policy {
             next_configuration.approval_policy.set(approval_policy)?;
         }
@@ -1008,6 +1027,7 @@ pub(crate) struct SessionSettingsUpdate {
     pub(crate) service_tier: Option<Option<ServiceTier>>,
     pub(crate) final_output_json_schema: Option<Option<Value>>,
     pub(crate) personality: Option<Personality>,
+    pub(crate) prompt_profile: Option<Option<PromptSource>>,
     pub(crate) app_server_client_name: Option<String>,
     pub(crate) provider_id: Option<String>,
 }
@@ -1260,6 +1280,7 @@ impl Session {
                         BaseInstructions {
                             text: session_configuration.base_instructions.clone(),
                         },
+                        session_configuration.prompt_profile.clone(),
                         session_configuration.dynamic_tools.clone(),
                         if session_configuration.persist_extended_history {
                             EventPersistenceMode::Extended
@@ -1831,10 +1852,37 @@ impl Session {
         }
     }
 
+    pub(crate) async fn prompt_profile(&self) -> Option<PromptSource> {
+        let state = self.state.lock().await;
+        state.session_configuration.prompt_profile.clone()
+    }
+
     /// Fork: returns base instructions with memory content appended when the
     /// memory experiment is enabled. Reads memory files from disk on each call
     /// so the system prompt reflects the latest archive output.
     pub(crate) async fn get_composed_base_instructions(
+        &self,
+        codex_home: &Path,
+        cwd: &Path,
+        features: &Features,
+    ) -> BaseInstructions {
+        let (base, prompt_profile) = {
+            let state = self.state.lock().await;
+            (
+                state.session_configuration.base_instructions.clone(),
+                state.session_configuration.prompt_profile.clone(),
+            )
+        };
+        let base =
+            crate::prompt_profile_render::compose_base_instructions(&base, prompt_profile.as_ref());
+        let composed = memory_experiment::compose_base_instructions_with_memory(
+            &base, codex_home, cwd, features,
+        )
+        .await;
+        BaseInstructions { text: composed }
+    }
+
+    pub(crate) async fn get_memory_augmented_base_instructions(
         &self,
         codex_home: &Path,
         cwd: &Path,
@@ -1910,6 +1958,15 @@ impl Session {
                 // we do not emit model-visible "diff" updates before the first user message.
                 let items = self.build_initial_context(&turn_context).await;
                 self.record_conversation_items(&turn_context, &items).await;
+                let prompt_profile = self.prompt_profile().await;
+                if let Some(greeting_item) =
+                    crate::prompt_profile_render::build_primary_greeting_item(
+                        prompt_profile.as_ref(),
+                    )
+                {
+                    self.record_conversation_items(&turn_context, &[greeting_item])
+                        .await;
+                }
                 {
                     let mut state = self.state.lock().await;
                     state.set_reference_context_item(Some(turn_context.to_turn_context_item()));
@@ -2406,6 +2463,7 @@ impl Session {
             BaseInstructions {
                 text: base_instructions,
             },
+            self.prompt_profile().await,
         );
         let startup_turn_metadata_header = startup_turn_context
             .turn_metadata_state
@@ -4378,6 +4436,7 @@ mod handlers {
                         service_tier,
                         final_output_json_schema: Some(final_output_json_schema),
                         personality,
+                        prompt_profile: None,
                         app_server_client_name: None,
                         provider_id: None,
                     },
@@ -5986,6 +6045,7 @@ fn build_prompt(
     router: &ToolRouter,
     turn_context: &TurnContext,
     base_instructions: BaseInstructions,
+    prompt_profile: Option<PromptSource>,
 ) -> Prompt {
     Prompt {
         input,
@@ -5994,6 +6054,7 @@ fn build_prompt(
         base_instructions,
         personality: turn_context.personality,
         output_schema: turn_context.final_output_json_schema.clone(),
+        prompt_profile,
     }
 }
 #[allow(clippy::too_many_arguments)]
@@ -6029,18 +6090,20 @@ async fn run_sampling_request(
 
     // Fork: compose base instructions with memory content when experiment is active.
     let base_instructions = sess
-        .get_composed_base_instructions(
+        .get_memory_augmented_base_instructions(
             &turn_context.config.codex_home,
             &turn_context.cwd,
             &turn_context.features,
         )
         .await;
+    let prompt_profile = sess.prompt_profile().await;
 
     let prompt = build_prompt(
         input,
         router.as_ref(),
         turn_context.as_ref(),
         base_instructions,
+        prompt_profile,
     );
     let mut retries = 0;
     loop {

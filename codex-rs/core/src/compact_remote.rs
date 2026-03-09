@@ -106,6 +106,7 @@ async fn run_remote_compact_task_inner_impl(
         base_instructions,
         personality: turn_context.personality,
         output_schema: None,
+        prompt_profile: sess.prompt_profile().await,
     };
 
     let mut new_history = sess
@@ -118,8 +119,11 @@ async fn run_remote_compact_task_inner_impl(
         )
         .or_else(|err| async {
             let total_usage_breakdown = sess.get_total_token_usage_breakdown().await;
-            let compact_request_log_data =
-                build_compact_request_log_data(&prompt.input, &prompt.base_instructions.text);
+            let compact_request_input = prompt.get_formatted_input();
+            let compact_request_log_data = build_compact_request_log_data(
+                &compact_request_input,
+                &prompt.base_instructions.text,
+            );
             log_remote_compact_failure(
                 turn_context,
                 &compact_request_log_data,

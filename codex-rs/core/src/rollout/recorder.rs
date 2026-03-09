@@ -11,6 +11,7 @@ use chrono::Utc;
 use codex_protocol::ThreadId;
 use codex_protocol::dynamic_tools::DynamicToolSpec;
 use codex_protocol::models::BaseInstructions;
+use codex_protocol::prompt_profile::PromptSource;
 use serde_json::Value;
 use time::OffsetDateTime;
 use time::format_description::FormatItem;
@@ -82,6 +83,7 @@ pub enum RolloutRecorderParams {
         forked_from_id: Option<ThreadId>,
         source: SessionSource,
         base_instructions: BaseInstructions,
+        prompt_profile: Option<PromptSource>,
         dynamic_tools: Vec<DynamicToolSpec>,
         event_persistence_mode: EventPersistenceMode,
     },
@@ -111,6 +113,7 @@ impl RolloutRecorderParams {
         forked_from_id: Option<ThreadId>,
         source: SessionSource,
         base_instructions: BaseInstructions,
+        prompt_profile: Option<PromptSource>,
         dynamic_tools: Vec<DynamicToolSpec>,
         event_persistence_mode: EventPersistenceMode,
     ) -> Self {
@@ -119,6 +122,7 @@ impl RolloutRecorderParams {
             forked_from_id,
             source,
             base_instructions,
+            prompt_profile,
             dynamic_tools,
             event_persistence_mode,
         }
@@ -380,6 +384,7 @@ impl RolloutRecorder {
                     forked_from_id,
                     source,
                     base_instructions,
+                    prompt_profile,
                     dynamic_tools,
                     event_persistence_mode,
                 } => {
@@ -408,6 +413,7 @@ impl RolloutRecorder {
                         source,
                         model_provider: Some(config.model_provider_id.clone()),
                         base_instructions: Some(base_instructions),
+                        prompt_profile,
                         dynamic_tools: if dynamic_tools.is_empty() {
                             None
                         } else {
@@ -1171,6 +1177,7 @@ mod tests {
                 None,
                 SessionSource::Exec,
                 BaseInstructions::default(),
+                None,
                 Vec::new(),
                 EventPersistenceMode::Limited,
             ),

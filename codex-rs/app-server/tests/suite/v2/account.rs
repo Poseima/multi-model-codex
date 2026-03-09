@@ -398,6 +398,8 @@ async fn external_auth_refreshes_on_unauthorized() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(codex_app_server_protocol::ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -504,6 +506,8 @@ async fn external_auth_refresh_error_fails_turn() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(codex_app_server_protocol::ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -626,6 +630,8 @@ async fn external_auth_refresh_mismatched_workspace_fails_turn() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(codex_app_server_protocol::ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -741,6 +747,8 @@ async fn external_auth_refresh_invalid_access_token_fails_turn() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(codex_app_server_protocol::ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

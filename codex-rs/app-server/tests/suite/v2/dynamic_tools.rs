@@ -66,6 +66,8 @@ async fn thread_start_injects_dynamic_tools_into_model_requests() -> Result<()> 
     // Thread start injects dynamic tools into the thread's tool registry.
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Some(vec![dynamic_tool.clone()]),
             ..Default::default()
         })
@@ -158,6 +160,8 @@ async fn dynamic_tool_call_round_trip_sends_text_content_items_to_model() -> Res
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Some(vec![dynamic_tool]),
             ..Default::default()
         })
@@ -330,6 +334,8 @@ async fn dynamic_tool_call_round_trip_sends_content_items_to_model() -> Result<(
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Some(vec![dynamic_tool]),
             ..Default::default()
         })

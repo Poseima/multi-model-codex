@@ -39,6 +39,8 @@ async fn thread_archive_requires_materialized_rollout() -> Result<()> {
     // Start a thread.
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -171,6 +173,8 @@ async fn thread_archive_clears_stale_subscriptions_before_resume() -> Result<()>
 
     let start_id = primary
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

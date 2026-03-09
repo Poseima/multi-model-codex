@@ -44,6 +44,8 @@ async fn thread_metadata_update_patches_git_branch_and_returns_updated_thread() 
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -134,6 +136,8 @@ async fn thread_metadata_update_rejects_empty_git_info_patch() -> Result<()> {
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

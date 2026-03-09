@@ -285,7 +285,8 @@ impl ModelClient {
         model_info: &ModelInfo,
         session_telemetry: &SessionTelemetry,
     ) -> Result<Vec<ResponseItem>> {
-        if prompt.input.is_empty() {
+        let input = prompt.get_formatted_input();
+        if input.is_empty() {
             return Ok(Vec::new());
         }
         let client_setup = self.current_client_setup().await?;
@@ -295,10 +296,10 @@ impl ModelClient {
             ApiCompactClient::new(transport, client_setup.api_provider, client_setup.api_auth)
                 .with_telemetry(Some(request_telemetry));
 
-        let instructions = prompt.base_instructions.text.clone();
+        let instructions = prompt.get_formatted_instructions();
         let payload = ApiCompactionInput {
             model: &model_info.slug,
-            input: &prompt.input,
+            input: &input,
             instructions: &instructions,
         };
 
@@ -500,8 +501,8 @@ impl ModelClientSession {
         summary: ReasoningSummaryConfig,
         service_tier: Option<ServiceTier>,
     ) -> Result<ResponsesApiRequest> {
-        let instructions = &prompt.base_instructions.text;
-        let input = prompt.get_formatted_input();
+        let instructions = prompt.get_formatted_instructions();
+        let input = normalize_responses_input_for_provider(provider, prompt.get_formatted_input());
         let tools = create_tools_json_for_responses_api(&prompt.tools)?;
         let default_reasoning_effort = model_info.default_reasoning_level;
         let reasoning = if model_info.supports_reasoning_summaries {
@@ -539,7 +540,7 @@ impl ModelClientSession {
         let prompt_cache_key = Some(self.client.state.conversation_id.to_string());
         let request = ResponsesApiRequest {
             model: model_info.slug.clone(),
-            instructions: instructions.clone(),
+            instructions,
             input,
             tools,
             tool_choice: "auto".to_string(),
@@ -831,7 +832,7 @@ impl ModelClientSession {
         }
 
         let auth_manager = self.client.state.auth_manager.clone();
-        let instructions = prompt.base_instructions.text.clone();
+        let instructions = prompt.get_formatted_instructions();
         let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
         let input = prompt.get_formatted_input();
         let conversation_id = self.client.state.conversation_id.to_string();
@@ -1142,6 +1143,35 @@ fn build_ws_client_metadata(turn_metadata_header: Option<&str>) -> Option<HashMa
     Some(client_metadata)
 }
 
+fn normalize_responses_input_for_provider(
+    provider: &codex_api::Provider,
+    input: Vec<ResponseItem>,
+) -> Vec<ResponseItem> {
+    if !provider.supports_developer_role() {
+        return input;
+    }
+
+    input
+        .into_iter()
+        .map(|item| match item {
+            ResponseItem::Message {
+                id,
+                role,
+                content,
+                end_turn,
+                phase,
+            } if role == "system" => ResponseItem::Message {
+                id,
+                role: "developer".to_string(),
+                content,
+                end_turn,
+                phase,
+            },
+            other => other,
+        })
+        .collect()
+}
+
 /// Builds the extra headers attached to Responses API requests.
 ///
 /// These headers implement Codex-specific conventions:
@@ -1338,7 +1368,10 @@ impl WebsocketTelemetry for ApiTelemetry {
 mod tests {
     use super::ModelClient;
     use codex_otel::SessionTelemetry;
+    use super::normalize_responses_input_for_provider;
     use codex_protocol::ThreadId;
+    use codex_protocol::models::ContentItem;
+    use codex_protocol::models::ResponseItem;
     use codex_protocol::openai_models::ModelInfo;
     use codex_protocol::protocol::SessionSource;
     use codex_protocol::protocol::SubAgentSource;
@@ -1408,6 +1441,18 @@ mod tests {
         )
     }
 
+    fn test_message(role: &str, text: &str) -> ResponseItem {
+        ResponseItem::Message {
+            id: None,
+            role: role.to_string(),
+            content: vec![ContentItem::InputText {
+                text: text.to_string(),
+            }],
+            end_turn: None,
+            phase: None,
+        }
+    }
+
     #[test]
     fn build_subagent_headers_sets_other_subagent_label() {
         let client = test_model_client(SessionSource::SubAgent(SubAgentSource::Other(
@@ -1431,5 +1476,48 @@ mod tests {
             .await
             .expect("empty summarize request should succeed");
         assert_eq!(output.len(), 0);
+    }
+
+    #[test]
+    fn normalize_responses_input_rewrites_system_to_developer_for_openai() {
+        let provider = crate::model_provider_info::ModelProviderInfo::create_openai_provider()
+            .to_api_provider(None)
+            .expect("openai provider");
+        let input = vec![
+            test_message("system", "narrative head"),
+            test_message("user", "hello"),
+            test_message("system", "late lore"),
+            test_message("assistant", "prefill"),
+        ];
+
+        let normalized = normalize_responses_input_for_provider(&provider, input);
+
+        assert_eq!(
+            normalized,
+            vec![
+                test_message("developer", "narrative head"),
+                test_message("user", "hello"),
+                test_message("developer", "late lore"),
+                test_message("assistant", "prefill"),
+            ]
+        );
+    }
+
+    #[test]
+    fn normalize_responses_input_keeps_system_for_non_openai_provider() {
+        let provider = crate::model_provider_info::create_oss_provider_with_base_url(
+            "https://example.com/v1",
+            crate::model_provider_info::WireApi::Responses,
+        )
+        .to_api_provider(None)
+        .expect("oss provider");
+        let input = vec![
+            test_message("system", "narrative head"),
+            test_message("assistant", "prefill"),
+        ];
+
+        let normalized = normalize_responses_input_for_provider(&provider, input.clone());
+
+        assert_eq!(normalized, input);
     }
 }

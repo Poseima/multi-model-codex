@@ -214,6 +214,22 @@ Start a fresh thread when you need a new Codex conversation.
 
 Valid `personality` values are `"friendly"`, `"pragmatic"`, and `"none"`. When `"none"` is selected, the personality placeholder is replaced with an empty string.
 
+`thread/start` and `thread/fork` also accept prompt-profile overrides:
+
+- `promptProfile` — pass a normalized `PromptSource` payload directly.
+- `promptProfilePath` — load a profile from disk. The server accepts native prompt-profile JSON, SillyTavern JSON cards, and SillyTavern PNG cards with embedded `ccv3`/`chara` metadata.
+- If both are provided, `promptProfile` takes precedence.
+
+Example:
+
+```json
+{ "method": "thread/start", "id": 10, "params": {
+    "model": "gpt-5.1-codex",
+    "cwd": "/Users/me/project",
+    "promptProfilePath": "/Users/me/cards/reikurose.png"
+} }
+```
+
 To continue a stored session, call `thread/resume` with the `thread.id` you previously recorded. The response shape matches `thread/start`, and no additional notifications are emitted. You can also pass the same configuration overrides supported by `thread/start`, such as `personality`:
 
 ```json
@@ -227,7 +243,10 @@ To continue a stored session, call `thread/resume` with the `thread.id` you prev
 To branch from a stored session, call `thread/fork` with the `thread.id`. This creates a new thread id and emits a `thread/started` notification for it:
 
 ```json
-{ "method": "thread/fork", "id": 12, "params": { "threadId": "thr_123" } }
+{ "method": "thread/fork", "id": 12, "params": {
+    "threadId": "thr_123",
+    "promptProfilePath": "/Users/me/cards/reikurose.png"
+} }
 { "id": 12, "result": { "thread": { "id": "thr_456", … } } }
 { "method": "thread/started", "params": { "thread": { … } } }
 ```

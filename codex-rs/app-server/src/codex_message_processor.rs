@@ -94,8 +94,6 @@ use codex_app_server_protocol::ProductSurface as ApiProductSurface;
 use codex_app_server_protocol::ProviderInfo;
 use codex_app_server_protocol::ProviderListParams;
 use codex_app_server_protocol::ProviderListResponse;
-use codex_app_server_protocol::RemoveConversationListenerParams;
-use codex_app_server_protocol::RemoveConversationSubscriptionResponse;
 use codex_app_server_protocol::RequestId;
 use codex_app_server_protocol::ReviewDelivery as ApiReviewDelivery;
 use codex_app_server_protocol::ReviewStartParams;
@@ -247,6 +245,7 @@ use codex_protocol::config_types::WindowsSandboxLevel;
 use codex_protocol::dynamic_tools::DynamicToolSpec as CoreDynamicToolSpec;
 use codex_protocol::items::TurnItem;
 use codex_protocol::models::ResponseItem;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::AgentStatus;
 use codex_protocol::protocol::ConversationAudioParams;
 use codex_protocol::protocol::ConversationStartParams;
@@ -1809,6 +1808,8 @@ impl CodexMessageProcessor {
             base_instructions,
             developer_instructions,
             dynamic_tools,
+            prompt_profile,
+            prompt_profile_path,
             mock_experimental_field: _mock_experimental_field,
             experimental_raw_events,
             personality,
@@ -1847,6 +1848,8 @@ impl CodexMessageProcessor {
                 config,
                 typesafe_overrides,
                 dynamic_tools,
+                prompt_profile,
+                prompt_profile_path,
                 persist_extended_history,
                 service_name,
                 experimental_raw_events,
@@ -1864,6 +1867,8 @@ impl CodexMessageProcessor {
         config_overrides: Option<HashMap<String, serde_json::Value>>,
         typesafe_overrides: ConfigOverrides,
         dynamic_tools: Option<Vec<ApiDynamicToolSpec>>,
+        prompt_profile: Option<PromptSource>,
+        prompt_profile_path: Option<PathBuf>,
         persist_extended_history: bool,
         service_name: Option<String>,
         experimental_raw_events: bool,
@@ -1916,12 +1921,29 @@ impl CodexMessageProcessor {
                 })
                 .collect()
         };
+        let prompt_profile =
+            match resolve_prompt_profile_override(prompt_profile, prompt_profile_path) {
+                Ok(prompt_profile) => prompt_profile,
+                Err(message) => {
+                    let error = JSONRPCErrorError {
+                        code: INVALID_REQUEST_ERROR_CODE,
+                        message,
+                        data: None,
+                    };
+                    listener_task_context
+                        .outgoing
+                        .send_error(request_id, error)
+                        .await;
+                    return;
+                }
+            };
 
         match listener_task_context
             .thread_manager
             .start_thread_with_tools_and_service_name(
                 config,
                 core_dynamic_tools,
+                prompt_profile,
                 persist_extended_history,
                 service_name,
             )
@@ -3611,6 +3633,8 @@ impl CodexMessageProcessor {
             config: cli_overrides,
             base_instructions,
             developer_instructions,
+            prompt_profile,
+            prompt_profile_path,
             persist_extended_history,
         } = params;
 
@@ -3717,6 +3741,14 @@ impl CodexMessageProcessor {
         };
 
         let fallback_model_provider = config.model_provider_id.clone();
+        let prompt_profile =
+            match resolve_prompt_profile_override(prompt_profile, prompt_profile_path) {
+                Ok(prompt_profile) => prompt_profile,
+                Err(message) => {
+                    self.send_invalid_request_error(request_id, message).await;
+                    return;
+                }
+            };
 
         let NewThread {
             thread_id,
@@ -3728,6 +3760,7 @@ impl CodexMessageProcessor {
                 usize::MAX,
                 config,
                 rollout_path.clone(),
+                prompt_profile,
                 persist_extended_history,
             )
             .await
@@ -6011,7 +6044,7 @@ impl CodexMessageProcessor {
             ..
         } = self
             .thread_manager
-            .fork_thread(usize::MAX, config, rollout_path, false)
+            .fork_thread(usize::MAX, config, rollout_path, None, false)
             .await
             .map_err(|err| JSONRPCErrorError {
                 code: INTERNAL_ERROR_CODE,
@@ -7214,6 +7247,26 @@ async fn derive_config_from_params(
         .cloud_requirements(cloud_requirements.clone())
         .build()
         .await
+}
+
+fn resolve_prompt_profile_override(
+    prompt_profile: Option<PromptSource>,
+    prompt_profile_path: Option<PathBuf>,
+) -> std::result::Result<Option<PromptSource>, String> {
+    if prompt_profile.is_some() {
+        return Ok(prompt_profile);
+    }
+    let Some(prompt_profile_path) = prompt_profile_path else {
+        return Ok(None);
+    };
+    codex_core::load_prompt_profile_from_path(prompt_profile_path.as_path())
+        .map(Some)
+        .map_err(|err| {
+            format!(
+                "failed to load prompt profile `{}`: {err}",
+                prompt_profile_path.display()
+            )
+        })
 }
 
 async fn derive_config_for_cwd(

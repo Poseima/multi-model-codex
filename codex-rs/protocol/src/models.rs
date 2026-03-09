@@ -375,6 +375,10 @@ pub enum ResponseItem {
 }
 
 pub const BASE_INSTRUCTIONS_DEFAULT: &str = include_str!("prompts/base_instructions/default.md");
+pub const BASE_INSTRUCTIONS_RUNTIME_CONTRACT: &str =
+    include_str!("prompts/base_instructions/runtime_contract.md");
+pub const BASE_INSTRUCTIONS_RUNTIME_CONTRACT_TEXT_EDITOR: &str =
+    include_str!("prompts/base_instructions/runtime_contract_text_editor.md");
 
 /// Base instructions for the model in a thread. Corresponds to the `instructions` field in the ResponsesAPI.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema, TS)]

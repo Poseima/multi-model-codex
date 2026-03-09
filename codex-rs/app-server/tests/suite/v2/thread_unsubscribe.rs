@@ -373,6 +373,8 @@ stream_max_retries = 0
 async fn start_thread(mcp: &mut McpProcess) -> Result<String> {
     let req_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

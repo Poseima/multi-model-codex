@@ -623,7 +623,7 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
                 let prompt_text = resolve_prompt(prompt_arg);
                 let mut items: Vec<UserInput> = imgs
                     .into_iter()
-                    .chain(args.images.into_iter())
+                    .chain(args.images.iter().cloned())
                     .map(|path| UserInput::LocalImage { path })
                     .collect();
                 items.push(UserInput::Text {

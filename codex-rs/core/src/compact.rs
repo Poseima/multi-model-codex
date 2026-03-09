@@ -130,6 +130,7 @@ async fn run_compact_task_inner(
                 )
                 .await,
             personality: turn_context.personality,
+            prompt_profile: sess.prompt_profile().await,
             ..Default::default()
         };
         let turn_metadata_header = turn_context.turn_metadata_state.current_header_value();

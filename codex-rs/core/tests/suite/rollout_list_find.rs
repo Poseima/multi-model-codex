@@ -171,6 +171,7 @@ async fn find_locates_rollout_file_written_by_recorder() -> std::io::Result<()> 
             None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),

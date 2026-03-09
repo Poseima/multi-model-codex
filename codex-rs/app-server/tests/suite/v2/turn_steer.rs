@@ -39,6 +39,8 @@ async fn turn_steer_requires_active_turn() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -102,6 +104,8 @@ async fn turn_steer_rejects_oversized_text_input() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -205,6 +209,8 @@ async fn turn_steer_returns_active_turn_id() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

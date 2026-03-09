@@ -14,6 +14,7 @@ use codex_protocol::models::ContentItem;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::SandboxPolicy;
 use codex_protocol::protocol::SessionSource;
@@ -138,6 +139,10 @@ impl CodexThread {
 
     pub async fn config_snapshot(&self) -> ThreadConfigSnapshot {
         self.codex.thread_config_snapshot().await
+    }
+
+    pub async fn prompt_profile(&self) -> Option<PromptSource> {
+        self.codex.prompt_profile().await
     }
 
     pub fn enabled(&self, feature: Feature) -> bool {

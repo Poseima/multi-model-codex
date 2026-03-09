@@ -43,6 +43,7 @@ use crate::parse_command::ParsedCommand;
 use crate::plan_tool::UpdatePlanArgs;
 use crate::request_permissions::RequestPermissionsEvent;
 use crate::request_permissions::RequestPermissionsResponse;
+use crate::prompt_profile::PromptSource;
 use crate::request_user_input::RequestUserInputResponse;
 use crate::user_input::UserInput;
 use codex_utils_absolute_path::AbsolutePathBuf;
@@ -2082,6 +2083,22 @@ impl InitialHistory {
             }),
         }
     }
+
+    pub fn get_prompt_profile(&self) -> Option<PromptSource> {
+        match self {
+            InitialHistory::New => None,
+            InitialHistory::Resumed(resumed) => {
+                resumed.history.iter().find_map(|item| match item {
+                    RolloutItem::SessionMeta(meta_line) => meta_line.meta.prompt_profile.clone(),
+                    _ => None,
+                })
+            }
+            InitialHistory::Forked(items) => items.iter().find_map(|item| match item {
+                RolloutItem::SessionMeta(meta_line) => meta_line.meta.prompt_profile.clone(),
+                _ => None,
+            }),
+        }
+    }
 }
 
 fn session_cwd_from_items(items: &[RolloutItem]) -> Option<PathBuf> {
@@ -2212,6 +2229,8 @@ pub struct SessionMeta {
     /// from ModelsManager.
     pub base_instructions: Option<BaseInstructions>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_profile: Option<PromptSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dynamic_tools: Option<Vec<DynamicToolSpec>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory_mode: Option<String>,
@@ -2231,6 +2250,7 @@ impl Default for SessionMeta {
             agent_role: None,
             model_provider: None,
             base_instructions: None,
+            prompt_profile: None,
             dynamic_tools: None,
             memory_mode: None,
         }
