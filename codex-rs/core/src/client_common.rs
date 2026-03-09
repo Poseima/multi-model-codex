@@ -1,6 +1,7 @@
 use crate::client_common::tools::ToolSpec;
 use crate::config::types::Personality;
 use crate::error::Result;
+use codex_api::Provider;
 pub use codex_api::common::ResponseEvent;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::FunctionCallOutputBody;
@@ -52,7 +53,7 @@ pub struct Prompt {
 
 impl Prompt {
     pub(crate) fn get_formatted_instructions(&self) -> String {
-        crate::prompt_profile_render::format_instructions(
+        crate::prompt_profile_integration::format_instructions(
             &self.base_instructions.text,
             self.prompt_profile.as_ref(),
             &self.input,
@@ -60,8 +61,25 @@ impl Prompt {
     }
 
     pub(crate) fn get_formatted_input(&self) -> Vec<ResponseItem> {
-        let mut input =
-            crate::prompt_profile_render::format_input(&self.input, self.prompt_profile.as_ref());
+        self.get_formatted_input_for_provider(None)
+    }
+
+    pub(crate) fn get_formatted_input_for_provider(
+        &self,
+        provider: Option<&Provider>,
+    ) -> Vec<ResponseItem> {
+        let mut input = if let Some(provider) = provider {
+            crate::prompt_profile_integration::format_input_for_chat_provider(
+                &self.input,
+                self.prompt_profile.as_ref(),
+                provider,
+            )
+        } else {
+            crate::prompt_profile_integration::format_input(
+                &self.input,
+                self.prompt_profile.as_ref(),
+            )
+        };
 
         // when using the *Freeform* apply_patch tool specifically, tool outputs
         // should be structured text, not json. Do NOT reserialize when using

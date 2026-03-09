@@ -43,6 +43,13 @@ struct ActiveLateLoreEntry {
     content: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ChatToolContinuationBridge {
+    pub post_tool_roleplay: String,
+    pub continuation_scaffold: String,
+    pub assistant_prefix: Option<String>,
+}
+
 pub(crate) fn compose_base_instructions(
     base_instructions: &str,
     prompt_profile: Option<&PromptSource>,
@@ -174,11 +181,10 @@ fn build_runtime_tail_items(
     prompt_profile: &PromptSource,
 ) -> Vec<ResponseItem> {
     let mut items = Vec::new();
-    let mut late_assistant_prefill = Vec::new();
+    let late_assistant_prefill = render_late_assistant_prefix(prompt_profile, input);
 
     for late_lore in active_late_lore_entries(prompt_profile, input) {
         if late_lore.role == PromptInjectionRole::Assistant {
-            late_assistant_prefill.push(late_lore.content);
         } else {
             items.push(render_message(late_lore.role, late_lore.content));
         }
@@ -199,7 +205,7 @@ fn build_runtime_tail_items(
     if let Some(post_tool_roleplay_reminder) = render_tool_continuation_roleplay_reminder(
         input,
         prompt_profile,
-        !late_assistant_prefill.is_empty(),
+        late_assistant_prefill.is_some(),
     ) {
         items.push(render_message(
             PromptInjectionRole::Developer,
@@ -207,14 +213,38 @@ fn build_runtime_tail_items(
         ));
     }
 
-    if !late_assistant_prefill.is_empty() {
+    if let Some(late_assistant_prefill) = late_assistant_prefill {
         items.push(render_message(
             PromptInjectionRole::Assistant,
-            late_assistant_prefill.join("\n"),
+            late_assistant_prefill,
         ));
     }
 
     items
+}
+
+pub(crate) fn build_chat_tool_continuation_bridge(
+    input: &[ResponseItem],
+    prompt_profile: &PromptSource,
+) -> Option<ChatToolContinuationBridge> {
+    if !is_tool_continuation_request(input) {
+        return None;
+    }
+
+    let assistant_prefix = render_late_assistant_prefix(prompt_profile, input);
+    let post_tool_roleplay = render_tool_continuation_roleplay_reminder(
+        input,
+        prompt_profile,
+        assistant_prefix.is_some(),
+    )?;
+    let continuation_scaffold =
+        render_chat_tool_continuation_scaffold(prompt_profile, assistant_prefix.as_deref());
+
+    Some(ChatToolContinuationBridge {
+        post_tool_roleplay,
+        continuation_scaffold,
+        assistant_prefix,
+    })
 }
 
 fn render_depth_prompt(
@@ -536,7 +566,7 @@ fn prompt_profile_is_sillytavern(prompt_profile: &PromptSource) -> bool {
         .is_some_and(|format| format.starts_with("sillytavern"))
 }
 
-fn render_tool_continuation_roleplay_reminder(
+pub(crate) fn render_tool_continuation_roleplay_reminder(
     input: &[ResponseItem],
     prompt_profile: &PromptSource,
     has_assistant_prefix: bool,
@@ -560,6 +590,50 @@ fn render_tool_continuation_roleplay_reminder(
         );
     }
     Some(reminder)
+}
+
+fn render_late_assistant_prefix(
+    prompt_profile: &PromptSource,
+    input: &[ResponseItem],
+) -> Option<String> {
+    let prefix = active_late_lore_entries(prompt_profile, input)
+        .into_iter()
+        .filter(|entry| entry.role == PromptInjectionRole::Assistant)
+        .map(|entry| entry.content)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    (!prefix.trim().is_empty()).then_some(prefix)
+}
+
+fn render_chat_tool_continuation_scaffold(
+    prompt_profile: &PromptSource,
+    assistant_prefix: Option<&str>,
+) -> String {
+    let char_name = prompt_profile_name(prompt_profile).unwrap_or("the active character");
+    let mut scaffold = format!(
+        "Continue the next assistant reply as {char_name}. Even when the tool results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene instead of switching to a plain assistant explanation, operator summary, or bullet-point advice. Maintain the active profile's established voice, framing, and output conventions."
+    );
+
+    if prompt_profile_is_sillytavern(prompt_profile) {
+        scaffold.push_str(
+            " Preserve scene-continuation prose with concrete action, emotion, sensory detail, and inner thoughts.",
+        );
+    }
+
+    if let Some(assistant_prefix) = assistant_prefix {
+        scaffold.push_str(
+            " The supplied assistant prefix is continuation text for the same reply, not quoted prior dialogue. Continue writing directly from it.",
+        );
+        if assistant_prefix.contains("<status_bar>") {
+            scaffold.push_str(" Preserve and complete the <status_bar> block.");
+        }
+        if assistant_prefix.contains("<system_bar>") {
+            scaffold.push_str(" Preserve and complete the <system_bar> block.");
+        }
+    }
+
+    scaffold
 }
 
 fn is_tool_continuation_request(input: &[ResponseItem]) -> bool {

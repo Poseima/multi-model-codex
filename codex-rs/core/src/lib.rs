@@ -64,6 +64,7 @@ pub mod path_utils;
 pub mod personality_migration;
 pub mod plugins;
 mod prompt_profile_import;
+mod prompt_profile_integration;
 mod prompt_profile_render;
 mod sandbox_tags;
 pub mod sandboxing;

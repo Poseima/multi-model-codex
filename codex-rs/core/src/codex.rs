@@ -36,6 +36,8 @@ use crate::models_manager::collaboration_mode_presets::CollaborationModesConfig;
 use crate::models_manager::manager::ModelsManager;
 use crate::parse_command::parse_command;
 use crate::parse_turn_item;
+use crate::prompt_profile_integration;
+use crate::prompt_profile_integration::PromptProfileSelection;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::realtime_conversation::handle_audio as handle_realtime_conversation_audio;
 use crate::realtime_conversation::handle_close as handle_realtime_conversation_close;
@@ -355,8 +357,7 @@ impl Codex {
         session_source: SessionSource,
         agent_control: AgentControl,
         dynamic_tools: Vec<DynamicToolSpec>,
-        prompt_profile: Option<PromptSource>,
-        inherit_prompt_profile_from_history: bool,
+        prompt_profile_selection: PromptProfileSelection,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -468,11 +469,7 @@ impl Codex {
         } else {
             dynamic_tools
         };
-        let prompt_profile = prompt_profile.or_else(|| {
-            inherit_prompt_profile_from_history
-                .then(|| conversation_history.get_prompt_profile())
-                .flatten()
-        });
+        let prompt_profile = prompt_profile_selection.resolve(&conversation_history);
 
         // TODO (aibrahim): Consolidate config.model and config.model_reasoning_effort into config.collaboration_mode
         // to avoid extracting these fields separately and constructing CollaborationMode here.
@@ -1839,7 +1836,7 @@ impl Session {
             )
         };
         let base =
-            crate::prompt_profile_render::compose_base_instructions(&base, prompt_profile.as_ref());
+            prompt_profile_integration::compose_base_instructions(&base, prompt_profile.as_ref());
         let composed = memory_experiment::compose_base_instructions_with_memory(
             &base, codex_home, cwd, features,
         )
@@ -1925,9 +1922,7 @@ impl Session {
                 self.record_conversation_items(&turn_context, &items).await;
                 let prompt_profile = self.prompt_profile().await;
                 if let Some(greeting_item) =
-                    crate::prompt_profile_render::build_primary_greeting_item(
-                        prompt_profile.as_ref(),
-                    )
+                    prompt_profile_integration::build_primary_greeting_item(prompt_profile.as_ref())
                 {
                     self.record_conversation_items(&turn_context, &[greeting_item])
                         .await;

@@ -15,6 +15,7 @@ use crate::mcp::McpManager;
 use crate::models_manager::collaboration_mode_presets::CollaborationModesConfig;
 use crate::models_manager::manager::ModelsManager;
 use crate::plugins::PluginsManager;
+use crate::prompt_profile_integration::PromptProfileSelection;
 use crate::protocol::Event;
 use crate::protocol::EventMsg;
 use crate::protocol::SessionConfiguredEvent;
@@ -349,8 +350,7 @@ impl ThreadManager {
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             dynamic_tools,
-            prompt_profile,
-            false,
+            PromptProfileSelection::for_new_thread(prompt_profile),
             persist_extended_history,
             metrics_service_name,
         ))
@@ -381,8 +381,7 @@ impl ThreadManager {
             auth_manager,
             self.agent_control(),
             Vec::new(),
-            None,
-            true,
+            PromptProfileSelection::InheritFromHistory,
             persist_extended_history,
             None,
         ))
@@ -419,15 +418,13 @@ impl ThreadManager {
     ) -> CodexResult<NewThread> {
         let history = RolloutRecorder::get_rollout_history(&path).await?;
         let history = truncate_before_nth_user_message(history, nth_user_message);
-        let inherit_prompt_profile_from_history = prompt_profile.is_none();
         Box::pin(self.state.spawn_thread(
             config,
             history,
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             Vec::new(),
-            prompt_profile,
-            inherit_prompt_profile_from_history,
+            PromptProfileSelection::for_fork_override(prompt_profile),
             persist_extended_history,
             None,
         ))
@@ -449,8 +446,7 @@ impl ThreadManager {
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             Vec::new(),
-            None,
-            false,
+            PromptProfileSelection::Clear,
             persist_extended_history,
             None,
         ))
@@ -534,8 +530,7 @@ impl ThreadManagerState {
             agent_control,
             session_source,
             Vec::new(),
-            None,
-            false,
+            PromptProfileSelection::Clear,
             persist_extended_history,
             metrics_service_name,
             inherited_shell_snapshot,
@@ -559,8 +554,7 @@ impl ThreadManagerState {
             agent_control,
             session_source,
             Vec::new(),
-            None,
-            true,
+            PromptProfileSelection::InheritFromHistory,
             false,
             None,
             inherited_shell_snapshot,
@@ -584,8 +578,7 @@ impl ThreadManagerState {
             agent_control,
             session_source,
             Vec::new(),
-            None,
-            true,
+            PromptProfileSelection::InheritFromHistory,
             persist_extended_history,
             None,
             inherited_shell_snapshot,
@@ -602,8 +595,7 @@ impl ThreadManagerState {
         auth_manager: Arc<AuthManager>,
         agent_control: AgentControl,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
-        prompt_profile: Option<PromptSource>,
-        inherit_prompt_profile_from_history: bool,
+        prompt_profile_selection: PromptProfileSelection,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
     ) -> CodexResult<NewThread> {
@@ -614,8 +606,7 @@ impl ThreadManagerState {
             agent_control,
             self.session_source.clone(),
             dynamic_tools,
-            prompt_profile,
-            inherit_prompt_profile_from_history,
+            prompt_profile_selection,
             persist_extended_history,
             metrics_service_name,
             None,
@@ -632,8 +623,7 @@ impl ThreadManagerState {
         agent_control: AgentControl,
         session_source: SessionSource,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
-        prompt_profile: Option<PromptSource>,
-        inherit_prompt_profile_from_history: bool,
+        prompt_profile_selection: PromptProfileSelection,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -655,8 +645,7 @@ impl ThreadManagerState {
             session_source,
             agent_control,
             dynamic_tools,
-            prompt_profile,
-            inherit_prompt_profile_from_history,
+            prompt_profile_selection,
             persist_extended_history,
             metrics_service_name,
             inherited_shell_snapshot,
