@@ -35,6 +35,7 @@ use crate::rollout::policy::EventPersistenceMode;
 use crate::rollout::recorder::RolloutRecorder;
 use crate::rollout::recorder::RolloutRecorderParams;
 use crate::state::TaskKind;
+use crate::swappable_model_client::SwappableModelClient;
 use crate::tasks::SessionTask;
 use crate::tasks::SessionTaskContext;
 use crate::tools::ToolRouter;
@@ -1416,6 +1417,7 @@ async fn set_rate_limits_retains_previous_credits() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -1512,6 +1514,7 @@ async fn set_rate_limits_updates_plan_type_when_present() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -1773,6 +1776,7 @@ async fn attach_rollout_recorder(session: &Arc<Session>) -> PathBuf {
             None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
@@ -1866,6 +1870,7 @@ pub(crate) async fn make_session_configuration_for_tests() -> SessionConfigurati
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -1925,6 +1930,7 @@ async fn session_new_fails_when_zsh_fork_enabled_without_zsh_path() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -2017,6 +2023,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -2093,7 +2100,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         network_proxy: None,
         network_approval: Arc::clone(&network_approval),
         state_db: None,
-        model_client: ModelClient::new(
+        model_client: SwappableModelClient::new(ModelClient::new(
             Some(auth_manager.clone()),
             conversation_id,
             session_configuration.provider.clone(),
@@ -2103,7 +2110,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
-        ),
+        )),
     };
     let js_repl = Arc::new(JsReplHandle::with_node_path(
         config.js_repl_node_path.clone(),
@@ -2136,6 +2143,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         services,
         js_repl,
         next_internal_sub_id: AtomicU64::new(0),
+        inline_archive_running: AtomicBool::new(false),
     };
 
     (session, turn_context)
@@ -2446,6 +2454,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -2522,7 +2531,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         network_proxy: None,
         network_approval: Arc::clone(&network_approval),
         state_db: None,
-        model_client: ModelClient::new(
+        model_client: SwappableModelClient::new(ModelClient::new(
             Some(Arc::clone(&auth_manager)),
             conversation_id,
             session_configuration.provider.clone(),
@@ -2532,7 +2541,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
-        ),
+        )),
     };
     let js_repl = Arc::new(JsReplHandle::with_node_path(
         config.js_repl_node_path.clone(),
@@ -2565,6 +2574,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         services,
         js_repl,
         next_internal_sub_id: AtomicU64::new(0),
+        inline_archive_running: AtomicBool::new(false),
     });
 
     (session, turn_context, rx_event)
@@ -3006,6 +3016,7 @@ async fn record_context_updates_and_set_reference_context_item_persists_baseline
             None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
@@ -3103,6 +3114,7 @@ async fn record_context_updates_and_set_reference_context_item_persists_full_rei
             None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),

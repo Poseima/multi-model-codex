@@ -1606,7 +1606,7 @@ impl Session {
             network_proxy,
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
-            model_client: ModelClient::new(
+            model_client: SwappableModelClient::new(ModelClient::new(
                 Some(Arc::clone(&auth_manager)),
                 conversation_id,
                 session_configuration.provider.clone(),
@@ -1616,7 +1616,7 @@ impl Session {
                 config.features.enabled(Feature::EnableRequestCompression),
                 config.features.enabled(Feature::RuntimeMetrics),
                 Self::build_model_client_beta_features_header(config.as_ref()),
-            ),
+            )),
         };
         let js_repl = Arc::new(JsReplHandle::with_node_path(
             config.js_repl_node_path.clone(),

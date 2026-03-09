@@ -292,6 +292,7 @@ async fn guardian_subagent_does_not_inherit_parent_exec_policy_rules() {
         SessionSource::SubAgent(SubAgentSource::Other(GUARDIAN_SUBAGENT_NAME.to_string())),
         AgentControl::default(),
         Vec::new(),
+        crate::prompt_profile_integration::PromptProfileSelection::InheritFromHistory,
         false,
         None,
         None,

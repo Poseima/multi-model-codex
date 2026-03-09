@@ -823,7 +823,7 @@ impl ModelClientSession {
         &self,
         prompt: &Prompt,
         model_info: &ModelInfo,
-        otel_manager: &OtelManager,
+        session_telemetry: &SessionTelemetry,
     ) -> Result<ResponseStream> {
         if prompt.output_schema.is_some() {
             return Err(CodexErr::UnsupportedOperation(
@@ -852,7 +852,8 @@ impl ModelClientSession {
             let session_source = self.client.state.session_source.clone();
             let api_auth = auth_provider_from_auth(auth.clone(), &self.client.state.provider)?;
             let transport = ReqwestTransport::new(build_reqwest_client());
-            let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(otel_manager);
+            let (request_telemetry, sse_telemetry) =
+                Self::build_streaming_telemetry(session_telemetry);
             let client = ApiChatCompatClient::new(transport, api_provider, api_auth)
                 .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
 
@@ -870,7 +871,7 @@ impl ModelClientSession {
             match stream_result {
                 Ok(stream) => {
                     let (stream, _last_response_rx) =
-                        map_response_stream(stream, otel_manager.clone());
+                        map_response_stream(stream, session_telemetry.clone());
                     return Ok(stream);
                 }
                 Err(ApiError::Transport(
@@ -1091,7 +1092,7 @@ impl ModelClientSession {
                 .await
             }
             WireApi::Chat => {
-                self.stream_chat_completions(prompt, model_info, otel_manager)
+                self.stream_chat_completions(prompt, model_info, session_telemetry)
                     .await
             } // Fork: chat-api
         }
@@ -1366,8 +1367,8 @@ impl WebsocketTelemetry for ApiTelemetry {
 #[cfg(test)]
 mod tests {
     use super::ModelClient;
-    use codex_otel::SessionTelemetry;
     use super::normalize_responses_input_for_provider;
+    use codex_otel::SessionTelemetry;
     use codex_protocol::ThreadId;
     use codex_protocol::models::ContentItem;
     use codex_protocol::models::ResponseItem;

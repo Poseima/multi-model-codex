@@ -735,16 +735,21 @@ async fn command_exec_process_ids_are_connection_scoped_and_disconnect_terminate
     )
     .await?;
 
-    let delta = read_command_exec_delta_ws(&mut ws1).await?;
-    assert_eq!(delta.process_id, "shared-process");
-    assert_eq!(delta.stream, CommandExecOutputStream::Stdout);
-    let delta_text = String::from_utf8(STANDARD.decode(&delta.delta_base64)?)?;
-    let pid = delta_text
-        .lines()
-        .last()
-        .context("delta should include shell pid")?
-        .parse::<u32>()
-        .context("parse shell pid")?;
+    let mut stdout = String::new();
+    let pid = loop {
+        let delta = read_command_exec_delta_ws(&mut ws1).await?;
+        assert_eq!(delta.process_id, "shared-process");
+        assert_eq!(delta.stream, CommandExecOutputStream::Stdout);
+        stdout.push_str(&String::from_utf8(STANDARD.decode(&delta.delta_base64)?)?);
+        if let Some(pid) = stdout.lines().rev().find_map(|line| {
+            let trimmed = line.trim();
+            (!trimmed.is_empty() && trimmed.chars().all(|ch| ch.is_ascii_digit()))
+                .then(|| trimmed.parse::<u32>().ok())
+                .flatten()
+        }) {
+            break pid;
+        }
+    };
 
     send_request(
         &mut ws2,

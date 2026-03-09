@@ -1278,6 +1278,7 @@ mod tests {
                 None,
                 SessionSource::Cli,
                 BaseInstructions::default(),
+                None,
                 Vec::new(),
                 EventPersistenceMode::Limited,
             ),

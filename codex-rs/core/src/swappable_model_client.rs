@@ -8,7 +8,7 @@ use std::sync::RwLock;
 
 use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
-use codex_otel::OtelManager;
+use codex_otel::SessionTelemetry;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
@@ -48,11 +48,11 @@ impl SwappableModelClient {
         &self,
         prompt: &Prompt,
         model_info: &ModelInfo,
-        otel_manager: &OtelManager,
+        session_telemetry: &SessionTelemetry,
     ) -> Result<Vec<ResponseItem>> {
         let client = self.inner.read().expect("lock poisoned").clone();
         client
-            .compact_conversation_history(prompt, model_info, otel_manager)
+            .compact_conversation_history(prompt, model_info, session_telemetry)
             .await
     }
 
@@ -65,11 +65,11 @@ impl SwappableModelClient {
         raw_memories: Vec<ApiRawMemory>,
         model_info: &ModelInfo,
         effort: Option<ReasoningEffortConfig>,
-        otel_manager: &OtelManager,
+        session_telemetry: &SessionTelemetry,
     ) -> Result<Vec<ApiMemorySummarizeOutput>> {
         let client = self.inner.read().expect("lock poisoned").clone();
         client
-            .summarize_memories(raw_memories, model_info, effort, otel_manager)
+            .summarize_memories(raw_memories, model_info, effort, session_telemetry)
             .await
     }
 

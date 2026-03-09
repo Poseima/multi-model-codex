@@ -2948,6 +2948,7 @@ model_verbosity = "high"
         stream_idle_timeout_ms: Some(300_000),
         requires_openai_auth: false,
         supports_websockets: false,
+        system_role: None,
     };
     let model_provider_map = {
         let mut model_provider_map = built_in_model_providers();
@@ -3002,6 +3003,7 @@ fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
             review_model: None,
             model_context_window: None,
             model_auto_compact_token_limit: None,
+            model_auto_compact_token_limits: HashMap::new(),
             service_tier: None,
             model_provider_id: "openai".to_string(),
             model_provider: fixture.openai_provider.clone(),
@@ -3137,6 +3139,7 @@ fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         review_model: None,
         model_context_window: None,
         model_auto_compact_token_limit: None,
+        model_auto_compact_token_limits: HashMap::new(),
         service_tier: None,
         model_provider_id: "openai-custom".to_string(),
         model_provider: fixture.openai_custom_provider.clone(),
@@ -3270,6 +3273,7 @@ fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         review_model: None,
         model_context_window: None,
         model_auto_compact_token_limit: None,
+        model_auto_compact_token_limits: HashMap::new(),
         service_tier: None,
         model_provider_id: "openai".to_string(),
         model_provider: fixture.openai_provider.clone(),
@@ -3389,6 +3393,7 @@ fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         review_model: None,
         model_context_window: None,
         model_auto_compact_token_limit: None,
+        model_auto_compact_token_limits: HashMap::new(),
         service_tier: None,
         model_provider_id: "openai".to_string(),
         model_provider: fixture.openai_provider.clone(),
