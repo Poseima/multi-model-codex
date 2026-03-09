@@ -801,6 +801,7 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
                         personality: None,
                         output_schema,
                         collaboration_mode: None,
+                        provider_id: None,
                     },
                 },
                 "turn/start",
