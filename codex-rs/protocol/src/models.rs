@@ -412,8 +412,6 @@ const APPROVAL_POLICY_ON_REQUEST_RULE: &str =
     include_str!("prompts/permissions/approval_policy/on_request_rule.md");
 const APPROVAL_POLICY_ON_REQUEST_RULE_REQUEST_PERMISSION: &str =
     include_str!("prompts/permissions/approval_policy/on_request_rule_request_permission.md");
-const GUARDIAN_APPROVAL_FEATURE: &str =
-    include_str!("prompts/permissions/approval_policy/guardian.md");
 
 const SANDBOX_MODE_DANGER_FULL_ACCESS: &str =
     include_str!("prompts/permissions/sandbox_mode/danger_full_access.md");
@@ -431,7 +429,6 @@ impl DeveloperInstructions {
 
     pub fn from(
         approval_policy: AskForApproval,
-        guardian_approval_enabled: bool,
         exec_policy: &Policy,
         request_permission_enabled: bool,
     ) -> DeveloperInstructions {
@@ -455,14 +452,7 @@ impl DeveloperInstructions {
             AskForApproval::Never => APPROVAL_POLICY_NEVER.to_string(),
             AskForApproval::UnlessTrusted => APPROVAL_POLICY_UNLESS_TRUSTED.to_string(),
             AskForApproval::OnFailure => APPROVAL_POLICY_ON_FAILURE.to_string(),
-            AskForApproval::OnRequest => {
-                let mut instructions = on_request_instructions();
-                if guardian_approval_enabled {
-                    instructions.push_str("\n\n");
-                    instructions.push_str(GUARDIAN_APPROVAL_FEATURE);
-                }
-                instructions
-            }
+            AskForApproval::OnRequest => on_request_instructions(),
             AskForApproval::Reject(reject_config) => {
                 let on_request_instructions = on_request_instructions();
                 let sandbox_approval = reject_config.sandbox_approval;
@@ -525,7 +515,6 @@ impl DeveloperInstructions {
     pub fn from_policy(
         sandbox_policy: &SandboxPolicy,
         approval_policy: AskForApproval,
-        guardian_approval_enabled: bool,
         exec_policy: &Policy,
         cwd: &Path,
         request_permission_enabled: bool,
@@ -550,7 +539,6 @@ impl DeveloperInstructions {
             sandbox_mode,
             network_access,
             approval_policy,
-            guardian_approval_enabled,
             exec_policy,
             writable_roots,
             request_permission_enabled,
@@ -575,7 +563,6 @@ impl DeveloperInstructions {
         sandbox_mode: SandboxMode,
         network_access: NetworkAccess,
         approval_policy: AskForApproval,
-        guardian_approval_enabled: bool,
         exec_policy: &Policy,
         writable_roots: Option<Vec<WritableRoot>>,
         request_permission_enabled: bool,
@@ -589,7 +576,6 @@ impl DeveloperInstructions {
             ))
             .concat(DeveloperInstructions::from(
                 approval_policy,
-                guardian_approval_enabled,
                 exec_policy,
                 request_permission_enabled,
             ))
@@ -1671,7 +1657,6 @@ mod tests {
             SandboxMode::WorkspaceWrite,
             NetworkAccess::Enabled,
             AskForApproval::OnRequest,
-            false,
             &Policy::empty(),
             None,
             false,
@@ -1701,7 +1686,6 @@ mod tests {
         let instructions = DeveloperInstructions::from_policy(
             &policy,
             AskForApproval::UnlessTrusted,
-            false,
             &Policy::empty(),
             &PathBuf::from("/tmp"),
             false,
@@ -1724,7 +1708,6 @@ mod tests {
             SandboxMode::WorkspaceWrite,
             NetworkAccess::Enabled,
             AskForApproval::OnRequest,
-            false,
             &exec_policy,
             None,
             false,
@@ -1742,7 +1725,6 @@ mod tests {
             SandboxMode::WorkspaceWrite,
             NetworkAccess::Enabled,
             AskForApproval::OnRequest,
-            false,
             &Policy::empty(),
             None,
             true,
@@ -1751,23 +1733,6 @@ mod tests {
         let text = instructions.into_text();
         assert!(text.contains("with_additional_permissions"));
         assert!(text.contains("additional_permissions"));
-    }
-
-    #[test]
-    fn includes_guardian_feature_guidance_for_on_request_when_enabled() {
-        let instructions = DeveloperInstructions::from_permissions_with_network(
-            SandboxMode::WorkspaceWrite,
-            NetworkAccess::Enabled,
-            AskForApproval::OnRequest,
-            true,
-            &Policy::empty(),
-            None,
-            false,
-        );
-
-        let text = instructions.into_text();
-        assert!(text.contains("guardian subagent"));
-        assert!(text.contains("approval prompts"));
     }
 
     #[test]
