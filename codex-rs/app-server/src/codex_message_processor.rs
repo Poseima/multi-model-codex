@@ -16,6 +16,7 @@ use crate::outgoing_message::OutgoingNotification;
 use crate::outgoing_message::ThreadScopedOutgoingMessageSender;
 use crate::thread_status::ThreadWatchManager;
 use crate::thread_status::resolve_thread_status;
+mod prompt_profile_support;
 use chrono::DateTime;
 use chrono::SecondsFormat;
 use chrono::Utc;
@@ -1921,22 +1922,24 @@ impl CodexMessageProcessor {
                 })
                 .collect()
         };
-        let prompt_profile =
-            match resolve_prompt_profile_override(prompt_profile, prompt_profile_path) {
-                Ok(prompt_profile) => prompt_profile,
-                Err(message) => {
-                    let error = JSONRPCErrorError {
-                        code: INVALID_REQUEST_ERROR_CODE,
-                        message,
-                        data: None,
-                    };
-                    listener_task_context
-                        .outgoing
-                        .send_error(request_id, error)
-                        .await;
-                    return;
-                }
-            };
+        let prompt_profile = match prompt_profile_support::resolve_prompt_profile_override(
+            prompt_profile,
+            prompt_profile_path,
+        ) {
+            Ok(prompt_profile) => prompt_profile,
+            Err(message) => {
+                let error = JSONRPCErrorError {
+                    code: INVALID_REQUEST_ERROR_CODE,
+                    message,
+                    data: None,
+                };
+                listener_task_context
+                    .outgoing
+                    .send_error(request_id, error)
+                    .await;
+                return;
+            }
+        };
 
         match listener_task_context
             .thread_manager
@@ -3741,14 +3744,16 @@ impl CodexMessageProcessor {
         };
 
         let fallback_model_provider = config.model_provider_id.clone();
-        let prompt_profile =
-            match resolve_prompt_profile_override(prompt_profile, prompt_profile_path) {
-                Ok(prompt_profile) => prompt_profile,
-                Err(message) => {
-                    self.send_invalid_request_error(request_id, message).await;
-                    return;
-                }
-            };
+        let prompt_profile = match prompt_profile_support::resolve_prompt_profile_override(
+            prompt_profile,
+            prompt_profile_path,
+        ) {
+            Ok(prompt_profile) => prompt_profile,
+            Err(message) => {
+                self.send_invalid_request_error(request_id, message).await;
+                return;
+            }
+        };
 
         let NewThread {
             thread_id,
@@ -7247,26 +7252,6 @@ async fn derive_config_from_params(
         .cloud_requirements(cloud_requirements.clone())
         .build()
         .await
-}
-
-fn resolve_prompt_profile_override(
-    prompt_profile: Option<PromptSource>,
-    prompt_profile_path: Option<PathBuf>,
-) -> std::result::Result<Option<PromptSource>, String> {
-    if prompt_profile.is_some() {
-        return Ok(prompt_profile);
-    }
-    let Some(prompt_profile_path) = prompt_profile_path else {
-        return Ok(None);
-    };
-    codex_core::load_prompt_profile_from_path(prompt_profile_path.as_path())
-        .map(Some)
-        .map_err(|err| {
-            format!(
-                "failed to load prompt profile `{}`: {err}",
-                prompt_profile_path.display()
-            )
-        })
 }
 
 async fn derive_config_for_cwd(

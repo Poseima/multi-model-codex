@@ -832,12 +832,6 @@ impl ModelClientSession {
         }
 
         let auth_manager = self.client.state.auth_manager.clone();
-        let instructions = prompt.get_formatted_instructions();
-        let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
-        let input = prompt.get_formatted_input();
-        let conversation_id = self.client.state.conversation_id.to_string();
-        let session_source = self.client.state.session_source.clone();
-
         let mut auth_recovery = auth_manager
             .as_ref()
             .map(super::auth::AuthManager::unauthorized_recovery);
@@ -851,6 +845,11 @@ impl ModelClientSession {
                 .state
                 .provider
                 .to_api_provider(auth.as_ref().map(CodexAuth::auth_mode))?;
+            let instructions = prompt.get_formatted_instructions();
+            let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
+            let input = prompt.get_formatted_input_for_provider(Some(&api_provider));
+            let conversation_id = self.client.state.conversation_id.to_string();
+            let session_source = self.client.state.session_source.clone();
             let api_auth = auth_provider_from_auth(auth.clone(), &self.client.state.provider)?;
             let transport = ReqwestTransport::new(build_reqwest_client());
             let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(otel_manager);
