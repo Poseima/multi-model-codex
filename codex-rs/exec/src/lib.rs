@@ -767,6 +767,7 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
                         personality: None,
                         output_schema,
                         collaboration_mode: None,
+                        provider_id: None,
                     },
                 },
                 "turn/start",
@@ -803,9 +804,9 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
             task_id
         }
         InitialOperation::Archive => {
-            let task_id = thread.submit(Op::Archive).await?;
-            info!("Sent archive request with event ID: {task_id}");
-            task_id
+            anyhow::bail!(
+                "resume --archive is not yet supported over the app-server-backed exec path"
+            );
         }
     };
     exec_span.record("turn.id", task_id.as_str());

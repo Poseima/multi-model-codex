@@ -52,7 +52,7 @@ impl SessionTask for ArchiveTask {
         let _ = session
             .session
             .services
-            .otel_manager
+            .session_telemetry
             .counter("codex.task.archive", 1, &[]);
 
         // Emit banner event so the TUI can display ">> Memory archive started <<".
@@ -185,8 +185,9 @@ async fn start_archive_conversation(
         session.clone_session(),
         ctx.clone(),
         cancellation_token,
-        None,
         SubAgentSource::Archive,
+        None,
+        None,
     )
     .await
     {
@@ -399,7 +400,7 @@ pub(crate) async fn run_inline_archive(session: Arc<Session>, ctx: Arc<TurnConte
 
     session
         .services
-        .otel_manager
+        .session_telemetry
         .counter("codex.task.archive.inline", 1, &[]);
 
     // Emit banner event so the TUI can display ">> Memory archive started <<".
