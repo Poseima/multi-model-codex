@@ -6520,6 +6520,13 @@
         }
       ]
     },
+    "PermissionGrantScope": {
+      "enum": [
+        "turn",
+        "session"
+      ],
+      "type": "string"
+    },
     "PermissionProfile": {
       "properties": {
         "file_system": {
@@ -6591,6 +6598,14 @@
       "properties": {
         "permissions": {
           "$ref": "#/definitions/GrantedPermissionProfile"
+        },
+        "scope": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PermissionGrantScope"
+            }
+          ],
+          "default": "turn"
         }
       },
       "required": [
