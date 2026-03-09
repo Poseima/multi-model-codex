@@ -99,6 +99,17 @@ pub(crate) enum AppEvent {
     /// Fork the current session into a new thread.
     ForkCurrentSession,
 
+    /// Load a prompt profile or imported character card for the current session.
+    LoadPromptProfile {
+        path: PathBuf,
+    },
+
+    /// Show the current session's active prompt profile summary.
+    ShowPromptProfile,
+
+    /// Clear the current session's active prompt profile.
+    ClearPromptProfile,
+
     /// Request to exit the application.
     ///
     /// Use `ShutdownFirst` for user-initiated quits so core cleanup runs and the

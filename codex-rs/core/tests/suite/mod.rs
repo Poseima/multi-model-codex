@@ -98,6 +98,7 @@ mod personality;
 mod personality_migration;
 mod plugins;
 mod prompt_caching;
+mod prompt_profile;
 mod quota_exceeded;
 mod read_file;
 mod realtime_conversation;

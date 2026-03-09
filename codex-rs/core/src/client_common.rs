@@ -5,6 +5,7 @@ pub use codex_api::common::ResponseEvent;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::ResponseItem;
+use codex_protocol::prompt_profile::PromptSource;
 use futures::Stream;
 use serde::Deserialize;
 use serde_json::Value;
@@ -42,11 +43,25 @@ pub struct Prompt {
 
     /// Optional the output schema for the model's response.
     pub output_schema: Option<Value>,
+
+    /// Optional prompt profile whose hidden runtime injections should be
+    /// materialized only for model requests, not persisted to conversation
+    /// history.
+    pub prompt_profile: Option<PromptSource>,
 }
 
 impl Prompt {
+    pub(crate) fn get_formatted_instructions(&self) -> String {
+        crate::prompt_profile_render::format_instructions(
+            &self.base_instructions.text,
+            self.prompt_profile.as_ref(),
+            &self.input,
+        )
+    }
+
     pub(crate) fn get_formatted_input(&self) -> Vec<ResponseItem> {
-        let mut input = self.input.clone();
+        let mut input =
+            crate::prompt_profile_render::format_input(&self.input, self.prompt_profile.as_ref());
 
         // when using the *Freeform* apply_patch tool specifically, tool outputs
         // should be structured text, not json. Do NOT reserialize when using

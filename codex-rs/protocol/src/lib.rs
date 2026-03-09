@@ -13,6 +13,7 @@ pub mod num_format;
 pub mod openai_models;
 pub mod parse_command;
 pub mod plan_tool;
+pub mod prompt_profile;
 pub mod protocol;
 pub mod request_user_input;
 pub mod user_input;

@@ -503,7 +503,7 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
             if args.archive {
                 // Fork the thread (preserves the anchor) then archive the fork.
                 thread_manager
-                    .fork_thread(usize::MAX, config.clone(), path, false)
+                    .fork_thread(usize::MAX, config.clone(), path, None, false)
                     .await?
             } else {
                 thread_manager

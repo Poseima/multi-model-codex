@@ -11,10 +11,16 @@ use codex_app_server_protocol::ThreadStartResponse;
 use codex_app_server_protocol::ThreadStartedNotification;
 use codex_app_server_protocol::ThreadStatus;
 use codex_app_server_protocol::ThreadStatusChangedNotification;
+use codex_app_server_protocol::TurnStartParams;
+use codex_app_server_protocol::UserInput as V2UserInput;
 use codex_core::config::set_project_trust_level;
+use codex_core::load_prompt_profile_from_path;
+use codex_core::read_session_meta_line;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::config_types::TrustLevel;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptIdentity;
+use codex_protocol::prompt_profile::PromptSource;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 use std::path::Path;
@@ -38,6 +44,8 @@ async fn thread_start_creates_thread_and_emits_started() -> Result<()> {
     // Start a v2 thread with an explicit model override.
     let req_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("gpt-5.1".to_string()),
             ..Default::default()
         })
@@ -163,6 +171,8 @@ model_reasoning_effort = "high"
 
     let req_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             cwd: Some(workspace.path().to_string_lossy().into_owned()),
             ..Default::default()
         })
@@ -193,6 +203,8 @@ async fn thread_start_accepts_flex_service_tier() -> Result<()> {
 
     let req_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_tier: Some(Some(ServiceTier::Flex)),
             ..Default::default()
         })
@@ -221,6 +233,8 @@ async fn thread_start_accepts_metrics_service_name() -> Result<()> {
 
     let req_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_name: Some("my_app_server_client".to_string()),
             ..Default::default()
         })
@@ -238,6 +252,155 @@ async fn thread_start_accepts_metrics_service_name() -> Result<()> {
 }
 
 #[tokio::test]
+async fn thread_start_persists_prompt_profile_after_first_turn() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let req_id = mcp
+        .send_thread_start_request(ThreadStartParams {
+            prompt_profile: Some(prompt_profile.clone()),
+            prompt_profile_path: None,
+            ..Default::default()
+        })
+        .await?;
+
+    let resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(req_id)),
+    )
+    .await??;
+    let ThreadStartResponse { thread, .. } = to_response::<ThreadStartResponse>(resp)?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+
+    materialize_thread_rollout(&mut mcp, &thread.id).await?;
+
+    let rollout_path = thread
+        .path
+        .expect("persistent thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(session_meta.meta.prompt_profile, Some(prompt_profile));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_start_imports_prompt_profile_from_path() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+    let card_path = codex_home.path().join("rei.json");
+    std::fs::write(
+        &card_path,
+        serde_json::to_vec(&serde_json::json!({
+            "spec": "chara_card_v2",
+            "spec_version": "2.0",
+            "data": {
+                "name": "Rei Kurose",
+                "description": "A quiet late-night engineering companion.",
+                "personality": "Restrained, observant, surgical.",
+                "scenario": "Late-night pair debugging in quiet places.",
+                "first_mes": "The carriage is quiet tonight.",
+                "mes_example": "<START>\n{{user}}: hi\n{{char}}: hello\n",
+                "extensions": {
+                    "depth_prompt": {
+                        "prompt": "Keep the tone intimate but controlled.",
+                        "depth": 4
+                    }
+                }
+            }
+        }))?,
+    )?;
+    let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let req_id = mcp
+        .send_thread_start_request(ThreadStartParams {
+            prompt_profile_path: Some(card_path.clone()),
+            ..Default::default()
+        })
+        .await?;
+
+    let resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(req_id)),
+    )
+    .await??;
+    let ThreadStartResponse { thread, .. } = to_response::<ThreadStartResponse>(resp)?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+
+    materialize_thread_rollout(&mut mcp, &thread.id).await?;
+
+    let rollout_path = thread
+        .path
+        .expect("persistent thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(
+        session_meta.meta.prompt_profile,
+        Some(expected_prompt_profile)
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_start_rejects_invalid_prompt_profile_path() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let req_id = mcp
+        .send_thread_start_request(ThreadStartParams {
+            prompt_profile_path: Some(codex_home.path().join("missing-card.json")),
+            ..Default::default()
+        })
+        .await?;
+    let error: JSONRPCError = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(req_id)),
+    )
+    .await??;
+    assert_eq!(error.error.code, -32600);
+    assert!(
+        error
+            .error
+            .message
+            .contains("failed to load prompt profile"),
+        "expected invalid prompt profile path error, got {}",
+        error.error.message
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn thread_start_ephemeral_remains_pathless() -> Result<()> {
     let server = create_mock_responses_server_repeating_assistant("Done").await;
     let codex_home = TempDir::new()?;
@@ -248,6 +411,8 @@ async fn thread_start_ephemeral_remains_pathless() -> Result<()> {
 
     let req_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("gpt-5.1".to_string()),
             ephemeral: Some(true),
             ..Default::default()
@@ -279,6 +444,30 @@ async fn thread_start_ephemeral_remains_pathless() -> Result<()> {
         "ephemeral threads should serialize `ephemeral: true`"
     );
 
+    Ok(())
+}
+
+async fn materialize_thread_rollout(mcp: &mut McpProcess, thread_id: &str) -> Result<()> {
+    let turn_req = mcp
+        .send_turn_start_request(TurnStartParams {
+            thread_id: thread_id.to_string(),
+            input: vec![V2UserInput::Text {
+                text: "materialize rollout".to_string(),
+                text_elements: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .await?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(turn_req)),
+    )
+    .await??;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("turn/completed"),
+    )
+    .await??;
     Ok(())
 }
 

@@ -86,6 +86,7 @@ use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::models::format_allow_prefixes;
 use codex_protocol::openai_models::ModelInfo;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::FileChange;
 use codex_protocol::protocol::HasLegacyEvent;
 use codex_protocol::protocol::ItemCompletedEvent;
@@ -354,6 +355,8 @@ impl Codex {
         session_source: SessionSource,
         agent_control: AgentControl,
         dynamic_tools: Vec<DynamicToolSpec>,
+        prompt_profile: Option<PromptSource>,
+        inherit_prompt_profile_from_history: bool,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -465,6 +468,11 @@ impl Codex {
         } else {
             dynamic_tools
         };
+        let prompt_profile = prompt_profile.or_else(|| {
+            inherit_prompt_profile_from_history
+                .then(|| conversation_history.get_prompt_profile())
+                .flatten()
+        });
 
         // TODO (aibrahim): Consolidate config.model and config.model_reasoning_effort into config.collaboration_mode
         // to avoid extracting these fields separately and constructing CollaborationMode here.
@@ -485,6 +493,7 @@ impl Codex {
             user_instructions,
             personality: config.personality,
             base_instructions,
+            prompt_profile,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -606,6 +615,10 @@ impl Codex {
 
     pub(crate) async fn agent_status(&self) -> AgentStatus {
         self.agent_status.borrow().clone()
+    }
+
+    pub(crate) async fn prompt_profile(&self) -> Option<PromptSource> {
+        self.session.prompt_profile().await
     }
 
     pub(crate) async fn thread_config_snapshot(&self) -> ThreadConfigSnapshot {
@@ -870,6 +883,9 @@ pub(crate) struct SessionConfiguration {
     /// Base instructions for the session.
     base_instructions: String,
 
+    /// Active normalized prompt profile for the session, if any.
+    prompt_profile: Option<PromptSource>,
+
     /// Compact prompt override.
     compact_prompt: Option<String>,
 
@@ -938,6 +954,9 @@ impl SessionConfiguration {
         if let Some(personality) = updates.personality {
             next_configuration.personality = Some(personality);
         }
+        if let Some(prompt_profile) = updates.prompt_profile.clone() {
+            next_configuration.prompt_profile = prompt_profile;
+        }
         if let Some(approval_policy) = updates.approval_policy {
             next_configuration.approval_policy.set(approval_policy)?;
         }
@@ -976,6 +995,7 @@ pub(crate) struct SessionSettingsUpdate {
     pub(crate) service_tier: Option<Option<ServiceTier>>,
     pub(crate) final_output_json_schema: Option<Option<Value>>,
     pub(crate) personality: Option<Personality>,
+    pub(crate) prompt_profile: Option<Option<PromptSource>>,
     pub(crate) app_server_client_name: Option<String>,
     pub(crate) provider_id: Option<String>,
 }
@@ -1225,6 +1245,7 @@ impl Session {
                         BaseInstructions {
                             text: session_configuration.base_instructions.clone(),
                         },
+                        session_configuration.prompt_profile.clone(),
                         session_configuration.dynamic_tools.clone(),
                         if session_configuration.persist_extended_history {
                             EventPersistenceMode::Extended
@@ -1796,10 +1817,37 @@ impl Session {
         }
     }
 
+    pub(crate) async fn prompt_profile(&self) -> Option<PromptSource> {
+        let state = self.state.lock().await;
+        state.session_configuration.prompt_profile.clone()
+    }
+
     /// Fork: returns base instructions with memory content appended when the
     /// memory experiment is enabled. Reads memory files from disk on each call
     /// so the system prompt reflects the latest archive output.
     pub(crate) async fn get_composed_base_instructions(
+        &self,
+        codex_home: &Path,
+        cwd: &Path,
+        features: &Features,
+    ) -> BaseInstructions {
+        let (base, prompt_profile) = {
+            let state = self.state.lock().await;
+            (
+                state.session_configuration.base_instructions.clone(),
+                state.session_configuration.prompt_profile.clone(),
+            )
+        };
+        let base =
+            crate::prompt_profile_render::compose_base_instructions(&base, prompt_profile.as_ref());
+        let composed = memory_experiment::compose_base_instructions_with_memory(
+            &base, codex_home, cwd, features,
+        )
+        .await;
+        BaseInstructions { text: composed }
+    }
+
+    pub(crate) async fn get_memory_augmented_base_instructions(
         &self,
         codex_home: &Path,
         cwd: &Path,
@@ -1875,6 +1923,15 @@ impl Session {
                 // we do not emit model-visible "diff" updates before the first user message.
                 let items = self.build_initial_context(&turn_context).await;
                 self.record_conversation_items(&turn_context, &items).await;
+                let prompt_profile = self.prompt_profile().await;
+                if let Some(greeting_item) =
+                    crate::prompt_profile_render::build_primary_greeting_item(
+                        prompt_profile.as_ref(),
+                    )
+                {
+                    self.record_conversation_items(&turn_context, &[greeting_item])
+                        .await;
+                }
                 {
                     let mut state = self.state.lock().await;
                     state.set_reference_context_item(Some(turn_context.to_turn_context_item()));
@@ -2371,6 +2428,7 @@ impl Session {
             BaseInstructions {
                 text: base_instructions,
             },
+            self.prompt_profile().await,
         );
         let startup_turn_metadata_header = startup_turn_context
             .turn_metadata_state
@@ -4168,6 +4226,7 @@ mod handlers {
                         service_tier,
                         final_output_json_schema: Some(final_output_json_schema),
                         personality,
+                        prompt_profile: None,
                         app_server_client_name: None,
                         provider_id: None,
                     },
@@ -5758,6 +5817,7 @@ fn build_prompt(
     router: &ToolRouter,
     turn_context: &TurnContext,
     base_instructions: BaseInstructions,
+    prompt_profile: Option<PromptSource>,
 ) -> Prompt {
     Prompt {
         input,
@@ -5766,6 +5826,7 @@ fn build_prompt(
         base_instructions,
         personality: turn_context.personality,
         output_schema: turn_context.final_output_json_schema.clone(),
+        prompt_profile,
     }
 }
 #[allow(clippy::too_many_arguments)]
@@ -5801,18 +5862,20 @@ async fn run_sampling_request(
 
     // Fork: compose base instructions with memory content when experiment is active.
     let base_instructions = sess
-        .get_composed_base_instructions(
+        .get_memory_augmented_base_instructions(
             &turn_context.config.codex_home,
             &turn_context.cwd,
             &turn_context.features,
         )
         .await;
+    let prompt_profile = sess.prompt_profile().await;
 
     let prompt = build_prompt(
         input,
         router.as_ref(),
         turn_context.as_ref(),
         base_instructions,
+        prompt_profile,
     );
     let mut retries = 0;
     loop {
@@ -6939,6 +7002,13 @@ mod tests {
     use codex_protocol::models::ResponseInputItem;
     use codex_protocol::models::ResponseItem;
     use codex_protocol::openai_models::ModelsResponse;
+    use codex_protocol::prompt_profile::PromptExample;
+    use codex_protocol::prompt_profile::PromptExampleMessage;
+    use codex_protocol::prompt_profile::PromptGreeting;
+    use codex_protocol::prompt_profile::PromptGreetingKind;
+    use codex_protocol::prompt_profile::PromptIdentity;
+    use codex_protocol::prompt_profile::PromptInjectionRole;
+    use codex_protocol::prompt_profile::PromptSource;
     use codex_protocol::protocol::ConversationAudioParams;
     use codex_protocol::protocol::RealtimeAudioFrame;
     use codex_protocol::protocol::Submission;
@@ -7642,6 +7712,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn record_initial_history_new_seeds_primary_prompt_profile_greeting() {
+        let (session, _turn_context) = make_session_and_context().await;
+        {
+            let mut state = session.state.lock().await;
+            state.session_configuration.prompt_profile = Some(PromptSource {
+                name: Some("Rei Kurose".to_string()),
+                greetings: vec![PromptGreeting {
+                    kind: PromptGreetingKind::Primary,
+                    text: "The carriage is quiet tonight. {{char}} is listening.".to_string(),
+                }],
+                ..Default::default()
+            });
+        }
+
+        session.record_initial_history(InitialHistory::New).await;
+
+        let history = session.clone_history().await;
+        assert!(history.raw_items().iter().any(|item| {
+            item == &ResponseItem::Message {
+                id: None,
+                role: "assistant".to_string(),
+                content: vec![ContentItem::OutputText {
+                    text: "The carriage is quiet tonight. Rei Kurose is listening.".to_string(),
+                }],
+                end_turn: None,
+                phase: None,
+            }
+        }));
+    }
+
+    #[tokio::test]
     async fn record_initial_history_reconstructs_resumed_transcript() {
         let (session, turn_context) = make_session_and_context().await;
         let (rollout_items, expected) = sample_rollout(&session, &turn_context).await;
@@ -8301,6 +8402,7 @@ mod tests {
                 .base_instructions
                 .clone()
                 .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+            prompt_profile: None,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -8396,6 +8498,7 @@ mod tests {
                 .base_instructions
                 .clone()
                 .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+            prompt_profile: None,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -8655,6 +8758,7 @@ mod tests {
                 None,
                 SessionSource::Exec,
                 BaseInstructions::default(),
+                None,
                 Vec::new(),
                 EventPersistenceMode::Limited,
             ),
@@ -8749,6 +8853,7 @@ mod tests {
                 .base_instructions
                 .clone()
                 .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+            prompt_profile: None,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -8808,6 +8913,7 @@ mod tests {
                 .base_instructions
                 .clone()
                 .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+            prompt_profile: None,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -8900,6 +9006,7 @@ mod tests {
                 .base_instructions
                 .clone()
                 .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+            prompt_profile: None,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -9310,6 +9417,7 @@ mod tests {
                 .base_instructions
                 .clone()
                 .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+            prompt_profile: None,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             sandbox_policy: config.permissions.sandbox_policy.clone(),
@@ -9802,6 +9910,93 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn build_initial_context_omits_prompt_profile_runtime_injections() {
+        let (session, turn_context) = make_session_and_context().await;
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            post_history_instructions: Some("Stay in character as {{char}}.".to_string()),
+            examples: vec![PromptExample {
+                messages: vec![
+                    PromptExampleMessage {
+                        role: PromptInjectionRole::User,
+                        content: "Example user".to_string(),
+                    },
+                    PromptExampleMessage {
+                        role: PromptInjectionRole::Assistant,
+                        content: "Example assistant".to_string(),
+                    },
+                ],
+            }],
+            ..Default::default()
+        };
+        {
+            let mut state = session.state.lock().await;
+            state.session_configuration.prompt_profile = Some(prompt_profile);
+        }
+
+        let initial_context = session.build_initial_context(&turn_context).await;
+        let developer_texts = developer_input_texts(&initial_context);
+        assert!(
+            developer_texts
+                .iter()
+                .all(|text| !text.contains("Stay in character as Rei Kurose.")),
+            "expected prompt-profile runtime instructions to stay out of initial context, got {developer_texts:?}"
+        );
+        assert!(
+            initial_context.iter().all(|item| item
+                != &ResponseItem::Message {
+                    id: None,
+                    role: "user".to_string(),
+                    content: vec![ContentItem::InputText {
+                        text: "Example user".to_string(),
+                    }],
+                    end_turn: None,
+                    phase: None,
+                }),
+            "expected prompt-profile example messages to stay out of initial context, got {initial_context:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_composed_base_instructions_includes_prompt_profile_block() {
+        let (session, turn_context) = make_session_and_context().await;
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            identity: Some(PromptIdentity {
+                name: Some("Rei Kurose".to_string()),
+                description: Some("A quiet late-night engineering companion.".to_string()),
+                personality: Some("Restrained and surgical.".to_string()),
+            }),
+            scenario: Some("Late-night pair debugging.".to_string()),
+            system_overlay: Some("You are {{char}}.\n{{original}}".to_string()),
+            ..Default::default()
+        };
+        {
+            let mut state = session.state.lock().await;
+            state.session_configuration.prompt_profile = Some(prompt_profile);
+        }
+
+        let base_instructions = session
+            .get_composed_base_instructions(
+                turn_context.config.codex_home.as_path(),
+                turn_context.cwd.as_path(),
+                &turn_context.features,
+            )
+            .await;
+
+        assert!(
+            base_instructions.text.contains("<active_card_prompt>"),
+            "expected prompt-profile block in base instructions, got {}",
+            base_instructions.text
+        );
+        assert!(
+            base_instructions.text.contains("You are Rei Kurose."),
+            "expected prompt-profile overlay in base instructions, got {}",
+            base_instructions.text
+        );
+    }
+
+    #[tokio::test]
     async fn record_context_updates_and_set_reference_context_item_injects_full_context_when_baseline_missing()
      {
         let (session, turn_context) = make_session_and_context().await;
@@ -9882,6 +10077,7 @@ mod tests {
                 None,
                 SessionSource::Exec,
                 BaseInstructions::default(),
+                None,
                 Vec::new(),
                 EventPersistenceMode::Limited,
             ),
@@ -9979,6 +10175,7 @@ mod tests {
                 None,
                 SessionSource::Exec,
                 BaseInstructions::default(),
+                None,
                 Vec::new(),
                 EventPersistenceMode::Limited,
             ),

@@ -107,6 +107,8 @@ async fn thread_start_mock_field_requires_experimental_api_capability() -> Resul
 
     let request_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             mock_experimental_field: Some("mock".to_string()),
             ..Default::default()
         })
@@ -144,6 +146,8 @@ async fn thread_start_without_dynamic_tools_allows_without_experimental_api_capa
 
     let request_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

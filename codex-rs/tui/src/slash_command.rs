@@ -54,6 +54,7 @@ pub enum SlashCommand {
     Ps,
     Clean,
     Clear,
+    Profile,
     Personality,
     Realtime,
     Settings,
@@ -79,6 +80,7 @@ impl SlashCommand {
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
             SlashCommand::Clear => "clear the terminal and start a new chat",
+            SlashCommand::Profile => "load, show, or clear a prompt profile / character card",
             SlashCommand::Fork => "fork the current chat",
             // SlashCommand::Undo => "ask Codex to undo a turn",
             SlashCommand::Quit | SlashCommand::Exit => "exit Codex",
@@ -134,6 +136,7 @@ impl SlashCommand {
                 | SlashCommand::Plan
                 | SlashCommand::Fast
                 | SlashCommand::SandboxReadRoot
+                | SlashCommand::Profile
         )
     }
 
@@ -176,7 +179,8 @@ impl SlashCommand {
             | SlashCommand::Apps
             | SlashCommand::Feedback
             | SlashCommand::Quit
-            | SlashCommand::Exit => true,
+            | SlashCommand::Exit
+            | SlashCommand::Profile => true,
             SlashCommand::Rollout => true,
             SlashCommand::TestApproval => true,
             SlashCommand::Realtime => true,

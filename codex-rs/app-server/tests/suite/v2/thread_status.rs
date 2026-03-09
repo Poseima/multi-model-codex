@@ -34,6 +34,8 @@ async fn thread_status_changed_emits_runtime_updates() -> Result<()> {
 
     let thread_start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -156,6 +158,8 @@ async fn thread_status_changed_can_be_opted_out() -> Result<()> {
 
     let thread_start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

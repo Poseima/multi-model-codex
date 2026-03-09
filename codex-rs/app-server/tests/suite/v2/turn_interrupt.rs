@@ -58,6 +58,8 @@ async fn turn_interrupt_aborts_running_turn() -> Result<()> {
     // Start a v2 thread and capture its id.
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -153,6 +155,8 @@ async fn turn_interrupt_resolves_pending_command_approval_request() -> Result<()
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

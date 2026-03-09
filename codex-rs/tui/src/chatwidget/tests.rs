@@ -5890,6 +5890,64 @@ async fn slash_fork_requests_current_fork() {
 }
 
 #[tokio::test]
+async fn slash_profile_without_args_requests_show() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
+
+    chat.dispatch_command(SlashCommand::Profile);
+
+    assert_matches!(rx.try_recv(), Ok(AppEvent::ShowPromptProfile));
+}
+
+#[tokio::test]
+async fn slash_profile_load_requests_prompt_profile_load() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
+
+    chat.dispatch_command_with_args(
+        SlashCommand::Profile,
+        "load cards/raven.png".to_string(),
+        Vec::new(),
+    );
+
+    assert_matches!(
+        rx.try_recv(),
+        Ok(AppEvent::LoadPromptProfile { path }) if path == std::path::Path::new("cards/raven.png")
+    );
+}
+
+#[tokio::test]
+async fn slash_profile_clear_requests_prompt_profile_clear() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
+
+    chat.dispatch_command_with_args(SlashCommand::Profile, "clear".to_string(), Vec::new());
+
+    assert_matches!(rx.try_recv(), Ok(AppEvent::ClearPromptProfile));
+}
+
+#[tokio::test]
+async fn slash_profile_load_is_disabled_while_task_running() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
+    chat.bottom_pane.set_task_running(true);
+
+    chat.dispatch_command_with_args(
+        SlashCommand::Profile,
+        "load cards/raven.png".to_string(),
+        Vec::new(),
+    );
+
+    let event = rx.try_recv().expect("expected disabled command error");
+    match event {
+        AppEvent::InsertHistoryCell(cell) => {
+            let rendered = lines_to_single_string(&cell.display_lines(80));
+            assert!(
+                rendered.contains("'/profile load' is disabled while a task is in progress."),
+                "expected /profile load task-running error, got {rendered:?}"
+            );
+        }
+        other => panic!("expected InsertHistoryCell error, got {other:?}"),
+    }
+}
+
+#[tokio::test]
 async fn slash_rollout_displays_current_path() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(None).await;
     let rollout_path = PathBuf::from("/tmp/codex-test-rollout.jsonl");

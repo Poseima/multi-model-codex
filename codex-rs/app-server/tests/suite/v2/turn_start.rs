@@ -94,6 +94,8 @@ async fn turn_start_sends_originator_header() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -161,6 +163,8 @@ async fn turn_start_emits_user_message_item_with_text_elements() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -247,6 +251,8 @@ async fn turn_start_accepts_text_at_limit_with_mention_item() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -306,6 +312,8 @@ async fn turn_start_rejects_combined_oversized_text_input() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -391,6 +399,8 @@ async fn turn_start_emits_notifications_and_accepts_model_override() -> Result<(
     // Start a thread (v2) and capture its id.
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -525,6 +535,8 @@ async fn turn_start_accepts_collaboration_mode_override_v2() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("gpt-5.2-codex".to_string()),
             ..Default::default()
         })
@@ -608,6 +620,8 @@ async fn turn_start_uses_thread_feature_overrides_for_collaboration_mode_instruc
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("gpt-5.2-codex".to_string()),
             config: Some(HashMap::from([(
                 "features.default_mode_request_user_input".to_string(),
@@ -692,6 +706,8 @@ async fn turn_start_accepts_personality_override_v2() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("exp-codex-personality".to_string()),
             ..Default::default()
         })
@@ -773,6 +789,8 @@ async fn turn_start_change_personality_mid_thread_v2() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("exp-codex-personality".to_string()),
             ..Default::default()
         })
@@ -899,6 +917,8 @@ async fn turn_start_uses_migrated_pragmatic_personality_without_override_v2() ->
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("gpt-5.2-codex".to_string()),
             ..Default::default()
         })
@@ -968,6 +988,8 @@ async fn turn_start_accepts_local_image_input() -> Result<()> {
 
     let thread_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -1054,6 +1076,8 @@ async fn turn_start_exec_approval_toggle_v2() -> Result<()> {
     // thread/start
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -1201,6 +1225,8 @@ async fn turn_start_exec_approval_decline_v2() -> Result<()> {
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -1354,6 +1380,8 @@ async fn turn_start_updates_sandbox_and_cwd_between_turns_v2() -> Result<()> {
     // thread/start
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -1503,6 +1531,8 @@ async fn turn_start_file_change_approval_v2() -> Result<()> {
 
     let start_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             cwd: Some(workspace.to_string_lossy().into_owned()),
             ..Default::default()
@@ -1702,6 +1732,8 @@ async fn turn_start_file_change_approval_accept_for_session_persists_v2() -> Res
 
     let start_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             cwd: Some(workspace.to_string_lossy().into_owned()),
             ..Default::default()
@@ -1883,6 +1915,8 @@ async fn turn_start_file_change_approval_decline_v2() -> Result<()> {
 
     let start_req = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             cwd: Some(workspace.to_string_lossy().into_owned()),
             ..Default::default()
@@ -2029,6 +2063,8 @@ async fn command_execution_notifications_include_process_id() -> Result<()> {
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

@@ -117,6 +117,8 @@ async fn mcp_server_elicitation_round_trip() -> Result<()> {
 
     let thread_start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile: None,
+            prompt_profile_path: None,
             model: Some("mock-model".to_string()),
             ..Default::default()
         })

@@ -43,6 +43,345 @@
         }
       ]
     },
+    "PromptDepthPrompt": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "depth": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "role": {
+          "$ref": "#/definitions/PromptInjectionRole"
+        }
+      },
+      "required": [
+        "content",
+        "depth",
+        "role"
+      ],
+      "type": "object"
+    },
+    "PromptExample": {
+      "properties": {
+        "messages": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptExampleMessage"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "PromptExampleMessage": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/PromptInjectionRole"
+        }
+      },
+      "required": [
+        "content",
+        "role"
+      ],
+      "type": "object"
+    },
+    "PromptGreeting": {
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/PromptGreetingKind"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "type": "object"
+    },
+    "PromptGreetingKind": {
+      "enum": [
+        "primary",
+        "alternate"
+      ],
+      "type": "string"
+    },
+    "PromptIdentity": {
+      "properties": {
+        "description": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "personality": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PromptInjectionRole": {
+      "enum": [
+        "system",
+        "developer",
+        "user",
+        "assistant"
+      ],
+      "type": "string"
+    },
+    "PromptKnowledgeEntry": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "insertionOrder": {
+          "default": null,
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "keys": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "default": null
+        },
+        "position": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secondaryKeys": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "PromptKnowledgeSource": {
+      "properties": {
+        "description": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "entries": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptKnowledgeEntry"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "default": null
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PromptSource": {
+      "properties": {
+        "creatorNotes": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depthPrompt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptDepthPrompt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "examples": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptExample"
+          },
+          "type": "array"
+        },
+        "greetings": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptGreeting"
+          },
+          "type": "array"
+        },
+        "id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "knowledge": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptKnowledgeSource"
+          },
+          "type": "array"
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptSourceOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "postHistoryInstructions": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rawExtensions": {
+          "default": null
+        },
+        "scenario": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "systemOverlay": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "PromptSourceOrigin": {
+      "properties": {
+        "format": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourcePath": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spec": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "specVersion": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "SandboxMode": {
       "enum": [
         "read-only",
@@ -104,6 +443,22 @@
       ]
     },
     "modelProvider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "promptProfile": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PromptSource"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "promptProfilePath": {
       "type": [
         "string",
         "null"
