@@ -35,15 +35,27 @@
         "calendar": {
           "type": "boolean"
         },
+        "contacts": {
+          "$ref": "#/definitions/MacOsContactsPermission"
+        },
+        "launchServices": {
+          "type": "boolean"
+        },
         "preferences": {
           "$ref": "#/definitions/MacOsPreferencesPermission"
+        },
+        "reminders": {
+          "type": "boolean"
         }
       },
       "required": [
         "accessibility",
         "automations",
         "calendar",
-        "preferences"
+        "contacts",
+        "launchServices",
+        "preferences",
+        "reminders"
       ],
       "type": "object"
     },
@@ -5361,6 +5373,22 @@
             "null"
           ]
         },
+        "contacts": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/MacOsContactsPermission"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "launchServices": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "preferences": {
           "anyOf": [
             {
@@ -5369,6 +5397,12 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "reminders": {
+          "type": [
+            "boolean",
+            "null"
           ]
         }
       },
@@ -5631,6 +5665,14 @@
         }
       ]
     },
+    "MacOsContactsPermission": {
+      "enum": [
+        "none",
+        "read_only",
+        "read_write"
+      ],
+      "type": "string"
+    },
     "MacOsPreferencesPermission": {
       "enum": [
         "none",
@@ -5657,6 +5699,18 @@
           "default": false,
           "type": "boolean"
         },
+        "macos_contacts": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MacOsContactsPermission"
+            }
+          ],
+          "default": "none"
+        },
+        "macos_launch_services": {
+          "default": false,
+          "type": "boolean"
+        },
         "macos_preferences": {
           "allOf": [
             {
@@ -5664,6 +5718,10 @@
             }
           ],
           "default": "read_only"
+        },
+        "macos_reminders": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "type": "object"
