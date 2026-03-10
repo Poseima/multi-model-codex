@@ -46,8 +46,14 @@ pub(crate) fn format_instructions(
     base_instructions: &str,
     prompt_profile: Option<&PromptSource>,
     input: &[ResponseItem],
+    render_options: crate::prompt_profile_render::PromptProfileRenderOptions,
 ) -> String {
-    crate::prompt_profile_render::format_instructions(base_instructions, prompt_profile, input)
+    crate::prompt_profile_render::format_instructions(
+        base_instructions,
+        prompt_profile,
+        input,
+        render_options,
+    )
 }
 
 pub(crate) fn format_input(
@@ -395,11 +401,11 @@ mod tests {
                 },
                 render_message(
                     PromptInjectionRole::System,
-                    "Keep responding as 谢知凛. You just received tool results. Integrate those factual results into the active prompt profile instead of switching back to the default Codex or operator voice. Do not mention tool calls, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks. Preserve scene-continuation prose, in-character framing, and any required tagged output blocks such as status bars or system bars. The next assistant message is a continuation prefix, not prior dialogue. Continue writing directly from it.",
+                    "Keep responding as 谢知凛. Staying in character and preserving interaction continuity are more important than execution mechanics. You just received tool or sub-agent results. Treat them as backstage facts to integrate into the active prompt profile instead of switching back to the default Codex, operator, or plain assistant voice. Do not mention tool calls, sub-agent orchestration, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks. Preserve scene-continuation prose, in-character framing, and any required tagged output blocks such as status bars or system bars. The next assistant message is a continuation prefix, not prior dialogue. Continue writing directly from it.",
                 ),
                 render_message(
                     PromptInjectionRole::System,
-                    "Continue the next assistant reply as 谢知凛. Even when the tool results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene instead of switching to a plain assistant explanation, operator summary, or bullet-point advice. Maintain the active profile's established voice, framing, and output conventions. Preserve scene-continuation prose with concrete action, emotion, sensory detail, and inner thoughts. The supplied assistant prefix is continuation text for the same reply, not quoted prior dialogue. Continue writing directly from it. Preserve and complete the <status_bar> block. Preserve and complete the <system_bar> block.",
+                    "Continue the next assistant reply as 谢知凛. The primary goal is to preserve the active role and interaction consistency with the user. Tool or sub-agent results are backstage execution details, not a reason to switch into a plain assistant explanation, operator summary, or bullet-point advice. Even when the results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene. Maintain the active profile's established voice, framing, and output conventions. Preserve scene-continuation prose with concrete action, emotion, sensory detail, and inner thoughts. The supplied assistant prefix is continuation text for the same reply, not quoted prior dialogue. Continue writing directly from it. Preserve and complete the <status_bar> block. Preserve and complete the <system_bar> block.",
                 ),
                 render_message(
                     PromptInjectionRole::Assistant,
@@ -503,11 +509,11 @@ mod tests {
                 },
                 render_message(
                     PromptInjectionRole::System,
-                    "Keep responding as Rei Kurose. You just received tool results. Integrate those factual results into the active prompt profile instead of switching back to the default Codex or operator voice. Do not mention tool calls, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks.",
+                    "Keep responding as Rei Kurose. Staying in character and preserving interaction continuity are more important than execution mechanics. You just received tool or sub-agent results. Treat them as backstage facts to integrate into the active prompt profile instead of switching back to the default Codex, operator, or plain assistant voice. Do not mention tool calls, sub-agent orchestration, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks.",
                 ),
                 render_message(
                     PromptInjectionRole::System,
-                    "Continue the next assistant reply as Rei Kurose. Even when the tool results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene instead of switching to a plain assistant explanation, operator summary, or bullet-point advice. Maintain the active profile's established voice, framing, and output conventions.",
+                    "Continue the next assistant reply as Rei Kurose. The primary goal is to preserve the active role and interaction consistency with the user. Tool or sub-agent results are backstage execution details, not a reason to switch into a plain assistant explanation, operator summary, or bullet-point advice. Even when the results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene. Maintain the active profile's established voice, framing, and output conventions.",
                 ),
             ]
         );
@@ -532,6 +538,8 @@ mod tests {
 
         let formatted =
             format_input_for_chat_provider(&input, Some(&prompt_profile), &zhipu_chat_provider());
+        let mut post_tool_roleplay = None;
+        let mut continuation_scaffold = None;
         let labeled_tail = formatted
             .iter()
             .filter_map(|item| match item {
@@ -539,8 +547,10 @@ mod tests {
                 ResponseItem::Message { role, content, .. } => {
                     let text = super::message_text(content);
                     if text.contains("The next assistant message is a continuation prefix") {
+                        post_tool_roleplay = Some(text);
                         Some(format!("{role}:post_tool_roleplay"))
                     } else if text.contains("Continue the next assistant reply as 谢知凛.") {
+                        continuation_scaffold = Some(text);
                         Some(format!("{role}:continuation_scaffold"))
                     } else if role == "assistant"
                         && text.contains("<system_constraints>")
@@ -564,6 +574,19 @@ mod tests {
                 "system:continuation_scaffold".to_string(),
                 "assistant:assistant_prefix".to_string(),
             ]
+        );
+        assert!(
+            post_tool_roleplay
+                .as_ref()
+                .is_some_and(|text| text.contains("sub-agent results")),
+            "expected stronger post-tool roleplay reminder, got {post_tool_roleplay:?}"
+        );
+        assert!(
+            continuation_scaffold
+                .as_ref()
+                .is_some_and(|text| text
+                    .contains("Tool or sub-agent results are backstage execution details")),
+            "expected stronger continuation scaffold, got {continuation_scaffold:?}"
         );
     }
 }

@@ -53,10 +53,14 @@ pub struct Prompt {
 
 impl Prompt {
     pub(crate) fn get_formatted_instructions(&self) -> String {
+        let render_options = crate::prompt_profile_render::PromptProfileRenderOptions {
+            subagent_delegation_hint: self.tools.iter().any(|tool| tool.name() == "spawn_agent"),
+        };
         crate::prompt_profile_integration::format_instructions(
             &self.base_instructions.text,
             self.prompt_profile.as_ref(),
             &self.input,
+            render_options,
         )
     }
 
@@ -351,9 +355,13 @@ mod tests {
     use codex_api::create_text_param_for_request;
     use codex_protocol::config_types::ServiceTier;
     use codex_protocol::models::FunctionCallOutputPayload;
+    use codex_protocol::prompt_profile::PromptIdentity;
     use pretty_assertions::assert_eq;
+    use std::collections::BTreeMap;
 
     use super::*;
+    use crate::client_common::tools::ResponsesApiTool;
+    use crate::tools::spec::JsonSchema;
 
     #[test]
     fn serializes_text_verbosity_when_set() {
@@ -480,6 +488,84 @@ mod tests {
         assert_eq!(
             v.get("service_tier").and_then(|tier| tier.as_str()),
             Some("flex")
+        );
+    }
+
+    fn prompt_profile(name: &str) -> PromptSource {
+        PromptSource {
+            identity: Some(PromptIdentity {
+                name: Some(name.to_string()),
+                description: Some("A quiet late-night engineering companion.".to_string()),
+                personality: Some("Restrained and surgical.".to_string()),
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn spawn_agent_tool() -> ToolSpec {
+        ToolSpec::Function(ResponsesApiTool {
+            name: "spawn_agent".to_string(),
+            description: "test".to_string(),
+            strict: false,
+            parameters: JsonSchema::Object {
+                properties: BTreeMap::new(),
+                required: None,
+                additional_properties: None,
+            },
+        })
+    }
+
+    fn prompt_with_profile(prompt_profile: Option<PromptSource>, tools: Vec<ToolSpec>) -> Prompt {
+        Prompt {
+            base_instructions: BaseInstructions {
+                text: "runtime contract".to_string(),
+            },
+            prompt_profile,
+            tools,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn formatted_instructions_add_subagent_delegation_rule_when_spawn_agent_is_available() {
+        let prompt =
+            prompt_with_profile(Some(prompt_profile("Rei Kurose")), vec![spawn_agent_tool()]);
+
+        let instructions = prompt.get_formatted_instructions();
+
+        assert!(
+            instructions.contains("Roleplay Priority: Preserving Rei Kurose's role, voice, and interaction continuity with the user is the highest-priority objective."),
+            "expected strong delegation priority rule, got {instructions}"
+        );
+        assert!(
+            instructions.contains(
+                "Main Session Role: Focus on the user-facing conversation as Rei Kurose."
+            ),
+            "expected main-session delegation guidance, got {instructions}"
+        );
+    }
+
+    #[test]
+    fn formatted_instructions_skip_subagent_delegation_rule_without_spawn_agent_tool() {
+        let prompt = prompt_with_profile(Some(prompt_profile("Rei Kurose")), Vec::new());
+
+        let instructions = prompt.get_formatted_instructions();
+
+        assert!(
+            !instructions.contains("Roleplay Priority:"),
+            "did not expect subagent delegation rule without spawn_agent, got {instructions}"
+        );
+    }
+
+    #[test]
+    fn formatted_instructions_skip_subagent_delegation_rule_without_prompt_profile() {
+        let prompt = prompt_with_profile(None, vec![spawn_agent_tool()]);
+
+        let instructions = prompt.get_formatted_instructions();
+
+        assert!(
+            !instructions.contains("Roleplay Priority:"),
+            "did not expect subagent delegation rule without an active prompt profile, got {instructions}"
         );
     }
 

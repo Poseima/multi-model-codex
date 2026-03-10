@@ -800,10 +800,13 @@ async fn fixture_xie_zhilin_card_compiles_expected_model_visible_layout() -> Res
         "expected OpenAI Responses request to contain no system messages, got {system_messages:?}"
     );
     assert!(
-        developer_messages
-            .iter()
-            .any(|text| text.contains("Write 谢知凛's next reply in a fictional chat")),
-        "expected ST narrative instruction in developer messages, got {developer_messages:?}"
+        developer_messages.iter().any(|text| {
+            text.contains("Write 谢知凛's next reply in a fictional chat")
+                && text.contains(
+                    "Always stay in character and react according to the character's personality.",
+                )
+        }),
+        "expected stronger ST narrative instruction in developer messages, got {developer_messages:?}"
     );
     assert!(
         developer_messages
@@ -1234,6 +1237,7 @@ async fn xie_zhilin_tool_continuation_keeps_roleplay_tail_and_assistant_prefix()
     assert!(
         developer_messages.iter().any(|text| {
             text.contains("Keep responding as 谢知凛.")
+                && text.contains("sub-agent results")
                 && text.contains("The next assistant message is a continuation prefix")
         }),
         "expected hard post-tool roleplay reminder in developer messages, got {developer_messages:?}"

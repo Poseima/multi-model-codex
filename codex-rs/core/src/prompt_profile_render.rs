@@ -50,22 +50,34 @@ pub(crate) struct ChatToolContinuationBridge {
     pub assistant_prefix: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct PromptProfileRenderOptions {
+    pub(crate) subagent_delegation_hint: bool,
+}
+
 pub(crate) fn compose_base_instructions(
     base_instructions: &str,
     prompt_profile: Option<&PromptSource>,
 ) -> String {
-    format_instructions(base_instructions, prompt_profile, &[])
+    format_instructions(
+        base_instructions,
+        prompt_profile,
+        &[],
+        PromptProfileRenderOptions::default(),
+    )
 }
 
 pub(crate) fn format_instructions(
     base_instructions: &str,
     prompt_profile: Option<&PromptSource>,
     input: &[ResponseItem],
+    render_options: PromptProfileRenderOptions,
 ) -> String {
     let Some(prompt_profile) = prompt_profile else {
         return base_instructions.to_string();
     };
-    let Some(rendered_profile) = render_profile_system_block(prompt_profile, input) else {
+    let Some(rendered_profile) = render_profile_system_block(prompt_profile, input, render_options)
+    else {
         return base_instructions.to_string();
     };
     if let Some(replaced) = replace_active_card_prompt_block(base_instructions, &rendered_profile) {
@@ -283,8 +295,9 @@ fn last_item_is_visible_user_message(input: &[ResponseItem]) -> bool {
 fn render_profile_system_block(
     prompt_profile: &PromptSource,
     input: &[ResponseItem],
+    render_options: PromptProfileRenderOptions,
 ) -> Option<String> {
-    let profile_body = render_profile_body(prompt_profile, input);
+    let profile_body = render_profile_body(prompt_profile, input, render_options);
     let overlay_template = prompt_profile.system_overlay.as_deref();
     let overlay = overlay_template
         .map(|text| render_template(text, prompt_profile, profile_body.as_deref()))
@@ -304,7 +317,11 @@ fn render_profile_system_block(
     }
 }
 
-fn render_profile_body(prompt_profile: &PromptSource, input: &[ResponseItem]) -> Option<String> {
+fn render_profile_body(
+    prompt_profile: &PromptSource,
+    input: &[ResponseItem],
+    render_options: PromptProfileRenderOptions,
+) -> Option<String> {
     let active_lore = active_lore_sections(prompt_profile, input);
     let mut sections = Vec::new();
     sections.extend(active_lore.before_char);
@@ -338,7 +355,20 @@ fn render_profile_body(prompt_profile: &PromptSource, input: &[ResponseItem]) ->
         ));
     }
     sections.extend(active_lore.after_char);
+    if render_options.subagent_delegation_hint {
+        sections.push(render_subagent_delegation_priority_rule(prompt_profile));
+    }
     (!sections.is_empty()).then(|| sections.join("\n"))
+}
+
+fn render_subagent_delegation_priority_rule(prompt_profile: &PromptSource) -> String {
+    let char_name = prompt_profile_name(prompt_profile).unwrap_or("the active character");
+    format!(
+        "Roleplay Priority: Preserving {char_name}'s role, voice, and interaction continuity with the user is the highest-priority objective. Do not go out of character for speed, convenience, task completion, or tool efficiency.
+Delegation Rule: When sub-agents are available, delegate the user's actionable work to a sub-agent by default, especially for tool use, file operations, coding, search, execution, and multi-step analysis.
+Main Session Role: Focus on the user-facing conversation as {char_name}. Let sub-agents handle backstage execution, then integrate their results into a final in-character reply.
+Conflict Rule: If completing the task in the main session would risk breaking character or disrupting interaction consistency, protect character continuity first and treat task completion details as secondary."
+    )
 }
 
 fn replace_active_card_prompt_block(
@@ -577,7 +607,7 @@ pub(crate) fn render_tool_continuation_roleplay_reminder(
 
     let char_name = prompt_profile_name(prompt_profile).unwrap_or("the active character");
     let mut reminder = format!(
-        "Keep responding as {char_name}. You just received tool results. Integrate those factual results into the active prompt profile instead of switching back to the default Codex or operator voice. Do not mention tool calls, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks."
+        "Keep responding as {char_name}. Staying in character and preserving interaction continuity are more important than execution mechanics. You just received tool or sub-agent results. Treat them as backstage facts to integrate into the active prompt profile instead of switching back to the default Codex, operator, or plain assistant voice. Do not mention tool calls, sub-agent orchestration, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks."
     );
     if prompt_profile_is_sillytavern(prompt_profile) {
         reminder.push_str(
@@ -612,7 +642,7 @@ fn render_chat_tool_continuation_scaffold(
 ) -> String {
     let char_name = prompt_profile_name(prompt_profile).unwrap_or("the active character");
     let mut scaffold = format!(
-        "Continue the next assistant reply as {char_name}. Even when the tool results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene instead of switching to a plain assistant explanation, operator summary, or bullet-point advice. Maintain the active profile's established voice, framing, and output conventions."
+        "Continue the next assistant reply as {char_name}. The primary goal is to preserve the active role and interaction consistency with the user. Tool or sub-agent results are backstage execution details, not a reason to switch into a plain assistant explanation, operator summary, or bullet-point advice. Even when the results are practical, security-sensitive, or about real-world files, keep the reply fully in character and integrate the factual results into the active scene. Maintain the active profile's established voice, framing, and output conventions."
     );
 
     if prompt_profile_is_sillytavern(prompt_profile) {
@@ -995,6 +1025,87 @@ mod tests {
     }
 
     #[test]
+    fn format_instructions_appends_subagent_delegation_priority_rule_when_enabled() {
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            identity: Some(PromptIdentity {
+                name: Some("Rei Kurose".to_string()),
+                description: Some("A quiet late-night engineering companion.".to_string()),
+                personality: None,
+            }),
+            ..Default::default()
+        };
+
+        let formatted = format_instructions(
+            "runtime contract",
+            Some(&prompt_profile),
+            &[],
+            PromptProfileRenderOptions {
+                subagent_delegation_hint: true,
+            },
+        );
+
+        assert_eq!(formatted.matches("Roleplay Priority:").count(), 1);
+        assert!(
+            formatted.contains("Delegation Rule: When sub-agents are available, delegate the user's actionable work to a sub-agent by default"),
+            "expected strong delegation rule in instructions, got {formatted}"
+        );
+    }
+
+    #[test]
+    fn format_instructions_skips_subagent_delegation_priority_rule_by_default() {
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            ..Default::default()
+        };
+
+        let formatted = format_instructions(
+            "runtime contract",
+            Some(&prompt_profile),
+            &[],
+            PromptProfileRenderOptions::default(),
+        );
+
+        assert!(
+            !formatted.contains("Roleplay Priority:"),
+            "did not expect delegation rule without render option, got {formatted}"
+        );
+    }
+
+    #[test]
+    fn format_instructions_keeps_subagent_delegation_rule_inside_overlay_with_original_placeholder()
+    {
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            system_overlay: Some("Overlay start\n{{original}}\nOverlay end".to_string()),
+            ..Default::default()
+        };
+
+        let formatted = format_instructions(
+            "runtime contract",
+            Some(&prompt_profile),
+            &[],
+            PromptProfileRenderOptions {
+                subagent_delegation_hint: true,
+            },
+        );
+
+        assert_eq!(formatted.matches("Roleplay Priority:").count(), 1);
+        assert!(
+            formatted.contains(
+                "<active_card_prompt>\nOverlay start\nName: Rei Kurose\nRoleplay Priority: Preserving Rei Kurose's role, voice, and interaction continuity with the user is the highest-priority objective."
+            ),
+            "expected delegation rule to remain inside overlay-wrapped active card prompt, got {formatted}"
+        );
+        assert!(
+            formatted.contains(
+                "Conflict Rule: If completing the task in the main session would risk breaking character or disrupting interaction consistency, protect character continuity first and treat task completion details as secondary.\nOverlay end\n</active_card_prompt>"
+            ),
+            "expected overlay to wrap the full delegation rule, got {formatted}"
+        );
+    }
+
+    #[test]
     fn build_example_items_preserves_roles() {
         let prompt_profile = PromptSource {
             examples: vec![PromptExample {
@@ -1237,7 +1348,7 @@ mod tests {
                 },
                 render_message(
                     PromptInjectionRole::Developer,
-                    "Keep responding as 谢知凛. You just received tool results. Integrate those factual results into the active prompt profile instead of switching back to the default Codex or operator voice. Do not mention tool calls, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks. Preserve scene-continuation prose, in-character framing, and any required tagged output blocks such as status bars or system bars. The next assistant message is a continuation prefix, not prior dialogue. Continue writing directly from it.".to_string(),
+                    "Keep responding as 谢知凛. Staying in character and preserving interaction continuity are more important than execution mechanics. You just received tool or sub-agent results. Treat them as backstage facts to integrate into the active prompt profile instead of switching back to the default Codex, operator, or plain assistant voice. Do not mention tool calls, sub-agent orchestration, sandbox rules, AGENTS.md, or other harness internals unless the user explicitly asks. Preserve scene-continuation prose, in-character framing, and any required tagged output blocks such as status bars or system bars. The next assistant message is a continuation prefix, not prior dialogue. Continue writing directly from it.".to_string(),
                 ),
                 render_message(
                     PromptInjectionRole::Assistant,
