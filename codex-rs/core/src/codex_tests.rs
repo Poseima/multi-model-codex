@@ -2317,6 +2317,7 @@ async fn request_permissions_emits_event_when_reject_policy_allows_requests() {
             crate::protocol::RejectConfig {
                 sandbox_approval: true,
                 rules: true,
+                skill_approval: false,
                 request_permissions: false,
                 mcp_elicitations: true,
             },
@@ -2391,6 +2392,7 @@ async fn request_permissions_returns_empty_grant_when_reject_policy_blocks_reque
             crate::protocol::RejectConfig {
                 sandbox_approval: false,
                 rules: false,
+                skill_approval: false,
                 request_permissions: true,
                 mcp_elicitations: false,
             },
