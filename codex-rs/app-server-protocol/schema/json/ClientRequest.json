@@ -2618,6 +2618,9 @@
             "null"
           ]
         },
+        "ephemeral": {
+          "type": "boolean"
+        },
         "model": {
           "description": "Configuration overrides for the forked thread, if any.",
           "type": [

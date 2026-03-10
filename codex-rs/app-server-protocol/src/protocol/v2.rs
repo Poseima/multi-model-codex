@@ -2476,6 +2476,8 @@ pub struct ThreadForkParams {
     pub prompt_profile: Option<PromptSource>,
     #[ts(optional = nullable)]
     pub prompt_profile_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ephemeral: bool,
     /// If true, persist additional rollout EventMsg variants required to
     /// reconstruct a richer thread history on subsequent resume/fork/read.
     #[experimental("thread/fork.persistFullHistory")]
