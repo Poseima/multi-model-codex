@@ -1811,6 +1811,7 @@ pub(crate) fn mcp_tool_to_openai_tool(
     let rmcp::model::Tool {
         description,
         input_schema,
+        output_schema,
         ..
     } = tool;
 
@@ -1835,13 +1836,19 @@ pub(crate) fn mcp_tool_to_openai_tool(
     // `type`, so we coerce/sanitize here for compatibility.
     sanitize_json_schema(&mut serialized_input_schema);
     let input_schema = serde_json::from_value::<JsonSchema>(serialized_input_schema)?;
+    let structured_content_schema = output_schema
+        .map(|output_schema| serde_json::Value::Object(output_schema.as_ref().clone()))
+        .unwrap_or_else(|| JsonValue::Object(serde_json::Map::new()));
+    let output_schema = Some(mcp_call_tool_result_output_schema(
+        structured_content_schema,
+    ));
 
     Ok(ResponsesApiTool {
         name: fully_qualified_name,
         description: description.map(Into::into).unwrap_or_default(),
         strict: false,
         parameters: input_schema,
-        output_schema: None,
+        output_schema,
     })
 }
 
@@ -1864,6 +1871,25 @@ pub fn parse_tool_input_schema(input_schema: &JsonValue) -> Result<JsonSchema, s
     let mut input_schema = input_schema.clone();
     sanitize_json_schema(&mut input_schema);
     serde_json::from_value::<JsonSchema>(input_schema)
+}
+
+fn mcp_call_tool_result_output_schema(structured_content_schema: JsonValue) -> JsonValue {
+    json!({
+        "type": "object",
+        "properties": {
+            "content": {
+                "type": "array",
+                "items": {}
+            },
+            "structuredContent": structured_content_schema,
+            "isError": {
+                "type": "boolean"
+            },
+            "_meta": {}
+        },
+        "required": ["content"],
+        "additionalProperties": false
+    })
 }
 
 /// Sanitize a JSON Schema (as serde_json::Value) so it can fit our limited
@@ -2346,6 +2372,116 @@ mod tests {
         let parameters = serde_json::to_value(openai_tool.parameters).expect("serialize schema");
 
         assert_eq!(parameters.get("properties"), Some(&serde_json::json!({})));
+    }
+
+    #[test]
+    fn mcp_tool_to_openai_tool_preserves_top_level_output_schema() {
+        let mut input_schema = rmcp::model::JsonObject::new();
+        input_schema.insert("type".to_string(), serde_json::json!("object"));
+
+        let mut output_schema = rmcp::model::JsonObject::new();
+        output_schema.insert(
+            "properties".to_string(),
+            serde_json::json!({
+                "result": {
+                    "properties": {
+                        "nested": {}
+                    }
+                }
+            }),
+        );
+        output_schema.insert("required".to_string(), serde_json::json!(["result"]));
+
+        let tool = rmcp::model::Tool {
+            name: "with_output".to_string().into(),
+            title: None,
+            description: Some("Has output schema".to_string().into()),
+            input_schema: std::sync::Arc::new(input_schema),
+            output_schema: Some(std::sync::Arc::new(output_schema)),
+            annotations: None,
+            execution: None,
+            icons: None,
+            meta: None,
+        };
+
+        let openai_tool = mcp_tool_to_openai_tool("mcp__server__with_output".to_string(), tool)
+            .expect("convert tool");
+
+        assert_eq!(
+            openai_tool.output_schema,
+            Some(serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {}
+                    },
+                    "structuredContent": {
+                        "properties": {
+                            "result": {
+                                "properties": {
+                                    "nested": {}
+                                }
+                            }
+                        },
+                        "required": ["result"]
+                    },
+                    "isError": {
+                        "type": "boolean"
+                    },
+                    "_meta": {}
+                },
+                "required": ["content"],
+                "additionalProperties": false
+            }))
+        );
+    }
+
+    #[test]
+    fn mcp_tool_to_openai_tool_preserves_output_schema_without_inferred_type() {
+        let mut input_schema = rmcp::model::JsonObject::new();
+        input_schema.insert("type".to_string(), serde_json::json!("object"));
+
+        let mut output_schema = rmcp::model::JsonObject::new();
+        output_schema.insert("enum".to_string(), serde_json::json!(["ok", "error"]));
+
+        let tool = rmcp::model::Tool {
+            name: "with_enum_output".to_string().into(),
+            title: None,
+            description: Some("Has enum output schema".to_string().into()),
+            input_schema: std::sync::Arc::new(input_schema),
+            output_schema: Some(std::sync::Arc::new(output_schema)),
+            annotations: None,
+            execution: None,
+            icons: None,
+            meta: None,
+        };
+
+        let openai_tool =
+            mcp_tool_to_openai_tool("mcp__server__with_enum_output".to_string(), tool)
+                .expect("convert tool");
+
+        assert_eq!(
+            openai_tool.output_schema,
+            Some(serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {}
+                    },
+                    "structuredContent": {
+                        "enum": ["ok", "error"]
+                    },
+                    "isError": {
+                        "type": "boolean"
+                    },
+                    "_meta": {}
+                },
+                "required": ["content"],
+                "additionalProperties": false
+            }))
+        );
     }
 
     fn tool_name(tool: &ToolSpec) -> &str {
@@ -3404,7 +3540,7 @@ mod tests {
                 },
                 description: "Do something cool".to_string(),
                 strict: false,
-                output_schema: None,
+                output_schema: Some(mcp_call_tool_result_output_schema(serde_json::json!({}))),
             })
         );
     }
@@ -3643,7 +3779,7 @@ mod tests {
                 },
                 description: "Search docs".to_string(),
                 strict: false,
-                output_schema: None,
+                output_schema: Some(mcp_call_tool_result_output_schema(serde_json::json!({}))),
             })
         );
     }
@@ -3695,7 +3831,7 @@ mod tests {
                 },
                 description: "Pagination".to_string(),
                 strict: false,
-                output_schema: None,
+                output_schema: Some(mcp_call_tool_result_output_schema(serde_json::json!({}))),
             })
         );
     }
@@ -3751,7 +3887,7 @@ mod tests {
                 },
                 description: "Tags".to_string(),
                 strict: false,
-                output_schema: None,
+                output_schema: Some(mcp_call_tool_result_output_schema(serde_json::json!({}))),
             })
         );
     }
@@ -3805,7 +3941,7 @@ mod tests {
                 },
                 description: "AnyOf Value".to_string(),
                 strict: false,
-                output_schema: None,
+                output_schema: Some(mcp_call_tool_result_output_schema(serde_json::json!({}))),
             })
         );
     }
@@ -4064,7 +4200,7 @@ Examples of valid command strings:
                 },
                 description: "Do something cool".to_string(),
                 strict: false,
-                output_schema: None,
+                output_schema: Some(mcp_call_tool_result_output_schema(serde_json::json!({}))),
             })
         );
     }
