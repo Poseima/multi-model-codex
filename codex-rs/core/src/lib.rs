@@ -54,6 +54,8 @@ pub mod models_manager;
 mod network_policy_decision;
 pub mod network_proxy_loader;
 mod swappable_model_client;
+mod original_image_detail;
+mod swappable_model_client;
 pub use mcp_connection_manager::MCP_SANDBOX_STATE_CAPABILITY;
 pub use mcp_connection_manager::MCP_SANDBOX_STATE_METHOD;
 pub use mcp_connection_manager::SandboxState;
