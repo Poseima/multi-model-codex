@@ -2030,28 +2030,9 @@ impl Session {
         };
         match conversation_history {
             InitialHistory::New => {
-                // Build and record initial items (user instructions + environment context)
-                // TODO(ccunningham): Defer initial context insertion until the first real turn
-                // starts so it reflects the actual first-turn settings (permissions, etc.) and
-                // we do not emit model-visible "diff" updates before the first user message.
-                let items = self.build_initial_context(&turn_context).await;
-                self.record_conversation_items(&turn_context, &items).await;
-                let prompt_profile = self.prompt_profile().await;
-                if let Some(greeting_item) =
-                    prompt_profile_integration::build_primary_greeting_item(prompt_profile.as_ref())
-                {
-                    self.record_conversation_items(&turn_context, &[greeting_item])
-                        .await;
-                }
-                {
-                    let mut state = self.state.lock().await;
-                    state.set_reference_context_item(Some(turn_context.to_turn_context_item()));
-                }
+                // Defer initial context insertion until the first real turn starts so
+                // turn/start overrides can be merged before we write model-visible context.
                 self.set_previous_turn_settings(None).await;
-                // Ensure initial items are visible to immediate readers (e.g., tests, forks).
-                if !is_subagent {
-                    self.flush_rollout().await;
-                }
             }
             InitialHistory::Resumed(resumed_history) => {
                 let rollout_items = resumed_history.history;
@@ -3663,8 +3644,15 @@ impl Session {
             state.reference_context_item()
         };
         let should_inject_full_context = reference_context_item.is_none();
-        let context_items = if should_inject_full_context {
-            self.build_initial_context(turn_context).await
+        let mut context_items = if should_inject_full_context {
+            let mut context_items = self.build_initial_context(turn_context).await;
+            let prompt_profile = self.prompt_profile().await;
+            if let Some(greeting_item) =
+                prompt_profile_integration::build_primary_greeting_item(prompt_profile.as_ref())
+            {
+                context_items.push(greeting_item);
+            }
+            context_items
         } else {
             // Steady-state path: append only context diffs to minimize token overhead.
             self.build_settings_update_items(reference_context_item.as_ref(), turn_context)
