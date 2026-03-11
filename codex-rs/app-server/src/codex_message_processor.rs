@@ -4754,6 +4754,7 @@ impl CodexMessageProcessor {
             }
             MarketplaceError::InvalidMarketplaceFile { .. }
             | MarketplaceError::PluginNotFound { .. }
+            | MarketplaceError::PluginNotAvailable { .. }
             | MarketplaceError::InvalidPlugin(_) => {
                 self.send_invalid_request_error(request_id, err.to_string())
                     .await;
@@ -5468,6 +5469,8 @@ impl CodexMessageProcessor {
                                         PluginSource::Local { path }
                                     }
                                 },
+                                install_policy: plugin.install_policy.map(Into::into),
+                                auth_policy: plugin.auth_policy.map(Into::into),
                                 interface: plugin.interface.map(|interface| PluginInterface {
                                     display_name: interface.display_name,
                                     short_description: interface.short_description,
@@ -5717,7 +5720,13 @@ impl CodexMessageProcessor {
 
                 self.clear_plugin_related_caches();
                 self.outgoing
-                    .send_response(request_id, PluginInstallResponse { apps_needing_auth })
+                    .send_response(
+                        request_id,
+                        PluginInstallResponse {
+                            auth_policy: result.auth_policy.map(Into::into),
+                            apps_needing_auth,
+                        },
+                    )
                     .await;
             }
             Err(err) => {
