@@ -1351,7 +1351,7 @@
         },
         "request_permissions": {
           "default": false,
-          "description": "Reject approval prompts related to built-in permission requests.",
+          "description": "Reject `request_permissions` tool requests.",
           "type": "boolean"
         },
         "rules": {
@@ -1359,7 +1359,7 @@
           "type": "boolean"
         },
         "sandbox_approval": {
-          "description": "Reject approval prompts related to sandbox escalation.",
+          "description": "Reject shell command approval requests, including inline `with_additional_permissions` and `require_escalated` requests.",
           "type": "boolean"
         },
         "skill_approval": {
