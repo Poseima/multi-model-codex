@@ -363,6 +363,9 @@
             "enable_experimental_windows_sandbox": {
               "type": "boolean"
             },
+            "enable_fanout": {
+              "type": "boolean"
+            },
             "enable_request_compression": {
               "type": "boolean"
             },
@@ -460,9 +463,6 @@
               "type": "boolean"
             },
             "skill_mcp_dependency_install": {
-              "type": "boolean"
-            },
-            "spawn_csv": {
               "type": "boolean"
             },
             "sqlite": {
@@ -1885,6 +1885,9 @@
         "enable_experimental_windows_sandbox": {
           "type": "boolean"
         },
+        "enable_fanout": {
+          "type": "boolean"
+        },
         "enable_request_compression": {
           "type": "boolean"
         },
@@ -1982,9 +1985,6 @@
           "type": "boolean"
         },
         "skill_mcp_dependency_install": {
-          "type": "boolean"
-        },
-        "spawn_csv": {
           "type": "boolean"
         },
         "sqlite": {
