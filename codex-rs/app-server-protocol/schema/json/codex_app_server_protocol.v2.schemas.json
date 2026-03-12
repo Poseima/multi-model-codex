@@ -9212,18 +9212,12 @@
           "type": "array"
         },
         "authPolicy": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/PluginAuthPolicy"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/definitions/PluginAuthPolicy"
         }
       },
       "required": [
-        "appsNeedingAuth"
+        "appsNeedingAuth",
+        "authPolicy"
       ],
       "title": "PluginInstallResponse",
       "type": "object"
@@ -9421,14 +9415,7 @@
     "PluginSummary": {
       "properties": {
         "authPolicy": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/PluginAuthPolicy"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/definitions/PluginAuthPolicy"
         },
         "enabled": {
           "type": "boolean"
@@ -9437,14 +9424,7 @@
           "type": "string"
         },
         "installPolicy": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/PluginInstallPolicy"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/definitions/PluginInstallPolicy"
         },
         "installed": {
           "type": "boolean"
@@ -9467,8 +9447,10 @@
         }
       },
       "required": [
+        "authPolicy",
         "enabled",
         "id",
+        "installPolicy",
         "installed",
         "name",
         "source"
