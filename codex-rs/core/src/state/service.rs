@@ -15,6 +15,7 @@ use crate::plugins::PluginsManager;
 use crate::skills::SkillsManager;
 use crate::state_db::StateDbHandle;
 use crate::swappable_model_client::SwappableModelClient;
+use crate::tools::code_mode::CodeModeService;
 use crate::tools::network_approval::NetworkApprovalService;
 use crate::tools::runtimes::ExecveSessionApproval;
 use crate::tools::sandboxing::ApprovalStore;
@@ -22,34 +23,11 @@ use crate::unified_exec::UnifiedExecProcessManager;
 use codex_hooks::Hooks;
 use codex_otel::SessionTelemetry;
 use codex_utils_absolute_path::AbsolutePathBuf;
-use serde_json::Value as JsonValue;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
-
-pub(crate) struct CodeModeStoreService {
-    stored_values: Mutex<HashMap<String, JsonValue>>,
-}
-
-impl Default for CodeModeStoreService {
-    fn default() -> Self {
-        Self {
-            stored_values: Mutex::new(HashMap::new()),
-        }
-    }
-}
-
-impl CodeModeStoreService {
-    pub(crate) async fn stored_values(&self) -> HashMap<String, JsonValue> {
-        self.stored_values.lock().await.clone()
-    }
-
-    pub(crate) async fn replace_stored_values(&self, values: HashMap<String, JsonValue>) {
-        *self.stored_values.lock().await = values;
-    }
-}
 
 pub(crate) struct SessionServices {
     pub(crate) mcp_connection_manager: Arc<RwLock<McpConnectionManager>>,
@@ -84,5 +62,5 @@ pub(crate) struct SessionServices {
     /// Fork: wrapped in `SwappableModelClient` so `Op::OverrideProvider` can
     /// rebuild it when the user switches providers mid-session.
     pub(crate) model_client: SwappableModelClient,
-    pub(crate) code_mode_store: CodeModeStoreService,
+    pub(crate) code_mode_service: CodeModeService,
 }
