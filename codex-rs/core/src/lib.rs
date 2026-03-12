@@ -50,10 +50,10 @@ pub mod mcp;
 mod mcp_connection_manager;
 #[allow(dead_code)]
 mod memory_experiment; // Fork: project-scoped memory system
+mod mcp_tool_approval_templates;
 pub mod models_manager;
 mod network_policy_decision;
 pub mod network_proxy_loader;
-mod swappable_model_client;
 mod original_image_detail;
 mod swappable_model_client;
 pub use mcp_connection_manager::MCP_SANDBOX_STATE_CAPABILITY;
