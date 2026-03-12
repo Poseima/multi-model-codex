@@ -959,7 +959,7 @@ mod tests {
                 capabilities: Some(v1::InitializeCapabilities {
                     experimental_api: true,
                     opt_out_notification_methods: Some(vec![
-                        "codex/event/session_configured".to_string(),
+                        "thread/started".to_string(),
                         "item/agentMessage/delta".to_string(),
                     ]),
                 }),
@@ -979,7 +979,7 @@ mod tests {
                     "capabilities": {
                         "experimentalApi": true,
                         "optOutNotificationMethods": [
-                            "codex/event/session_configured",
+                            "thread/started",
                             "item/agentMessage/delta"
                         ]
                     }
@@ -1004,7 +1004,7 @@ mod tests {
                 "capabilities": {
                     "experimentalApi": true,
                     "optOutNotificationMethods": [
-                        "codex/event/session_configured",
+                        "thread/started",
                         "item/agentMessage/delta"
                     ]
                 }
@@ -1024,7 +1024,7 @@ mod tests {
                     capabilities: Some(v1::InitializeCapabilities {
                         experimental_api: true,
                         opt_out_notification_methods: Some(vec![
-                            "codex/event/session_configured".to_string(),
+                            "thread/started".to_string(),
                             "item/agentMessage/delta".to_string(),
                         ]),
                     }),

@@ -137,7 +137,7 @@ async fn turn_steer_rejects_oversized_text_input() -> Result<()> {
 
     let _task_started: JSONRPCNotification = timeout(
         DEFAULT_READ_TIMEOUT,
-        mcp.read_stream_until_notification_message("codex/event/task_started"),
+        mcp.read_stream_until_notification_message("turn/started"),
     )
     .await??;
 
@@ -242,7 +242,7 @@ async fn turn_steer_returns_active_turn_id() -> Result<()> {
 
     let _task_started: JSONRPCNotification = timeout(
         DEFAULT_READ_TIMEOUT,
-        mcp.read_stream_until_notification_message("codex/event/task_started"),
+        mcp.read_stream_until_notification_message("turn/started"),
     )
     .await??;
 
