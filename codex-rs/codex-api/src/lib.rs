@@ -28,6 +28,7 @@ pub use crate::endpoint::chat_compat::ChatCompatClient; // Fork: chat-api
 pub use crate::endpoint::compact::CompactClient;
 pub use crate::endpoint::memories::MemoriesClient;
 pub use crate::endpoint::models::ModelsClient;
+pub use crate::endpoint::realtime_websocket::RealtimeEventParser;
 pub use crate::endpoint::realtime_websocket::RealtimeSessionConfig;
 pub use crate::endpoint::realtime_websocket::RealtimeWebsocketClient;
 pub use crate::endpoint::realtime_websocket::RealtimeWebsocketConnection;
