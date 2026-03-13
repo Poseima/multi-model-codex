@@ -6378,7 +6378,7 @@ fn build_prompt(
 ) -> Prompt {
     Prompt {
         input,
-        tools: router.specs(),
+        tools: router.model_visible_specs(),
         parallel_tool_calls: turn_context.model_info.supports_parallel_tool_calls,
         base_instructions,
         personality: turn_context.personality,
