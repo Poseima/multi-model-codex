@@ -6,6 +6,7 @@ use codex_api::RealtimeAudioFrame;
 use codex_api::RealtimeEvent;
 use codex_api::RealtimeEventParser;
 use codex_api::RealtimeSessionConfig;
+use codex_api::RealtimeSessionMode;
 use codex_api::RealtimeWebsocketClient;
 use codex_api::provider::Provider;
 use codex_api::provider::RetryConfig;
@@ -143,6 +144,7 @@ async fn realtime_ws_e2e_session_create_and_event_flow() {
                 model: Some("realtime-test-model".to_string()),
                 session_id: Some("conv_123".to_string()),
                 event_parser: RealtimeEventParser::V1,
+                session_mode: RealtimeSessionMode::Conversational,
             },
             HeaderMap::new(),
             HeaderMap::new(),
@@ -236,6 +238,7 @@ async fn realtime_ws_e2e_send_while_next_event_waits() {
                 model: Some("realtime-test-model".to_string()),
                 session_id: Some("conv_123".to_string()),
                 event_parser: RealtimeEventParser::V1,
+                session_mode: RealtimeSessionMode::Conversational,
             },
             HeaderMap::new(),
             HeaderMap::new(),
@@ -300,6 +303,7 @@ async fn realtime_ws_e2e_disconnected_emitted_once() {
                 model: Some("realtime-test-model".to_string()),
                 session_id: Some("conv_123".to_string()),
                 event_parser: RealtimeEventParser::V1,
+                session_mode: RealtimeSessionMode::Conversational,
             },
             HeaderMap::new(),
             HeaderMap::new(),
@@ -361,6 +365,7 @@ async fn realtime_ws_e2e_ignores_unknown_text_events() {
                 model: Some("realtime-test-model".to_string()),
                 session_id: Some("conv_123".to_string()),
                 event_parser: RealtimeEventParser::V1,
+                session_mode: RealtimeSessionMode::Conversational,
             },
             HeaderMap::new(),
             HeaderMap::new(),
@@ -425,6 +430,7 @@ async fn realtime_ws_e2e_realtime_v2_parser_emits_handoff_requested() {
                 model: Some("realtime-test-model".to_string()),
                 session_id: Some("conv_123".to_string()),
                 event_parser: RealtimeEventParser::RealtimeV2,
+                session_mode: RealtimeSessionMode::Conversational,
             },
             HeaderMap::new(),
             HeaderMap::new(),
