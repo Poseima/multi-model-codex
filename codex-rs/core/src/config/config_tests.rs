@@ -4135,7 +4135,7 @@ model_verbosity = "high"
         system_role: None,
     };
     let model_provider_map = {
-        let mut model_provider_map = built_in_model_providers();
+        let mut model_provider_map = built_in_model_providers(/* openai_base_url */ None);
         model_provider_map.insert("openai-custom".to_string(), openai_custom_provider.clone());
         model_provider_map
     };
