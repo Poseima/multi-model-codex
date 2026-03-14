@@ -95,6 +95,7 @@ pub use model_provider_info::built_in_model_providers;
 pub use model_provider_info::create_oss_provider_with_base_url;
 pub use prompt_profile_import::load_prompt_profile_from_path;
 mod event_mapping;
+mod response_debug_context;
 pub mod review_format;
 pub mod review_prompts;
 mod seatbelt_permissions;
