@@ -395,6 +395,9 @@
             "fast_mode": {
               "type": "boolean"
             },
+            "guardian_approval": {
+              "type": "boolean"
+            },
             "image_detail_original": {
               "type": "boolean"
             },
@@ -474,9 +477,6 @@
               "type": "boolean"
             },
             "skill_mcp_dependency_install": {
-              "type": "boolean"
-            },
-            "smart_approvals": {
               "type": "boolean"
             },
             "sqlite": {
@@ -1958,6 +1958,9 @@
         "fast_mode": {
           "type": "boolean"
         },
+        "guardian_approval": {
+          "type": "boolean"
+        },
         "image_detail_original": {
           "type": "boolean"
         },
@@ -2037,9 +2040,6 @@
           "type": "boolean"
         },
         "skill_mcp_dependency_install": {
-          "type": "boolean"
-        },
-        "smart_approvals": {
           "type": "boolean"
         },
         "sqlite": {
