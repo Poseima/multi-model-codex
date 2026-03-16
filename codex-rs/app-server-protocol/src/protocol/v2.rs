@@ -4587,6 +4587,7 @@ pub enum CollabAgentToolCallStatus {
 pub enum CollabAgentStatus {
     PendingInit,
     Running,
+    Interrupted,
     Completed,
     Errored,
     Shutdown,
@@ -4610,6 +4611,10 @@ impl From<CoreAgentStatus> for CollabAgentState {
             },
             CoreAgentStatus::Running => Self {
                 status: CollabAgentStatus::Running,
+                message: None,
+            },
+            CoreAgentStatus::Interrupted => Self {
+                status: CollabAgentStatus::Interrupted,
                 message: None,
             },
             CoreAgentStatus::Completed(message) => Self {
@@ -5929,6 +5934,17 @@ mod tests {
 
     fn test_absolute_path() -> AbsolutePathBuf {
         absolute_path("readable")
+    }
+
+    #[test]
+    fn collab_agent_state_maps_interrupted_status() {
+        assert_eq!(
+            CollabAgentState::from(CoreAgentStatus::Interrupted),
+            CollabAgentState {
+                status: CollabAgentStatus::Interrupted,
+                message: None,
+            }
+        );
     }
 
     #[test]
