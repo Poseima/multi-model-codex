@@ -459,16 +459,6 @@ pub enum Op {
         force_reload: bool,
     },
 
-    /// Request the list of remote skills available via ChatGPT sharing.
-    ListRemoteSkills {
-        hazelnut_scope: RemoteSkillHazelnutScope,
-        product_surface: RemoteSkillProductSurface,
-        enabled: Option<bool>,
-    },
-
-    /// Download a remote skill by id into the local skills cache.
-    DownloadRemoteSkill { hazelnut_id: String },
-
     /// Request the agent to summarize the current conversation context.
     /// The agent will use its existing context (either conversation history or previous response id)
     /// to generate a summary which will be returned as an AgentMessage event.
@@ -542,8 +532,6 @@ impl Op {
             Self::ReloadUserConfig => "reload_user_config",
             Self::ListCustomPrompts => "list_custom_prompts",
             Self::ListSkills { .. } => "list_skills",
-            Self::ListRemoteSkills { .. } => "list_remote_skills",
-            Self::DownloadRemoteSkill { .. } => "download_remote_skill",
             Self::Compact => "compact",
             Self::DropMemories => "drop_memories",
             Self::UpdateMemories => "update_memories",
@@ -1308,12 +1296,6 @@ pub enum EventMsg {
 
     /// List of skills available to the agent.
     ListSkillsResponse(ListSkillsResponseEvent),
-
-    /// List of remote skills available to the agent.
-    ListRemoteSkillsResponse(ListRemoteSkillsResponseEvent),
-
-    /// Remote skill downloaded to local cache.
-    RemoteSkillDownloaded(RemoteSkillDownloadedEvent),
 
     /// Notification that skill data may have been updated and clients may want to reload.
     SkillsUpdateAvailable,
@@ -2954,47 +2936,6 @@ pub struct ListCustomPromptsResponseEvent {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct ListSkillsResponseEvent {
     pub skills: Vec<SkillsListEntry>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
-pub struct RemoteSkillSummary {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "kebab-case")]
-#[ts(rename_all = "kebab-case")]
-pub enum RemoteSkillHazelnutScope {
-    WorkspaceShared,
-    AllShared,
-    Personal,
-    Example,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "lowercase")]
-#[ts(rename_all = "lowercase")]
-pub enum RemoteSkillProductSurface {
-    Chatgpt,
-    Codex,
-    Api,
-    Atlas,
-}
-
-/// Response payload for `Op::ListRemoteSkills`.
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
-pub struct ListRemoteSkillsResponseEvent {
-    pub skills: Vec<RemoteSkillSummary>,
-}
-
-/// Response payload for `Op::DownloadRemoteSkill`.
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
-pub struct RemoteSkillDownloadedEvent {
-    pub id: String,
-    pub name: String,
-    pub path: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TS)]
