@@ -884,6 +884,12 @@
           "description": "Override for the role name used in system/instruction messages in chat completions. Most providers use `\"system\"` (the default). Set this if the provider expects a different role name (e.g. `\"user\"`).",
           "type": "string"
         },
+        "websocket_connect_timeout_ms": {
+          "description": "Maximum time (in milliseconds) to wait for a websocket connection attempt before treating it as failed.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
         "wire_api": {
           "allOf": [
             {
