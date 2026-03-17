@@ -39,7 +39,6 @@ use crate::tui::TuiEvent;
 use crate::update_action::UpdateAction;
 use crate::version::CODEX_CLI_VERSION;
 use codex_ansi_escape::ansi_escape_line;
-use codex_app_server_client::InProcessAppServerClient;
 use codex_app_server_protocol::ConfigLayerSource;
 use codex_core::AuthManager;
 use codex_core::CodexAuth;
@@ -53,6 +52,7 @@ use codex_core::config::types::ApprovalsReviewer;
 use codex_core::config::types::ModelAvailabilityNuxConfig;
 use codex_core::config_loader::ConfigLayerStackOrdering;
 use codex_core::features::Feature;
+use codex_core::models_manager::collaboration_mode_presets::CollaborationModesConfig;
 use codex_core::models_manager::manager::RefreshStrategy;
 use codex_core::models_manager::model_presets::HIDE_GPT_5_1_CODEX_MAX_MIGRATION_PROMPT_CONFIG;
 use codex_core::models_manager::model_presets::HIDE_GPT5_1_MIGRATION_PROMPT_CONFIG;
@@ -114,7 +114,6 @@ use tokio::task::JoinHandle;
 use toml::Value as TomlValue;
 
 mod agent_navigation;
-mod app_server_adapter;
 mod pending_interactive_replay;
 mod prompt_profile_support;
 
@@ -1963,7 +1962,7 @@ impl App {
     #[allow(clippy::too_many_arguments)]
     pub async fn run(
         tui: &mut tui::Tui,
-        mut app_server: InProcessAppServerClient,
+        auth_manager: Arc<AuthManager>,
         mut config: Config,
         cli_kv_overrides: Vec<(String, TomlValue)>,
         harness_overrides: ConfigOverrides,
@@ -1983,8 +1982,20 @@ impl App {
 
         let harness_overrides =
             normalize_harness_overrides_for_cwd(harness_overrides, &config.cwd)?;
-        let auth_manager = app_server.auth_manager();
-        let thread_manager = app_server.thread_manager();
+        let thread_manager = Arc::new(ThreadManager::new(
+            &config,
+            auth_manager.clone(),
+            SessionSource::Cli,
+            CollaborationModesConfig {
+                default_mode_request_user_input: config
+                    .features
+                    .enabled(Feature::DefaultModeRequestUserInput),
+            },
+        ));
+        // TODO(xl): Move into PluginManager once this no longer depends on config feature gating.
+        thread_manager
+            .plugins_manager()
+            .maybe_start_curated_repo_sync_for_config(&config);
         let mut model = thread_manager
             .get_models_manager()
             .get_default_model(&config.model, RefreshStrategy::Offline)
@@ -2002,13 +2013,6 @@ impl App {
         )
         .await;
         if let Some(exit_info) = exit_info {
-            app_server
-                .shutdown()
-                .await
-                .inspect_err(|err| {
-                    tracing::warn!("app-server shutdown failed: {err}");
-                })
-                .ok();
             return Ok(exit_info);
         }
         if let Some(updated_model) = config.model.clone() {
@@ -2241,7 +2245,6 @@ impl App {
 
         let mut thread_created_rx = thread_manager.subscribe_thread_created();
         let mut listen_for_threads = true;
-        let mut listen_for_app_server_events = true;
         let mut waiting_for_initial_session_configured = wait_for_initial_session_configured;
 
         #[cfg(not(debug_assertions))]
@@ -2301,16 +2304,6 @@ impl App {
                             Err(err) => break Err(err),
                         }
                     }
-                    app_server_event = app_server.next_event(), if listen_for_app_server_events => {
-                        match app_server_event {
-                            Some(event) => app.handle_app_server_event(&app_server, event).await,
-                            None => {
-                                listen_for_app_server_events = false;
-                                tracing::warn!("app-server event stream closed");
-                            }
-                        }
-                        AppRunControl::Continue
-                    }
                     // Listen on new thread creation due to collab tools.
                     created = thread_created_rx.recv(), if listen_for_threads => {
                         match created {
@@ -2341,9 +2334,6 @@ impl App {
                 }
             }
         };
-        if let Err(err) = app_server.shutdown().await {
-            tracing::warn!(error = %err, "failed to shut down embedded app server");
-        }
         let clear_result = tui.terminal.clear();
         let exit_reason = match exit_reason_result {
             Ok(exit_reason) => {
