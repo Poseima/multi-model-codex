@@ -3318,6 +3318,7 @@ pub struct SkillsListEntry {
 pub struct PluginMarketplaceEntry {
     pub name: String,
     pub path: AbsolutePathBuf,
+    pub display_name: Option<String>,
     pub plugins: Vec<PluginSummary>,
 }
 

@@ -5521,6 +5521,7 @@ impl CodexMessageProcessor {
                     .map(|marketplace| PluginMarketplaceEntry {
                         name: marketplace.name,
                         path: marketplace.path,
+                        display_name: marketplace.display_name,
                         plugins: marketplace
                             .plugins
                             .into_iter()
