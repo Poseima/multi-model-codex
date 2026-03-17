@@ -871,24 +871,6 @@
         }
       ]
     },
-    "FunctionCallOutputPayload": {
-      "description": "The payload we send back to OpenAI when reporting a tool call result.\n\n`body` serializes directly as the wire value for `function_call_output.output`. `success` remains internal metadata for downstream handling.",
-      "properties": {
-        "body": {
-          "$ref": "#/definitions/FunctionCallOutputBody"
-        },
-        "success": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "body"
-      ],
-      "type": "object"
-    },
     "FuzzyFileSearchParams": {
       "properties": {
         "cancellationToken": {
@@ -1927,10 +1909,6 @@
                 "null"
               ]
             },
-            "id": {
-              "type": "string",
-              "writeOnly": true
-            },
             "summary": {
               "items": {
                 "$ref": "#/definitions/ReasoningItemReasoningSummary"
@@ -1946,7 +1924,6 @@
             }
           },
           "required": [
-            "id",
             "summary",
             "type"
           ],
@@ -2080,7 +2057,7 @@
               "type": "string"
             },
             "output": {
-              "$ref": "#/definitions/FunctionCallOutputPayload"
+              "$ref": "#/definitions/FunctionCallOutputBody"
             },
             "type": {
               "enum": [
@@ -2145,7 +2122,7 @@
               "type": "string"
             },
             "output": {
-              "$ref": "#/definitions/FunctionCallOutputPayload"
+              "$ref": "#/definitions/FunctionCallOutputBody"
             },
             "type": {
               "enum": [
