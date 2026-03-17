@@ -171,6 +171,7 @@ async fn realtime_ws_e2e_session_create_and_event_flow() {
             sample_rate: 48000,
             num_channels: 1,
             samples_per_channel: Some(960),
+            item_id: None,
         })
         .await
         .expect("send audio");
@@ -187,6 +188,7 @@ async fn realtime_ws_e2e_session_create_and_event_flow() {
             sample_rate: 48000,
             num_channels: 1,
             samples_per_channel: None,
+            item_id: None,
         })
     );
 
@@ -255,6 +257,7 @@ async fn realtime_ws_e2e_send_while_next_event_waits() {
                     sample_rate: 48000,
                     num_channels: 1,
                     samples_per_channel: Some(960),
+                    item_id: None,
                 }),
             )
             .await
