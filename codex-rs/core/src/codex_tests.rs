@@ -240,7 +240,6 @@ fn test_model_client_session() -> crate::client::ModelClientSession {
         None,
         false,
         false,
-        false,
         None,
     )
     .new_session()
@@ -2520,7 +2519,6 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             session_configuration.provider.clone(),
             session_configuration.session_source.clone(),
             config.model_verbosity,
-            ws_version_from_features(config.as_ref()),
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
@@ -3317,7 +3315,6 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
             session_configuration.provider.clone(),
             session_configuration.session_source.clone(),
             config.model_verbosity,
-            ws_version_from_features(config.as_ref()),
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Session::build_model_client_beta_features_header(config.as_ref()),
