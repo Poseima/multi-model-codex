@@ -21,6 +21,8 @@ use crate::config::types::SandboxWorkspaceWrite;
 use crate::config::types::ShellEnvironmentPolicy;
 use crate::config::types::ShellEnvironmentPolicyToml;
 use crate::config::types::SkillsConfig;
+use crate::config::types::ToolSuggestConfig;
+use crate::config::types::ToolSuggestDiscoverable;
 use crate::config::types::Tui;
 use crate::config::types::UriBasedFileOpener;
 use crate::config::types::WindowsSandboxModeToml;
@@ -582,6 +584,9 @@ pub struct Config {
     /// When `false`, disables feedback collection across Codex product surfaces.
     /// Defaults to `true`.
     pub feedback_enabled: bool,
+
+    /// Configured discoverable tools for tool suggestions.
+    pub tool_suggest: ToolSuggestConfig,
 
     /// OTEL configuration (exporter type, endpoint, headers, etc.).
     pub otel: crate::config::types::OtelConfig,
@@ -1428,6 +1433,9 @@ pub struct ConfigToml {
     /// Nested tools section for feature toggles
     pub tools: Option<ToolsToml>,
 
+    /// Additional discoverable tools that can be suggested for installation.
+    pub tool_suggest: Option<ToolSuggestConfig>,
+
     /// Agent-related settings (thread limits, etc.).
     pub agents: Option<AgentsToml>,
 
@@ -1623,6 +1631,28 @@ where
         }
         Some(WebSearchToolConfigInput::Config(config)) => Some(config),
     })
+}
+
+fn resolve_tool_suggest_config(config_toml: &ConfigToml) -> ToolSuggestConfig {
+    let discoverables = config_toml
+        .tool_suggest
+        .as_ref()
+        .into_iter()
+        .flat_map(|tool_suggest| tool_suggest.discoverables.iter())
+        .filter_map(|discoverable| {
+            let trimmed = discoverable.id.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(ToolSuggestDiscoverable {
+                    kind: discoverable.kind,
+                    id: trimmed.to_string(),
+                })
+            }
+        })
+        .collect();
+
+    ToolSuggestConfig { discoverables }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq, JsonSchema)]
@@ -2149,6 +2179,7 @@ impl Config {
                 .clone(),
             None => ConfigProfile::default(),
         };
+        let tool_suggest = resolve_tool_suggest_config(&cfg);
         let feature_overrides = FeatureOverrides {
             include_apply_patch_tool: include_apply_patch_tool_override,
             web_search_request: override_tools_web_search_request,
@@ -2626,7 +2657,6 @@ impl Config {
             } else {
                 NetworkSandboxPolicy::from(&effective_sandbox_policy)
             };
-
         let config = Self {
             model,
             service_tier,
@@ -2772,6 +2802,7 @@ impl Config {
                 .as_ref()
                 .and_then(|feedback| feedback.enabled)
                 .unwrap_or(true),
+            tool_suggest,
             tui_notifications: cfg
                 .tui
                 .as_ref()
