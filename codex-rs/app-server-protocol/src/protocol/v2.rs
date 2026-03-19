@@ -2069,6 +2069,7 @@ pub struct AppSummary {
     pub name: String,
     pub description: Option<String>,
     pub install_url: Option<String>,
+    pub needs_auth: bool,
 }
 
 impl From<AppInfo> for AppSummary {
@@ -2078,6 +2079,7 @@ impl From<AppInfo> for AppSummary {
             name: value.name,
             description: value.description,
             install_url: value.install_url,
+            needs_auth: false,
         }
     }
 }
