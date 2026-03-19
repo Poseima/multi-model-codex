@@ -6109,6 +6109,9 @@ impl CodexMessageProcessor {
 
         match turn_id {
             Ok(turn_id) => {
+                self.outgoing
+                    .record_request_turn_id(&request_id, &turn_id)
+                    .await;
                 let turn = Turn {
                     id: turn_id.clone(),
                     items: vec![],
@@ -6161,6 +6164,9 @@ impl CodexMessageProcessor {
             .await;
             return;
         }
+        self.outgoing
+            .record_request_turn_id(&request_id, &params.expected_turn_id)
+            .await;
         if let Err(error) = Self::validate_v2_input_limit(&params.input) {
             self.outgoing.send_error(request_id, error).await;
             return;
@@ -6642,7 +6648,10 @@ impl CodexMessageProcessor {
         request_id: ConnectionRequestId,
         params: TurnInterruptParams,
     ) {
-        let TurnInterruptParams { thread_id, .. } = params;
+        let TurnInterruptParams { thread_id, turn_id } = params;
+        self.outgoing
+            .record_request_turn_id(&request_id, &turn_id)
+            .await;
 
         let (thread_uuid, thread) = match self.load_thread(&thread_id).await {
             Ok(v) => v,
