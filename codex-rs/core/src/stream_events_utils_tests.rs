@@ -6,6 +6,7 @@ use super::handle_non_tool_response_item;
 use super::handle_output_item_done;
 use super::last_assistant_message_from_item;
 use super::response_item_may_include_external_context;
+use super::response_input_to_response_item;
 use crate::session::step_context::StepContext;
 use crate::session::tests::make_session_and_context;
 use crate::session::tests::tool_registry_for_test_step;
@@ -24,6 +25,7 @@ use codex_protocol::models::LocalShellAction;
 use codex_protocol::models::LocalShellExecAction;
 use codex_protocol::models::LocalShellStatus;
 use codex_protocol::models::MessagePhase;
+use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
 use pretty_assertions::assert_eq;
 use std::sync::Arc;
@@ -416,4 +418,14 @@ fn completed_item_keeps_mailbox_delivery_open_for_commentary_messages() {
     assert!(!completed_item_defers_mailbox_delivery_to_next_turn(
         &item, /*plan_mode*/ false,
     ));
+}
+
+#[test]
+fn response_input_to_response_item_drops_empty_function_call_output_ids() {
+    let input = ResponseInputItem::FunctionCallOutput {
+        call_id: String::new(),
+        output: FunctionCallOutputPayload::from_text("tool failed".to_string()),
+    };
+
+    assert_eq!(response_input_to_response_item(&input), None);
 }
