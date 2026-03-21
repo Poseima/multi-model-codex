@@ -2118,6 +2118,7 @@ mod tests {
                 retry_transport: false,
             },
             stream_idle_timeout: Duration::from_secs(5),
+            system_role: None,
         };
         let client = RealtimeWebsocketClient::new(provider);
         let connection = client
@@ -2243,6 +2244,7 @@ mod tests {
                 retry_transport: false,
             },
             stream_idle_timeout: Duration::from_secs(5),
+            system_role: None,
         };
         let client = RealtimeWebsocketClient::new(provider);
         let connection = client
@@ -2347,6 +2349,7 @@ mod tests {
                 retry_transport: false,
             },
             stream_idle_timeout: Duration::from_secs(5),
+            system_role: None,
         };
         let client = RealtimeWebsocketClient::new(provider);
         let connection = client
