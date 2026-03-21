@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dawn IM Management"
+  short_description: "Manage Dawn IM channels via local IPC"
+  default_prompt: "Use $dawn-im-management to validate the active Dawn runtime and manage a specific Feishu or Discord channel through ~/.dawn IPC."

@@ -91,9 +91,9 @@ where
 }
 
 fn merge_skill_root_snapshots(snapshots: Vec<SkillRootSnapshot>) -> SkillLoadOutcome {
-    fn scope_rank(scope: codex_protocol::protocol::SkillScope) -> u8 {
-        use codex_protocol::protocol::SkillScope;
+    use codex_protocol::protocol::SkillScope;
 
+    fn scope_rank(scope: codex_protocol::protocol::SkillScope) -> u8 {
         // Higher-priority scopes first (matches root scan order for dedupe).
         match scope {
             SkillScope::Repo => 0,
@@ -152,6 +152,17 @@ fn merge_skill_root_snapshots(snapshots: Vec<SkillRootSnapshot>) -> SkillLoadOut
             .cmp(&scope_rank(b.scope))
             .then_with(|| a.name.cmp(&b.name))
             .then_with(|| a.path_to_skills_md.cmp(&b.path_to_skills_md))
+    });
+
+    // System skills are a fallback. If a higher-precedence repo/user skill reuses the
+    // same name, keep the higher-precedence skill and hide the system duplicate.
+    let mut higher_precedence_names: HashSet<String> = HashSet::new();
+    outcome.skills.retain(|skill| match skill.scope {
+        SkillScope::System => !higher_precedence_names.contains(&skill.name),
+        SkillScope::Repo | SkillScope::User | SkillScope::Admin => {
+            higher_precedence_names.insert(skill.name.clone());
+            true
+        }
     });
 
     outcome
