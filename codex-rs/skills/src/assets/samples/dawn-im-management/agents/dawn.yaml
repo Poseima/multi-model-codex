@@ -1,0 +1,18 @@
+version: 1
+support_tier: system
+display_name: Dawn IM Management
+short_description: Built-in Dawn system skill for IM runtime inspection, channel management, and background dispatch.
+platforms:
+  - macos
+  - windows
+required_tools:
+  - python3
+required_services:
+  - dawn-runtime
+  - control-api
+  - ipc
+required_secrets: []
+validate:
+  command:
+    - python3
+    - scripts/validate.py
