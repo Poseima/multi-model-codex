@@ -2043,6 +2043,40 @@ async fn loads_skills_from_system_cache_when_present() {
 }
 
 #[tokio::test]
+async fn hides_system_skill_when_user_skill_has_same_name() {
+    let codex_home = tempfile::tempdir().expect("tempdir");
+    let work_dir = tempfile::tempdir().expect("tempdir");
+
+    let user_skill_path = write_skill(&codex_home, "user", "skill-creator", "from user");
+    let _system_skill_path =
+        write_system_skill(&codex_home, "system", "skill-creator", "from system");
+
+    let cfg = make_config_for_cwd(&codex_home, work_dir.path().to_path_buf()).await;
+    let outcome = load_skills_for_test(&cfg);
+
+    assert!(
+        outcome.errors.is_empty(),
+        "unexpected errors: {:?}",
+        outcome.errors
+    );
+    assert_eq!(
+        outcome.skills,
+        vec![SkillMetadata {
+            name: "skill-creator".to_string(),
+            description: "from user".to_string(),
+            short_description: None,
+            interface: None,
+            dependencies: None,
+            policy: None,
+            permission_profile: None,
+            managed_network_override: None,
+            path_to_skills_md: normalized(&user_skill_path),
+            scope: SkillScope::User,
+        }]
+    );
+}
+
+#[tokio::test]
 async fn skill_roots_include_admin_with_lowest_priority() {
     let codex_home = tempfile::tempdir().expect("tempdir");
     let cfg = make_config(&codex_home).await;

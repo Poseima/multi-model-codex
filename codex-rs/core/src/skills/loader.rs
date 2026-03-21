@@ -212,6 +212,17 @@ where
             .then_with(|| a.path_to_skills_md.cmp(&b.path_to_skills_md))
     });
 
+    // System skills are a fallback. If a higher-precedence repo/user skill reuses the
+    // same name, keep the higher-precedence skill and hide the system duplicate.
+    let mut higher_precedence_names: HashSet<String> = HashSet::new();
+    outcome.skills.retain(|skill| match skill.scope {
+        SkillScope::System => !higher_precedence_names.contains(&skill.name),
+        SkillScope::Repo | SkillScope::User | SkillScope::Admin => {
+            higher_precedence_names.insert(skill.name.clone());
+            true
+        }
+    });
+
     outcome
 }
 
