@@ -3,6 +3,7 @@ use super::handle_non_tool_response_item;
 use super::image_generation_artifact_path;
 use super::last_assistant_message_from_item;
 use super::response_item_may_include_external_context;
+use super::response_input_to_response_item;
 use super::save_image_generation_result;
 use crate::session::tests::make_session_and_context;
 use codex_protocol::error::CodexErr;
@@ -13,6 +14,7 @@ use codex_protocol::models::LocalShellAction;
 use codex_protocol::models::LocalShellExecAction;
 use codex_protocol::models::LocalShellStatus;
 use codex_protocol::models::MessagePhase;
+use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
 use codex_utils_absolute_path::test_support::PathExt;
 use pretty_assertions::assert_eq;
@@ -299,4 +301,14 @@ async fn save_image_generation_result_rejects_non_base64_data_urls() {
     .await
     .expect_err("non-base64 data url should error");
     assert!(matches!(err, CodexErr::InvalidRequest(_)));
+}
+
+#[test]
+fn response_input_to_response_item_drops_empty_function_call_output_ids() {
+    let input = ResponseInputItem::FunctionCallOutput {
+        call_id: String::new(),
+        output: FunctionCallOutputPayload::from_text("tool failed".to_string()),
+    };
+
+    assert_eq!(response_input_to_response_item(&input), None);
 }
