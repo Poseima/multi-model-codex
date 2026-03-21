@@ -1320,15 +1320,6 @@
       ],
       "type": "object"
     },
-    "ProductSurface": {
-      "enum": [
-        "chatgpt",
-        "codex",
-        "api",
-        "atlas"
-      ],
-      "type": "string"
-    },
     "PromptDepthPrompt": {
       "properties": {
         "content": {

@@ -744,11 +744,16 @@ async fn command_exec_process_ids_are_connection_scoped_and_disconnect_terminate
     )
     .await?;
 
-    let delta = read_command_exec_delta_ws(&mut ws1).await?;
-    assert_eq!(delta.process_id, "shared-process");
-    assert_eq!(delta.stream, CommandExecOutputStream::Stdout);
-    let delta_text = String::from_utf8(STANDARD.decode(&delta.delta_base64)?)?;
-    assert!(delta_text.contains("ready"));
+    let mut stdout = String::new();
+    loop {
+        let delta = read_command_exec_delta_ws(&mut ws1).await?;
+        assert_eq!(delta.process_id, "shared-process");
+        assert_eq!(delta.stream, CommandExecOutputStream::Stdout);
+        stdout.push_str(&String::from_utf8(STANDARD.decode(&delta.delta_base64)?)?);
+        if stdout.contains("ready") {
+            break;
+        }
+    }
     wait_for_process_marker(&marker, true).await?;
 
     send_request(

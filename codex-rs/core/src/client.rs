@@ -1116,8 +1116,17 @@ impl ModelClientSession {
             let session_source = self.client.state.session_source.clone();
             let api_auth = auth_provider_from_auth(auth.clone(), &self.client.state.provider)?;
             let transport = ReqwestTransport::new(build_reqwest_client());
-            let (request_telemetry, sse_telemetry) =
-                Self::build_streaming_telemetry(session_telemetry);
+            let request_auth_context = AuthRequestTelemetryContext::new(
+                auth.as_ref().map(CodexAuth::auth_mode),
+                &api_auth,
+                PendingUnauthorizedRetry::default(),
+            );
+            let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(
+                session_telemetry,
+                request_auth_context,
+                RequestRouteTelemetry::for_endpoint("/chat/completions"),
+                self.client.state.auth_env_telemetry.clone(),
+            );
             let client = ApiChatCompatClient::new(transport, api_provider, api_auth)
                 .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
 

@@ -37,6 +37,7 @@ import type { PluginListParams } from "./v2/PluginListParams";
 import type { ProviderListParams } from "./v2/ProviderListParams";
 import type { PluginReadParams } from "./v2/PluginReadParams";
 import type { PluginUninstallParams } from "./v2/PluginUninstallParams";
+import type { ProviderListParams } from "./v2/ProviderListParams";
 import type { ReviewStartParams } from "./v2/ReviewStartParams";
 import type { SkillsConfigWriteParams } from "./v2/SkillsConfigWriteParams";
 import type { SkillsListParams } from "./v2/SkillsListParams";

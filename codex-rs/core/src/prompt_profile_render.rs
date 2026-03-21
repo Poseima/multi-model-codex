@@ -123,8 +123,52 @@ pub(crate) fn format_input(
 
     let runtime_head_items = build_runtime_head_items(prompt_profile);
     let example_items = build_example_items(Some(prompt_profile));
+    let primary_greeting_item =
+        build_primary_greeting_item(Some(prompt_profile)).filter(|greeting| {
+            let ResponseItem::Message {
+                role: greeting_role,
+                content: greeting_content,
+                ..
+            } = greeting
+            else {
+                return false;
+            };
+
+            let greeting_text = greeting_content
+                .iter()
+                .map(|item| match item {
+                    ContentItem::InputText { text } | ContentItem::OutputText { text } => {
+                        text.as_str()
+                    }
+                    ContentItem::InputImage { image_url } => image_url.as_str(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            !input.iter().any(|item| {
+                matches!(
+                    item,
+                    ResponseItem::Message { role, content, .. }
+                        if role == greeting_role
+                            && content
+                                .iter()
+                                .map(|item| match item {
+                                    ContentItem::InputText { text }
+                                    | ContentItem::OutputText { text } => text.as_str(),
+                                    ContentItem::InputImage { image_url } => image_url.as_str(),
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                                == greeting_text
+                )
+            })
+        });
     let runtime_tail_items = build_runtime_tail_items(input, prompt_profile);
-    if runtime_head_items.is_empty() && example_items.is_empty() && runtime_tail_items.is_empty() {
+    if runtime_head_items.is_empty()
+        && example_items.is_empty()
+        && primary_greeting_item.is_none()
+        && runtime_tail_items.is_empty()
+    {
         return input.to_vec();
     }
 
@@ -134,10 +178,15 @@ pub(crate) fn format_input(
         input.len()
     };
     let mut formatted = Vec::with_capacity(
-        input.len() + runtime_head_items.len() + example_items.len() + runtime_tail_items.len(),
+        input.len()
+            + runtime_head_items.len()
+            + example_items.len()
+            + usize::from(primary_greeting_item.is_some())
+            + runtime_tail_items.len(),
     );
     formatted.extend(runtime_head_items);
     formatted.extend(example_items);
+    formatted.extend(primary_greeting_item);
     formatted.extend(input[..split_index].iter().cloned());
     formatted.extend(runtime_tail_items);
     formatted.extend(input[split_index..].iter().cloned());
@@ -1212,6 +1261,65 @@ mod tests {
                 render_message(
                     PromptInjectionRole::Developer,
                     "Depth prompt for Rei Kurose.".to_string(),
+                ),
+                render_message(
+                    PromptInjectionRole::User,
+                    "Current user message".to_string(),
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn format_input_inserts_primary_greeting_before_existing_history() {
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            greetings: vec![PromptGreeting {
+                kind: PromptGreetingKind::Primary,
+                text: "Hello from {{char}}".to_string(),
+            }],
+            examples: vec![PromptExample {
+                messages: vec![
+                    PromptExampleMessage {
+                        role: PromptInjectionRole::User,
+                        content: "Example user".to_string(),
+                    },
+                    PromptExampleMessage {
+                        role: PromptInjectionRole::Assistant,
+                        content: "Example assistant".to_string(),
+                    },
+                ],
+            }],
+            ..Default::default()
+        };
+        let input = vec![
+            render_message(
+                PromptInjectionRole::Assistant,
+                "turn 1 complete".to_string(),
+            ),
+            render_message(
+                PromptInjectionRole::User,
+                "Current user message".to_string(),
+            ),
+        ];
+
+        let formatted = format_input(&input, Some(&prompt_profile));
+
+        assert_eq!(
+            formatted,
+            vec![
+                render_message(PromptInjectionRole::User, "Example user".to_string()),
+                render_message(
+                    PromptInjectionRole::Assistant,
+                    "Example assistant".to_string(),
+                ),
+                render_message(
+                    PromptInjectionRole::Assistant,
+                    "Hello from Rei Kurose".to_string(),
+                ),
+                render_message(
+                    PromptInjectionRole::Assistant,
+                    "turn 1 complete".to_string(),
                 ),
                 render_message(
                     PromptInjectionRole::User,

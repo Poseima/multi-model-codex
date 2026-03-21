@@ -382,6 +382,7 @@ mod tests {
                     agent_role: None,
                     model_provider: Some("openai".to_string()),
                     base_instructions: None,
+                    prompt_profile: None,
                     dynamic_tools: None,
                     memory_mode: None,
                 },

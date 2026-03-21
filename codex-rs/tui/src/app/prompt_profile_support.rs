@@ -208,6 +208,9 @@ impl App {
                         status_line_invalid_items_warned: self
                             .status_line_invalid_items_warned
                             .clone(),
+                        terminal_title_invalid_items_warned: self
+                            .terminal_title_invalid_items_warned
+                            .clone(),
                         session_telemetry: self.session_telemetry.clone(),
                     };
                     self.chat_widget = crate::chatwidget::ChatWidget::new_from_existing(

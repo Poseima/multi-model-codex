@@ -1106,6 +1106,30 @@
             },
             "method": {
               "enum": [
+                "provider/list"
+              ],
+              "title": "Provider/listRequestMethod",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/definitions/v2/ProviderListParams"
+            }
+          },
+          "required": [
+            "id",
+            "method",
+            "params"
+          ],
+          "title": "Provider/listRequest",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/v2/RequestId"
+            },
+            "method": {
+              "enum": [
                 "mcpServer/oauth/login"
               ],
               "title": "McpServer/oauth/loginRequestMethod",
@@ -8793,7 +8817,8 @@
         "description": "Initial collaboration mode to use when the TUI starts.",
         "enum": [
           "plan",
-          "default"
+          "default",
+          "dawn"
         ],
         "type": "string"
       },
@@ -9737,6 +9762,410 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "PromptDepthPrompt": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "depth": {
+            "format": "uint32",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/definitions/v2/PromptInjectionRole"
+          }
+        },
+        "required": [
+          "content",
+          "depth",
+          "role"
+        ],
+        "type": "object"
+      },
+      "PromptExample": {
+        "properties": {
+          "messages": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/v2/PromptExampleMessage"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "PromptExampleMessage": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/definitions/v2/PromptInjectionRole"
+          }
+        },
+        "required": [
+          "content",
+          "role"
+        ],
+        "type": "object"
+      },
+      "PromptGreeting": {
+        "properties": {
+          "kind": {
+            "$ref": "#/definitions/v2/PromptGreetingKind"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "type": "object"
+      },
+      "PromptGreetingKind": {
+        "enum": [
+          "primary",
+          "alternate"
+        ],
+        "type": "string"
+      },
+      "PromptIdentity": {
+        "properties": {
+          "description": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "personality": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PromptInjectionRole": {
+        "enum": [
+          "system",
+          "developer",
+          "user",
+          "assistant"
+        ],
+        "type": "string"
+      },
+      "PromptKnowledgeEntry": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "enabled": {
+            "default": false,
+            "type": "boolean"
+          },
+          "id": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "insertionOrder": {
+            "default": null,
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "metadata": {
+            "default": null
+          },
+          "position": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secondaryKeys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "PromptKnowledgeSource": {
+        "properties": {
+          "description": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entries": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/v2/PromptKnowledgeEntry"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "default": null
+          },
+          "name": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PromptSource": {
+        "properties": {
+          "creatorNotes": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depthPrompt": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/PromptDepthPrompt"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "examples": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/v2/PromptExample"
+            },
+            "type": "array"
+          },
+          "greetings": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/v2/PromptGreeting"
+            },
+            "type": "array"
+          },
+          "id": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/PromptIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "knowledge": {
+            "default": [],
+            "items": {
+              "$ref": "#/definitions/v2/PromptKnowledgeSource"
+            },
+            "type": "array"
+          },
+          "name": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/PromptSourceOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "postHistoryInstructions": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rawExtensions": {
+            "default": null
+          },
+          "scenario": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "systemOverlay": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "PromptSourceOrigin": {
+        "properties": {
+          "format": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourcePath": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "spec": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "specVersion": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "ProviderInfo": {
+        "description": "Summary of a configured model provider.",
+        "properties": {
+          "baseUrl": {
+            "description": "Base URL for the provider's API.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "envKey": {
+            "description": "Environment variable that stores the API key.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Key in the providers map (e.g. `\"openai\"`, `\"ollama\"`).",
+            "type": "string"
+          },
+          "name": {
+            "description": "Friendly display name.",
+            "type": "string"
+          },
+          "requiresOpenaiAuth": {
+            "description": "Whether this provider requires OpenAI authentication.",
+            "type": "boolean"
+          },
+          "wireApi": {
+            "description": "Wire protocol: `\"responses\"` or `\"chat\"`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "requiresOpenaiAuth",
+          "wireApi"
+        ],
+        "type": "object"
+      },
+      "ProviderListParams": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "description": "List configured model providers.",
+        "title": "ProviderListParams",
+        "type": "object"
+      },
+      "ProviderListResponse": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "description": "Response for `provider/list`.",
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/definitions/v2/ProviderInfo"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ProviderListResponse",
         "type": "object"
       },
       "RateLimitSnapshot": {
@@ -11499,7 +11928,9 @@
             "enum": [
               "review",
               "compact",
-              "memory_consolidation"
+              "archive",
+              "memory_consolidation",
+              "memory_retrieval"
             ],
             "type": "string"
           },
@@ -11889,6 +12320,22 @@
             ]
           },
           "modelProvider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "promptProfile": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/PromptSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promptProfilePath": {
             "type": [
               "string",
               "null"
@@ -13376,6 +13823,22 @@
               }
             ]
           },
+          "promptProfile": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/PromptSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promptProfilePath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "sandbox": {
             "anyOf": [
               {
@@ -14030,6 +14493,13 @@
               }
             ],
             "description": "Override the personality for this turn and subsequent turns."
+          },
+          "providerId": {
+            "description": "Override the model provider for this turn and subsequent turns.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sandboxPolicy": {
             "anyOf": [

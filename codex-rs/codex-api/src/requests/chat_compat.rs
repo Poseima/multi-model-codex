@@ -292,7 +292,9 @@ impl<'a> ChatRequestBuilder<'a> {
                     let reasoning = reasoning_by_anchor_index.get(&idx).map(String::as_str);
                     push_tool_call_message(&mut messages, tool_call, reasoning);
                 }
-                ResponseItem::CustomToolCallOutput { call_id, output } => {
+                ResponseItem::CustomToolCallOutput {
+                    call_id, output, ..
+                } => {
                     messages.push(json!({
                         "role": "tool",
                         "tool_call_id": call_id,
@@ -533,18 +535,21 @@ mod tests {
                 name: "read_file".to_string(),
                 arguments: r#"{"path":"a.txt"}"#.to_string(),
                 call_id: "call-a".to_string(),
+                namespace: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
                 name: "read_file".to_string(),
                 arguments: r#"{"path":"b.txt"}"#.to_string(),
                 call_id: "call-b".to_string(),
+                namespace: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
                 name: "read_file".to_string(),
                 arguments: r#"{"path":"c.txt"}"#.to_string(),
                 call_id: "call-c".to_string(),
+                namespace: None,
             },
             ResponseItem::FunctionCallOutput {
                 call_id: "call-a".to_string(),
@@ -690,6 +695,7 @@ mod tests {
                 name: "shell".to_string(),
                 arguments: r#"{"command":["ls"]}"#.to_string(),
                 call_id: "call-1".to_string(),
+                namespace: None,
             },
             // Assistant text that ended up between the tool call and its output.
             ResponseItem::Message {

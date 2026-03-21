@@ -2407,7 +2407,7 @@ impl Session {
     /// `SessionConfiguration.provider`.  Called after `Op::OverrideProvider`
     /// so that subsequent turns stream to the new provider's endpoint.
     async fn rebuild_model_client_for_current_provider(&self) {
-        let (provider, session_source, model_verbosity, beta_header, ws_version) = {
+        let (provider, session_source, model_verbosity, beta_header) = {
             let state = self.state.lock().await;
             let cfg = &state.session_configuration;
             (
@@ -2415,7 +2415,6 @@ impl Session {
                 cfg.session_source.clone(),
                 cfg.original_config_do_not_use.model_verbosity,
                 Self::build_model_client_beta_features_header(&cfg.original_config_do_not_use),
-                crate::client::ws_version_from_features(&cfg.original_config_do_not_use),
             )
         };
         let new_client = ModelClient::new(
@@ -2424,7 +2423,6 @@ impl Session {
             provider,
             session_source,
             model_verbosity,
-            ws_version,
             self.features.enabled(Feature::EnableRequestCompression),
             self.features.enabled(Feature::RuntimeMetrics),
             beta_header,
