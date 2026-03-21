@@ -539,6 +539,7 @@ mod tests {
                     agent_role: None,
                     model_provider: Some("openai".to_string()),
                     base_instructions: None,
+                    prompt_profile: None,
                     dynamic_tools: None,
                     selected_capability_roots: Vec::new(),
                     memory_mode: None,

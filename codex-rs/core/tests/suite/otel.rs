@@ -1025,7 +1025,7 @@ async fn handle_response_item_records_tool_result_for_function_call() {
         .await
         .unwrap();
 
-    wait_for_event(&codex, |ev| matches!(ev, EventMsg::TokenCount(_))).await;
+    wait_for_event(&codex, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
 
     logs_assert(|lines: &[&str]| {
         let line = lines
@@ -1114,6 +1114,162 @@ async fn handle_response_item_records_tool_result_for_shell_command_call() {
             return Err("missing tool_name field".to_string());
         }
         if !line.contains("arguments={\"command\":\"echo shell\"}") {
+            return Err("missing arguments field".to_string());
+        }
+        let output_idx = line
+            .find("output=")
+            .ok_or_else(|| "missing output field".to_string())?;
+        if line[output_idx + "output=".len()..].is_empty() {
+            return Err("empty output field".to_string());
+        }
+        if !line.contains("success=false") {
+            return Err("missing success field".to_string());
+        }
+        assert_empty_mcp_tool_fields(line)?;
+
+        Ok(())
+    });
+}
+
+#[tokio::test]
+#[traced_test]
+async fn handle_response_item_records_tool_result_for_local_shell_missing_ids() {
+    let server = start_mock_server().await;
+
+    mount_sse_once(
+        &server,
+        sse(vec![
+            serde_json::json!({
+                "type": "response.output_item.done",
+                "item": {
+                    "type": "local_shell_call",
+                    "status": "completed",
+                    "action": {
+                        "type": "exec",
+                        "command": vec!["/bin/echo", "hello"],
+                    }
+                }
+            }),
+            ev_completed("done"),
+        ]),
+    )
+    .await;
+
+    mount_sse_once(
+        &server,
+        sse(vec![
+            ev_assistant_message("msg-1", "local shell done"),
+            ev_completed("done"),
+        ]),
+    )
+    .await;
+
+    let TestCodex { codex, .. } = test_codex()
+        .with_config(move |config| {
+            config
+                .features
+                .disable(Feature::GhostCommit)
+                .expect("test config should allow feature update");
+        })
+        .build(&server)
+        .await
+        .unwrap();
+
+    codex
+        .submit(Op::UserInput {
+            environments: None,
+            items: vec![UserInput::Text {
+                text: "hello".into(),
+                text_elements: Vec::new(),
+            }],
+            final_output_json_schema: None,
+            responsesapi_client_metadata: None,
+        })
+        .await
+        .unwrap();
+
+    wait_for_event(&codex, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+
+    logs_assert(|lines: &[&str]| {
+        let line = lines
+            .iter()
+            .find(|line| {
+                line.contains("codex.tool_result")
+                    && line.contains(&"tool_name=local_shell".to_string())
+                    && line.contains("output=LocalShellCall without call_id or id")
+            })
+            .ok_or_else(|| "missing codex.tool_result event".to_string())?;
+
+        if !line.contains("success=false") {
+            return Err("missing success field".to_string());
+        }
+        assert_empty_mcp_tool_fields(line)?;
+
+        Ok(())
+    });
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+#[traced_test]
+async fn handle_response_item_records_tool_result_for_local_shell_call() {
+    let server = start_mock_server().await;
+
+    mount_sse_once(
+        &server,
+        sse(vec![
+            ev_local_shell_call("shell-call", "completed", vec!["/bin/echo", "shell"]),
+            ev_completed("done"),
+        ]),
+    )
+    .await;
+
+    mount_sse_once(
+        &server,
+        sse(vec![
+            ev_assistant_message("msg-1", "local shell done"),
+            ev_completed("done"),
+        ]),
+    )
+    .await;
+
+    let TestCodex { codex, .. } = test_codex()
+        .with_config(move |config| {
+            config
+                .features
+                .disable(Feature::GhostCommit)
+                .expect("test config should allow feature update");
+            config.permissions.approval_policy = Constrained::allow_any(AskForApproval::Never);
+        })
+        .build(&server)
+        .await
+        .unwrap();
+
+    codex
+        .submit(Op::UserInput {
+            environments: None,
+            items: vec![UserInput::Text {
+                text: "hello".into(),
+                text_elements: Vec::new(),
+            }],
+            final_output_json_schema: None,
+            responsesapi_client_metadata: None,
+        })
+        .await
+        .unwrap();
+
+    wait_for_event(&codex, |ev| matches!(ev, EventMsg::TurnComplete(_))).await;
+
+    logs_assert(|lines: &[&str]| {
+        let line = lines
+            .iter()
+            .find(|line| line.contains("codex.tool_result") && line.contains("call_id=shell-call"))
+            .ok_or_else(|| "missing codex.tool_result event".to_string())?;
+
+        if !line.contains("tool_name=local_shell") {
+            return Err("missing tool_name field".to_string());
+        }
+        if !line.contains("arguments=/bin/echo shell") {
             return Err("missing arguments field".to_string());
         }
         let output_idx = line
