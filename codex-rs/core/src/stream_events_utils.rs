@@ -483,24 +483,56 @@ pub(crate) async fn handle_output_item_done(
 
             output.last_agent_message = finalized_facts.and_then(|facts| facts.last_agent_message);
         }
-        // The tool request should be answered directly (or was denied); push that response into the transcript.
-        Err(FunctionCallError::RespondToModel(message)) => {
-            let response = ResponseInputItem::FunctionCallOutput {
-                call_id: String::new(),
-                output: FunctionCallOutputPayload {
-                    body: FunctionCallOutputBody::Text(message),
-                    ..Default::default()
-                },
-            };
+        // Guardrail: the model issued a LocalShellCall without an id; surface the error back into history.
+        Err(FunctionCallError::MissingLocalShellCallId) => {
+            let msg = "LocalShellCall without call_id or id";
+            ctx.turn_context
+                .session_telemetry
+                .log_tool_failed("local_shell", msg);
+            tracing::error!(msg);
+
             record_completed_response_item(ctx.sess.as_ref(), ctx.turn_context.as_ref(), &item)
                 .await;
-            if let Some(response_item) = response_input_to_response_item(&response) {
-                ctx.sess
-                    .record_conversation_items(
-                        &ctx.turn_context,
-                        std::slice::from_ref(&response_item),
-                    )
-                    .await;
+            if let Some(call_id) = response_item_call_id(&item) {
+                let response = ResponseInputItem::FunctionCallOutput {
+                    call_id,
+                    output: FunctionCallOutputPayload {
+                        body: FunctionCallOutputBody::Text(msg.to_string()),
+                        ..Default::default()
+                    },
+                };
+                if let Some(response_item) = response_input_to_response_item(&response) {
+                    ctx.sess
+                        .record_conversation_items(
+                            &ctx.turn_context,
+                            std::slice::from_ref(&response_item),
+                        )
+                        .await;
+                }
+            }
+
+            output.needs_follow_up = true;
+        }
+        // The tool request should be answered directly (or was denied); push that response into the transcript.
+        Err(FunctionCallError::RespondToModel(message)) => {
+            record_completed_response_item(ctx.sess.as_ref(), ctx.turn_context.as_ref(), &item)
+                .await;
+            if let Some(call_id) = response_item_call_id(&item) {
+                let response = ResponseInputItem::FunctionCallOutput {
+                    call_id,
+                    output: FunctionCallOutputPayload {
+                        body: FunctionCallOutputBody::Text(message),
+                        ..Default::default()
+                    },
+                };
+                if let Some(response_item) = response_input_to_response_item(&response) {
+                    ctx.sess
+                        .record_conversation_items(
+                            &ctx.turn_context,
+                            std::slice::from_ref(&response_item),
+                        )
+                        .await;
+                }
             }
 
             output.needs_follow_up = true;
@@ -622,7 +654,7 @@ fn completed_item_defers_mailbox_delivery_to_next_turn(
 
 pub(crate) fn response_input_to_response_item(input: &ResponseInputItem) -> Option<ResponseItem> {
     match input {
-        ResponseInputItem::FunctionCallOutput { call_id, output } => {
+        ResponseInputItem::FunctionCallOutput { call_id, output } if !call_id.is_empty() => {
             Some(ResponseItem::FunctionCallOutput {
                 id: None,
                 call_id: call_id.clone(),
@@ -630,18 +662,20 @@ pub(crate) fn response_input_to_response_item(input: &ResponseInputItem) -> Opti
                 metadata: None,
             })
         }
+        ResponseInputItem::FunctionCallOutput { .. } => None,
         ResponseInputItem::CustomToolCallOutput {
             call_id,
             name,
             output,
-        } => Some(ResponseItem::CustomToolCallOutput {
+        } if !call_id.is_empty() => Some(ResponseItem::CustomToolCallOutput {
             id: None,
             call_id: call_id.clone(),
             name: name.clone(),
             output: output.clone(),
             metadata: None,
         }),
-        ResponseInputItem::McpToolCallOutput { call_id, output } => {
+        ResponseInputItem::CustomToolCallOutput { .. } => None,
+        ResponseInputItem::McpToolCallOutput { call_id, output } if !call_id.is_empty() => {
             let output = output.as_function_call_output_payload();
             Some(ResponseItem::FunctionCallOutput {
                 id: None,
@@ -650,6 +684,7 @@ pub(crate) fn response_input_to_response_item(input: &ResponseInputItem) -> Opti
                 metadata: None,
             })
         }
+        ResponseInputItem::McpToolCallOutput { .. } => None,
         ResponseInputItem::ToolSearchOutput {
             call_id,
             status,
@@ -663,6 +698,16 @@ pub(crate) fn response_input_to_response_item(input: &ResponseInputItem) -> Opti
             tools: tools.clone(),
             metadata: None,
         }),
+        _ => None,
+    }
+}
+
+fn response_item_call_id(item: &ResponseItem) -> Option<String> {
+    match item {
+        ResponseItem::FunctionCall { call_id, .. } => Some(call_id.clone()),
+        ResponseItem::CustomToolCall { call_id, .. } => Some(call_id.clone()),
+        ResponseItem::LocalShellCall { call_id, id, .. } => call_id.clone().or_else(|| id.clone()),
+        ResponseItem::ToolSearchCall { call_id, .. } => call_id.clone(),
         _ => None,
     }
 }
