@@ -120,6 +120,7 @@ wire_api = "chat"
 
     let provider: ModelProviderInfo = toml::from_str(provider_toml).unwrap();
     assert_eq!(provider.wire_api, WireApi::Chat);
+    assert_eq!(provider.system_role, None);
 }
 
 #[test]
