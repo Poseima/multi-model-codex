@@ -359,6 +359,7 @@ async fn process_chat_sse_with_format<S>(
                     let item = ResponseItem::FunctionCall {
                         id: None,
                         name,
+                        namespace: None,
                         arguments,
                         call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
                     };
@@ -408,6 +409,7 @@ async fn process_chat_sse_with_format<S>(
                     let item = ResponseItem::FunctionCall {
                         id: None,
                         name,
+                        namespace: None,
                         arguments,
                         call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
                     };
