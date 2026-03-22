@@ -2569,7 +2569,8 @@ async fn code_mode_can_call_hidden_dynamic_tools() -> Result<()> {
                 }),
                 defer_loading: true,
             }],
-            /*persist_extended_history*/ false,
+            None,
+            false,
         )
         .await?;
     let mut test = base_test;

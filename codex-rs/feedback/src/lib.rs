@@ -715,6 +715,7 @@ mod tests {
         );
         let attachments_without_diagnostics = CodexFeedback::new()
             .snapshot(/*session_id*/ None)
+            .with_feedback_diagnostics(FeedbackDiagnostics::default())
             .feedback_attachments(/*include_logs*/ true, &[], Some(vec![1]));
 
         assert_eq!(
