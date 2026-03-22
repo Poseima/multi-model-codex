@@ -317,7 +317,6 @@ async fn exit_archive_mode(
                 Arc::clone(&session),
                 Arc::clone(&ctx),
                 crate::compact::InitialContextInjection::DoNotInject,
-                None,
             )
             .await
             {

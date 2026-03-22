@@ -92,6 +92,7 @@ pub(crate) enum CollaborationModeIndicator {
     PairProgramming,
     #[allow(dead_code)] // Hidden by current mode filtering; kept for future UI re-enablement.
     Execute,
+    Dawn,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -148,6 +149,7 @@ impl CollaborationModeIndicator {
                 format!("Pair Programming mode{suffix}")
             }
             CollaborationModeIndicator::Execute => format!("Execute mode{suffix}"),
+            CollaborationModeIndicator::Dawn => format!("Dawn mode{suffix}"),
         }
     }
 
@@ -157,6 +159,7 @@ impl CollaborationModeIndicator {
             CollaborationModeIndicator::Plan => Span::from(label).magenta(),
             CollaborationModeIndicator::PairProgramming => Span::from(label).cyan(),
             CollaborationModeIndicator::Execute => Span::from(label).dim(),
+            CollaborationModeIndicator::Dawn => Span::from(label).green(),
         }
     }
 }

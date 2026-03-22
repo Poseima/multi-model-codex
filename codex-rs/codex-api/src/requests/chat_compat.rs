@@ -67,10 +67,12 @@ impl<'a> ChatRequestBuilder<'a> {
         for item in input {
             match item {
                 ResponseItem::Message { role, .. } => last_emitted_role = Some(role.as_str()),
-                ResponseItem::FunctionCall { .. } | ResponseItem::LocalShellCall { .. } => {
-                    last_emitted_role = Some("assistant")
+                ResponseItem::FunctionCall { .. }
+                | ResponseItem::LocalShellCall { .. }
+                | ResponseItem::ToolSearchCall { .. } => last_emitted_role = Some("assistant"),
+                ResponseItem::FunctionCallOutput { .. } | ResponseItem::ToolSearchOutput { .. } => {
+                    last_emitted_role = Some("tool")
                 }
-                ResponseItem::FunctionCallOutput { .. } => last_emitted_role = Some("tool"),
                 ResponseItem::ImageGenerationCall { .. } => last_emitted_role = Some("assistant"),
                 ResponseItem::Reasoning { .. } | ResponseItem::Other => {}
                 ResponseItem::CustomToolCall { .. } => {}
@@ -248,6 +250,25 @@ impl<'a> ChatRequestBuilder<'a> {
                     });
                     push_tool_call_message(&mut messages, tool_call, reasoning);
                 }
+                ResponseItem::ToolSearchCall {
+                    call_id: Some(call_id),
+                    arguments,
+                    ..
+                } => {
+                    let reasoning = reasoning_by_anchor_index.get(&idx).map(String::as_str);
+                    let tool_call = json!({
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": "tool_search",
+                            "arguments": arguments,
+                        }
+                    });
+                    push_tool_call_message(&mut messages, tool_call, reasoning);
+                }
+                ResponseItem::ToolSearchCall { call_id: None, .. } => {
+                    continue;
+                }
                 ResponseItem::FunctionCallOutput { call_id, output } => {
                     let content_value = match &output.body {
                         FunctionCallOutputBody::ContentItems(items) => {
@@ -274,6 +295,20 @@ impl<'a> ChatRequestBuilder<'a> {
                         "tool_call_id": call_id,
                         "content": content_value,
                     }));
+                }
+                ResponseItem::ToolSearchOutput {
+                    call_id: Some(call_id),
+                    tools,
+                    ..
+                } => {
+                    messages.push(json!({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": tools,
+                    }));
+                }
+                ResponseItem::ToolSearchOutput { call_id: None, .. } => {
+                    continue;
                 }
                 ResponseItem::CustomToolCall {
                     call_id,
