@@ -34,9 +34,9 @@ use crate::api_bridge::CoreAuthProvider;
 use crate::api_bridge::auth_provider_from_auth;
 use crate::api_bridge::map_api_error;
 use crate::auth::UnauthorizedRecovery;
-use codex_api::ChatCompatClient as ApiChatCompatClient; // Fork: chat-api
 use crate::auth_env_telemetry::AuthEnvTelemetry;
 use crate::auth_env_telemetry::collect_auth_env_telemetry;
+use codex_api::ChatCompatClient as ApiChatCompatClient; // Fork: chat-api
 use codex_api::CompactClient as ApiCompactClient;
 use codex_api::CompactionInput as ApiCompactionInput;
 use codex_api::MemoriesClient as ApiMemoriesClient;
@@ -104,11 +104,11 @@ use crate::error::Result;
 use crate::flags::CODEX_RS_SSE_FIXTURE;
 use crate::model_provider_info::ModelProviderInfo;
 use crate::model_provider_info::WireApi;
-use crate::tools::spec::create_tools_json_for_chat_completions_api; // Fork: chat-api
 use crate::response_debug_context::extract_response_debug_context;
 use crate::response_debug_context::extract_response_debug_context_from_api_error;
 use crate::response_debug_context::telemetry_api_error_message;
 use crate::response_debug_context::telemetry_transport_error_message;
+use crate::tools::spec::create_tools_json_for_chat_completions_api; // Fork: chat-api
 use crate::tools::spec::create_tools_json_for_responses_api;
 use crate::util::FeedbackRequestTags;
 use crate::util::emit_feedback_auth_recovery_tags;
@@ -1150,7 +1150,12 @@ impl ModelClientSession {
                 Err(ApiError::Transport(
                     unauthorized_transport @ TransportError::Http { status, .. },
                 )) if status == StatusCode::UNAUTHORIZED => {
-                    handle_unauthorized(unauthorized_transport, &mut auth_recovery).await?;
+                    handle_unauthorized(
+                        unauthorized_transport,
+                        &mut auth_recovery,
+                        session_telemetry,
+                    )
+                    .await?;
                     continue;
                 }
                 Err(err) => return Err(map_api_error(err)),
@@ -1414,10 +1419,6 @@ impl ModelClientSession {
                 )
                 .await
             }
-            WireApi::Chat => {
-                self.stream_chat_completions(prompt, model_info, session_telemetry)
-                    .await
-            } // Fork: chat-api
             WireApi::Chat => {
                 self.stream_chat_completions(prompt, model_info, session_telemetry)
                     .await

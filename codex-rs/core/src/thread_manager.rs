@@ -28,7 +28,6 @@ use crate::skills::SkillsManager;
 use codex_protocol::ThreadId;
 use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::openai_models::ModelPreset;
-use codex_protocol::openai_models::ModelsResponse;
 use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::InitialHistory;
 use codex_protocol::protocol::McpServerRefreshConfig;
@@ -599,6 +598,7 @@ impl ThreadManager {
             persist_extended_history,
             /*metrics_service_name*/ None,
             /*parent_trace*/ None,
+            /*user_shell_override*/ None,
         ))
         .await
     }

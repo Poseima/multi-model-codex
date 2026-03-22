@@ -2172,22 +2172,37 @@ impl Session {
 
     pub(crate) async fn merge_mcp_tool_selection(&self, tool_names: Vec<String>) -> Vec<String> {
         let mut state = self.state.lock().await;
-        state.merge_mcp_tool_selection(tool_names)
+        let mut merged = state
+            .merge_connector_selection(tool_names)
+            .into_iter()
+            .collect::<Vec<_>>();
+        merged.sort_unstable();
+        merged
     }
 
     pub(crate) async fn set_mcp_tool_selection(&self, tool_names: Vec<String>) {
         let mut state = self.state.lock().await;
-        state.set_mcp_tool_selection(tool_names);
+        state.clear_connector_selection();
+        state.merge_connector_selection(tool_names);
     }
 
     pub(crate) async fn get_mcp_tool_selection(&self) -> Option<Vec<String>> {
         let state = self.state.lock().await;
-        state.get_mcp_tool_selection()
+        let mut tool_names = state
+            .get_connector_selection()
+            .into_iter()
+            .collect::<Vec<_>>();
+        if tool_names.is_empty() {
+            None
+        } else {
+            tool_names.sort_unstable();
+            Some(tool_names)
+        }
     }
 
     pub(crate) async fn clear_mcp_tool_selection(&self) {
         let mut state = self.state.lock().await;
-        state.clear_mcp_tool_selection();
+        state.clear_connector_selection();
     }
     // Merges connector IDs into the session-level explicit connector selection.
     pub(crate) async fn merge_connector_selection(
@@ -2598,44 +2613,6 @@ impl Session {
     pub(crate) async fn take_session_startup_prewarm(&self) -> Option<SessionStartupPrewarmHandle> {
         let mut state = self.state.lock().await;
         state.take_session_startup_prewarm()
-    }
-
-    async fn schedule_startup_prewarm_inner(
-        self: &Arc<Self>,
-        base_instructions: String,
-    ) -> CodexResult<RegularTask> {
-        let startup_turn_context = self
-            .new_default_turn_with_sub_id(INITIAL_SUBMIT_ID.to_owned())
-            .await;
-        let startup_cancellation_token = CancellationToken::new();
-        let startup_router = built_tools(
-            self,
-            startup_turn_context.as_ref(),
-            &[],
-            &HashSet::new(),
-            /*skills_outcome*/ None,
-            &startup_cancellation_token,
-        )
-        .await?;
-        let startup_prompt = build_prompt(
-            Vec::new(),
-            startup_router.as_ref(),
-            startup_turn_context.as_ref(),
-            BaseInstructions {
-                text: base_instructions,
-            },
-            self.prompt_profile().await,
-        );
-        let startup_turn_metadata_header = startup_turn_context
-            .turn_metadata_state
-            .current_header_value();
-        RegularTask::with_startup_prewarm(
-            self.services.model_client.clone_inner(),
-            startup_prompt,
-            startup_turn_context,
-            startup_turn_metadata_header,
-        )
-        .await
     }
 
     pub(crate) async fn get_config(&self) -> std::sync::Arc<Config> {
@@ -3788,7 +3765,7 @@ impl Session {
             state.reference_context_item()
         };
         let should_inject_full_context = reference_context_item.is_none();
-        let mut context_items = if should_inject_full_context {
+        let context_items = if should_inject_full_context {
             let mut context_items = self.build_initial_context(turn_context).await;
             let prompt_profile = self.prompt_profile().await;
             if let Some(greeting_item) =

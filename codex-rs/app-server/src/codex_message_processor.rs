@@ -6546,7 +6546,7 @@ impl CodexMessageProcessor {
                 rollout_path,
                 /*prompt_profile*/ None,
                 /*persist_extended_history*/ false,
-                self.request_trace_context(&request_id).await,
+                self.request_trace_context(request_id).await,
             )
             .await
             .map_err(|err| JSONRPCErrorError {

@@ -34,7 +34,6 @@ import type { McpServerOauthLoginParams } from "./v2/McpServerOauthLoginParams";
 import type { ModelListParams } from "./v2/ModelListParams";
 import type { PluginInstallParams } from "./v2/PluginInstallParams";
 import type { PluginListParams } from "./v2/PluginListParams";
-import type { ProviderListParams } from "./v2/ProviderListParams";
 import type { PluginReadParams } from "./v2/PluginReadParams";
 import type { PluginUninstallParams } from "./v2/PluginUninstallParams";
 import type { ProviderListParams } from "./v2/ProviderListParams";

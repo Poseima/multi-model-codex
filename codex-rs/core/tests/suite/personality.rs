@@ -656,7 +656,6 @@ async fn remote_model_friendly_personality_instructions_with_feature() -> anyhow
         supports_image_detail_original: false,
         context_window: Some(128_000),
         auto_compact_token_limit: None,
-        auto_compact_percent: None,
         effective_context_window_percent: 95,
         experimental_supported_tools: Vec::new(),
         input_modalities: default_input_modalities(),

@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use codex_core::load_prompt_profile_from_path;
 use codex_protocol::prompt_profile::PromptSource;
@@ -142,6 +143,7 @@ impl App {
                     path.clone(),
                     Some(prompt_profile),
                     false,
+                    None,
                 )
                 .await
             {
@@ -183,8 +185,16 @@ impl App {
             let model = self.chat_widget.current_model().to_string();
             let config = self.fresh_session_config();
             self.shutdown_current_thread().await;
-            if let Err(err) = self.server.remove_and_close_all_threads().await {
-                tracing::warn!(error = %err, "failed to close all threads");
+            let report = self
+                .server
+                .shutdown_all_threads_bounded(Duration::from_secs(10))
+                .await;
+            if !report.submit_failed.is_empty() || !report.timed_out.is_empty() {
+                tracing::warn!(
+                    submit_failed = report.submit_failed.len(),
+                    timed_out = report.timed_out.len(),
+                    "failed to close all threads"
+                );
             }
             match self
                 .server

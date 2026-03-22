@@ -26,7 +26,6 @@ pub use crate::common::ResponsesApiRequest;
 pub use crate::common::WS_REQUEST_HEADER_TRACEPARENT_CLIENT_METADATA_KEY;
 pub use crate::common::WS_REQUEST_HEADER_TRACESTATE_CLIENT_METADATA_KEY;
 pub use crate::common::create_text_param_for_request;
-pub use crate::endpoint::chat_compat::ChatCompatClient; // Fork: chat-api
 pub use crate::common::response_create_client_metadata;
 pub use crate::endpoint::chat_compat::ChatCompatClient; // Fork: chat-api
 pub use crate::endpoint::compact::CompactClient;

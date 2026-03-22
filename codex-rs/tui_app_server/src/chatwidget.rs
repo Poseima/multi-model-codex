@@ -6492,6 +6492,18 @@ impl ChatWidget {
                 self.on_entered_review_mode(review_request, from_replay)
             }
             EventMsg::ExitedReviewMode(review) => self.on_exited_review_mode(review),
+            EventMsg::EnteredArchiveMode => {
+                self.add_to_history(history_cell::new_review_status_line(
+                    ">> Memory archive started <<".to_string(),
+                ));
+                self.request_redraw();
+            }
+            EventMsg::ExitedArchiveMode => {
+                self.add_to_history(history_cell::new_review_status_line(
+                    "<< Memory archive finished >>".to_string(),
+                ));
+                self.request_redraw();
+            }
             EventMsg::ContextCompacted(_) => self.on_agent_message("Context compacted".to_owned()),
             EventMsg::CollabAgentSpawnBegin(CollabAgentSpawnBeginEvent {
                 call_id,
@@ -9326,6 +9338,7 @@ impl ChatWidget {
         }
         match self.active_mode_kind() {
             ModeKind::Plan => Some(CollaborationModeIndicator::Plan),
+            ModeKind::Dawn => Some(CollaborationModeIndicator::Dawn),
             ModeKind::Default | ModeKind::PairProgramming | ModeKind::Execute => None,
         }
     }

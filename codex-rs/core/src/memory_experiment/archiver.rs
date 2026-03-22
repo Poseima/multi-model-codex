@@ -176,6 +176,7 @@ mod tests {
                 id: None,
                 call_id: "call_1".to_string(),
                 name: "text_editor".to_string(),
+                namespace: None,
                 arguments: r#"{"command":"view","path":"/src/main.rs"}"#.to_string(),
             },
             ResponseItem::FunctionCallOutput {

@@ -14,12 +14,7 @@ expression: popup
                               knowledge, reasoning and coding
   6. gpt-5.1-codex-mini       Optimized for codex. Cheaper, faster, but less
                               capable.
-  7. z-ai/glm-4.5-air:free      Zhipu AI's GLM-4.5 model via OpenRouter.
-  8. xiaomi/mimo-v2-flash:free  Xiaomi's 309B MoE model. Top open-source on
-                                SWE-bench.
-  9. google/gemini-2.0-flash-001    Google's Gemini 2.0 Flash model via
-                                    OpenRouter.
-  10. google/gemini-3-flash-preview  Google's Gemini 3 Flash preview model via
-                                     OpenRouter.
+  7. codex-MiniMax-M2.1       MiniMax coding model
+  8. MiniMax-M2.5             MiniMax coding model
 
   Press enter to select reasoning effort, or esc to dismiss.

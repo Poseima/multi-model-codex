@@ -6,11 +6,15 @@ use crate::apply_patch::convert_apply_patch_to_protocol;
 use crate::client_common::tools::ResponsesApiTool;
 use crate::client_common::tools::ToolSpec;
 use crate::function_tool::FunctionCallError;
+use crate::sandboxing::SandboxPermissions;
+use crate::sandboxing::effective_file_system_sandbox_policy;
+use crate::sandboxing::merge_permission_profiles;
+use crate::tools::context::FunctionToolOutput;
 use crate::tools::context::ToolInvocation;
-use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
 use crate::tools::events::ToolEmitter;
 use crate::tools::events::ToolEventCtx;
+use crate::tools::handlers::apply_granted_turn_permissions;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::orchestrator::ToolOrchestrator;
 use crate::tools::registry::ToolHandler;
@@ -21,9 +25,11 @@ use crate::tools::sandboxing::ToolCtx;
 use crate::tools::spec::JsonSchema;
 use async_trait::async_trait;
 use codex_apply_patch::ApplyPatchFileChange;
-use codex_protocol::models::FunctionCallOutputBody;
+use codex_protocol::models::FileSystemPermissions;
+use codex_protocol::models::PermissionProfile;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use serde::Deserialize;
+use std::collections::BTreeSet;
 
 pub struct StructuredEditHandler;
 
@@ -93,11 +99,13 @@ Delete a file:
 "#
         .to_string(),
         strict: false,
+        defer_loading: None,
         parameters: JsonSchema::Object {
             properties,
             required: Some(vec!["command".to_string(), "path".to_string()]),
             additional_properties: Some(false.into()),
         },
+        output_schema: None,
     })
 }
 
@@ -118,6 +126,8 @@ const CONTEXT_LINES: usize = 3;
 
 #[async_trait]
 impl ToolHandler for StructuredEditHandler {
+    type Output = FunctionToolOutput;
+
     fn kind(&self) -> ToolKind {
         ToolKind::Function
     }
@@ -126,7 +136,7 @@ impl ToolHandler for StructuredEditHandler {
         true
     }
 
-    async fn handle(&self, invocation: ToolInvocation) -> Result<ToolOutput, FunctionCallError> {
+    async fn handle(&self, invocation: ToolInvocation) -> Result<Self::Output, FunctionCallError> {
         let ToolInvocation {
             session,
             turn,
@@ -134,6 +144,7 @@ impl ToolHandler for StructuredEditHandler {
             call_id,
             tool_name,
             payload,
+            ..
         } = invocation;
 
         let args: StructuredEditArgs = match payload {
@@ -183,17 +194,55 @@ impl ToolHandler for StructuredEditHandler {
         let command = vec!["apply_patch".to_string(), patch_string];
         match codex_apply_patch::maybe_parse_apply_patch_verified(&command, &cwd) {
             codex_apply_patch::MaybeApplyPatchVerified::Body(action) => {
-                match apply_patch::apply_patch(turn.as_ref(), action).await {
+                let file_paths = file_paths_for_action(&action);
+                let write_paths = file_paths
+                    .iter()
+                    .map(|path| {
+                        path.parent()
+                            .unwrap_or_else(|| path.clone())
+                            .into_path_buf()
+                    })
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .map(AbsolutePathBuf::from_absolute_path)
+                    .collect::<Result<Vec<_>, _>>()
+                    .ok();
+                let additional_permissions = write_paths
+                    .filter(|write_paths| !write_paths.is_empty())
+                    .and_then(|write_paths| {
+                        crate::sandboxing::normalize_additional_permissions(PermissionProfile {
+                            file_system: Some(FileSystemPermissions {
+                                read: Some(vec![]),
+                                write: Some(write_paths),
+                            }),
+                            ..Default::default()
+                        })
+                        .ok()
+                    });
+                let granted_permissions = merge_permission_profiles(
+                    session.granted_session_permissions().await.as_ref(),
+                    session.granted_turn_permissions().await.as_ref(),
+                );
+                let effective_additional_permissions = apply_granted_turn_permissions(
+                    session.as_ref(),
+                    SandboxPermissions::UseDefault,
+                    additional_permissions,
+                )
+                .await;
+                let file_system_sandbox_policy = effective_file_system_sandbox_policy(
+                    &turn.file_system_sandbox_policy,
+                    granted_permissions.as_ref(),
+                );
+
+                match apply_patch::apply_patch(turn.as_ref(), &file_system_sandbox_policy, action)
+                    .await
+                {
                     InternalApplyPatchInvocation::Output(item) => {
                         let content = item?;
-                        Ok(ToolOutput::Function {
-                            body: FunctionCallOutputBody::Text(content),
-                            success: Some(true),
-                        })
+                        Ok(FunctionToolOutput::from_text(content, Some(true)))
                     }
                     InternalApplyPatchInvocation::DelegateToExec(apply) => {
                         let changes = convert_apply_patch_to_protocol(&apply.action);
-                        let file_paths = file_paths_for_action(&apply.action);
                         let emitter =
                             ToolEmitter::apply_patch(changes.clone(), apply.auto_approved);
                         let event_ctx = ToolEventCtx::new(
@@ -209,6 +258,12 @@ impl ToolHandler for StructuredEditHandler {
                             file_paths,
                             changes,
                             exec_approval_requirement: apply.exec_approval_requirement,
+                            sandbox_permissions: effective_additional_permissions
+                                .sandbox_permissions,
+                            additional_permissions: effective_additional_permissions
+                                .additional_permissions,
+                            permissions_preapproved: effective_additional_permissions
+                                .permissions_preapproved,
                             timeout_ms: None,
                             codex_exe: turn.codex_linux_sandbox_exe.clone(),
                         };
@@ -222,7 +277,13 @@ impl ToolHandler for StructuredEditHandler {
                             tool_name: tool_name.to_string(),
                         };
                         let out = orchestrator
-                            .run(&mut runtime, &req, &tool_ctx, &turn, *turn.approval_policy)
+                            .run(
+                                &mut runtime,
+                                &req,
+                                &tool_ctx,
+                                turn.as_ref(),
+                                turn.approval_policy.value(),
+                            )
                             .await
                             .map(|result| result.output);
                         let event_ctx = ToolEventCtx::new(
@@ -232,10 +293,7 @@ impl ToolHandler for StructuredEditHandler {
                             Some(&tracker),
                         );
                         let content = emitter.finish(event_ctx, out).await?;
-                        Ok(ToolOutput::Function {
-                            body: FunctionCallOutputBody::Text(content),
-                            success: Some(true),
-                        })
+                        Ok(FunctionToolOutput::from_text(content, Some(true)))
                     }
                 }
             }

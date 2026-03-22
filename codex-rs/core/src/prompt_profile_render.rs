@@ -1425,6 +1425,7 @@ mod tests {
             ResponseItem::FunctionCall {
                 id: None,
                 name: "update_plan".to_string(),
+                namespace: None,
                 arguments: "{}".to_string(),
                 call_id: "tool-1".to_string(),
             },
@@ -1447,6 +1448,7 @@ mod tests {
                 ResponseItem::FunctionCall {
                     id: None,
                     name: "update_plan".to_string(),
+                    namespace: None,
                     arguments: "{}".to_string(),
                     call_id: "tool-1".to_string(),
                 },
@@ -1473,6 +1475,7 @@ mod tests {
             ResponseItem::FunctionCall {
                 id: None,
                 name: "update_plan".to_string(),
+                namespace: None,
                 arguments: "{}".to_string(),
                 call_id: "tool-1".to_string(),
             },

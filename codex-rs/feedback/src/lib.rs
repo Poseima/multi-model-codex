@@ -557,6 +557,7 @@ mod tests {
         );
         let attachments_without_diagnostics = CodexFeedback::new()
             .snapshot(None)
+            .with_feedback_diagnostics(FeedbackDiagnostics::default())
             .feedback_attachments(true, &[], Some(vec![1]));
 
         assert_eq!(

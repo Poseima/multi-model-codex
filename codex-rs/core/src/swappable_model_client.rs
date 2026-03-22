@@ -57,13 +57,7 @@ impl SwappableModelClient {
     ) -> Result<Vec<ResponseItem>> {
         let client = self.inner.read().expect("lock poisoned").clone();
         client
-            .compact_conversation_history(
-                prompt,
-                model_info,
-                effort,
-                summary,
-                session_telemetry,
-            )
+            .compact_conversation_history(prompt, model_info, effort, summary, session_telemetry)
             .await
     }
 
