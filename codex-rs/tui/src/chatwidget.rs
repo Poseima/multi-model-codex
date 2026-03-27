@@ -477,6 +477,7 @@ use self::user_messages::user_message_preview_text;
 mod warnings;
 use self::warnings::WarningDisplayState;
 pub(crate) use crate::branch_summary::StatusLineGitSummary;
+mod switch_account;
 use crate::streaming::chunking::AdaptiveChunkingPolicy;
 use crate::streaming::commit_tick::CommitTickScope;
 use crate::streaming::commit_tick::run_commit_tick;
@@ -1164,9 +1165,31 @@ impl ChatWidget {
                     .set_context_window_pending(/*pending*/ true);
                 self.bottom_pane
                     .set_context_window(/*percent*/ None, /*used_tokens*/ None);
+                self.bottom_pane.set_context_window_total(None);
                 self.token_info = None;
             }
         }
+    }
+
+    fn apply_turn_started_context_window(&mut self, model_context_window: Option<i64>) {
+        let info = match self.token_info.take() {
+            Some(mut info) => {
+                info.model_context_window = model_context_window;
+                info
+            }
+            None => {
+                let Some(model_context_window) = model_context_window else {
+                    return;
+                };
+                TokenUsageInfo {
+                    total_token_usage: TokenUsage::default(),
+                    last_token_usage: TokenUsage::default(),
+                    model_context_window: Some(model_context_window),
+                }
+            }
+        };
+
+        self.apply_token_info(info);
     }
 
     fn apply_token_info(&mut self, info: TokenUsageInfo) {
@@ -1176,6 +1199,8 @@ impl ChatWidget {
         let percent = self.context_remaining_percent(&info);
         let used_tokens = self.context_used_tokens(&info, percent.is_some());
         self.bottom_pane.set_context_window(percent, used_tokens);
+        self.bottom_pane
+            .set_context_window_total(info.model_context_window);
         self.token_info = Some(info);
     }
 
@@ -1186,12 +1211,8 @@ impl ChatWidget {
         })
     }
 
-    fn context_used_tokens(&self, info: &TokenUsageInfo, percent_known: bool) -> Option<i64> {
-        if percent_known {
-            return None;
-        }
-
-        Some(info.total_token_usage.tokens_in_context_window())
+    fn context_used_tokens(&self, info: &TokenUsageInfo, _percent_known: bool) -> Option<i64> {
+        Some(info.last_token_usage.tokens_in_context_window())
     }
 
     fn restore_pre_review_token_info(&mut self) {
@@ -1201,6 +1222,7 @@ impl ChatWidget {
                 None => {
                     self.bottom_pane
                         .set_context_window(/*percent*/ None, /*used_tokens*/ None);
+                    self.bottom_pane.set_context_window_total(None);
                     self.token_info = None;
                 }
             }

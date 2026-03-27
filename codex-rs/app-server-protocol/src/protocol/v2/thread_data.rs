@@ -13,6 +13,7 @@ use codex_protocol::protocol::SessionSource as CoreSessionSource;
 use codex_protocol::protocol::SubAgentSource as CoreSubAgentSource;
 use codex_protocol::protocol::ThreadHistoryMode as CoreThreadHistoryMode;
 use codex_protocol::protocol::ThreadSource as CoreThreadSource;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 #[cfg(test)]
 use schemars::r#gen::SchemaGenerator;
@@ -286,6 +287,8 @@ pub struct Thread {
     /// Saved Daybreak choice, independent of turn execution. Null if unset.
     #[experimental("thread.daybreakEnabled")]
     pub daybreak_enabled: Option<bool>,
+    pub prompt_profile: Option<PromptSource>,
+    pub prompt_profile_path: Option<PathBuf>,
     /// Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read`
     /// (when `includeTurns` is true) responses.
     /// For all other responses and notifications returning a Thread,

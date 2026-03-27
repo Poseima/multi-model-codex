@@ -290,6 +290,8 @@ pub(crate) fn summary_to_thread(
         git_info,
         name: None,
         daybreak_enabled: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     }
 }
