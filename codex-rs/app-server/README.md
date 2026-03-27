@@ -271,6 +271,23 @@ App-server discovers routing for saved ChatGPT logins at startup and for new log
 
 The origin of a required `chatgpt_base_url` must match the discovered origin by scheme, host, and effective port. The base URL's API path is not part of this comparison. Either origin alone is sufficient. If requirements specify no base URL and discovery explicitly returns `NO_CONSTRAINT`, the effective `chatgpt_base_url` supplies the origin, including its existing default. `backendOrigin` is always a resolved origin; `accountRoutingOverride` preserves `NO_CONSTRAINT` when the backend explicitly returns it. Discovering an origin does not change API paths or apply routing headers to requests.
 
+# Prompt profiles
+
+`thread/start` and `thread/fork` also accept prompt-profile overrides:
+
+- `promptProfile` passes a normalized `PromptSource` payload directly.
+- `promptProfilePath` loads a profile from disk. The server accepts native
+  prompt-profile JSON, SillyTavern JSON cards, and SillyTavern PNG cards with
+  embedded `ccv3` or `chara` metadata.
+- If both are provided, `promptProfile` takes precedence.
+- `thread/fork` also accepts `clearPromptProfile: true` to drop an inherited
+  prompt profile from the forked thread. This cannot be combined with
+  `promptProfile` or `promptProfilePath`.
+
+Returned thread payloads from `thread/start`, `thread/fork`, `thread/read`, and
+`thread/resume` include `promptProfile` and the derived `promptProfilePath` when
+a prompt profile is active.
+
 ## Windows sandbox implementation selection
 
 `windowsSandbox/setupStart` and `windowsSandbox/readiness` apply only to the

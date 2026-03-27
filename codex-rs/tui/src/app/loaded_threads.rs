@@ -152,6 +152,8 @@ mod tests {
             model_provider: "openai".to_string(),
             model: None,
             reasoning_effort: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 0,
             updated_at: 0,
             recency_at: Some(0),

@@ -6098,6 +6098,8 @@ pub(crate) fn thread_from_stored_thread(
         git_info,
         name: thread.name,
         daybreak_enabled: thread.daybreak_enabled,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     };
     (thread, history)
@@ -6284,6 +6286,8 @@ fn build_thread_from_snapshot(
         git_info: None,
         name: None,
         daybreak_enabled: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     }
 }

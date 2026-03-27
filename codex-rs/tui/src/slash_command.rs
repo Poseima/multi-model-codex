@@ -14,6 +14,10 @@ pub enum SlashCommand {
     // more frequently used commands should be listed first.
     Model,
     Ide,
+    Provider,
+    #[strum(serialize = "switch_account")]
+    SwitchAccount,
+    Approvals,
     Permissions,
     Keymap,
     Vim,
@@ -73,6 +77,7 @@ pub enum SlashCommand {
     #[strum(to_string = "stop", serialize = "clean")]
     Stop,
     Clear,
+    Profile,
     TestApproval,
     #[strum(serialize = "subagents")]
     MultiAgents,
@@ -98,6 +103,7 @@ impl SlashCommand {
             SlashCommand::Archive => "archive this session",
             SlashCommand::Delete => "permanently delete this session",
             SlashCommand::Clear => "clear the terminal and start a new chat",
+            SlashCommand::Profile => "load, show, or clear a prompt profile / character card",
             SlashCommand::Fork => "fork the current chat",
             SlashCommand::Worktree => "start or continue a conversation in a new worktree",
             SlashCommand::App => "continue this session in the Desktop app",
@@ -128,6 +134,9 @@ impl SlashCommand {
             SlashCommand::Ide => {
                 "include current selection, open files, and other context from your IDE"
             }
+            SlashCommand::Provider => "switch between configured model providers",
+            SlashCommand::SwitchAccount => "switch auth.json from CODEX_HOME/multi_auths",
+            SlashCommand::Approvals => "configure approval review routing",
             SlashCommand::Plan => "switch to Plan mode",
             SlashCommand::Voice => "start or stop voice; use /voice settings to choose a voice",
             SlashCommand::Goal => "set or view the goal for a long-running task",
@@ -182,6 +191,7 @@ impl SlashCommand {
                 | SlashCommand::Side
                 | SlashCommand::Btw
                 | SlashCommand::Resume
+                | SlashCommand::Profile
         )
     }
 
@@ -215,6 +225,7 @@ impl SlashCommand {
             | SlashCommand::Compact
             | SlashCommand::Recap
             | SlashCommand::Export
+            | SlashCommand::SwitchAccount
             | SlashCommand::Keymap
             | SlashCommand::Vim
             | SlashCommand::ElevateSandbox
@@ -231,6 +242,8 @@ impl SlashCommand {
             SlashCommand::Diff
             | SlashCommand::Resume
             | SlashCommand::Model
+            | SlashCommand::Provider
+            | SlashCommand::Approvals
             | SlashCommand::Permissions
             | SlashCommand::Copy
             | SlashCommand::Raw
@@ -258,6 +271,7 @@ impl SlashCommand {
             | SlashCommand::Ide
             | SlashCommand::Quit
             | SlashCommand::Exit
+            | SlashCommand::Profile
             | SlashCommand::Side
             | SlashCommand::Btw => true,
             SlashCommand::Rollout => true,

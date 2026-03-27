@@ -4468,6 +4468,8 @@ async fn inactive_thread_started_notification_initializes_replay_session() -> Re
                 agent_role: Some("explorer".to_string()),
                 git_info: None,
                 name: Some("agent thread".to_string()),
+        prompt_profile: None,
+        prompt_profile_path: None,
                 turns: Vec::new(),
             },
         }),
@@ -4573,6 +4575,8 @@ async fn inactive_thread_started_notification_preserves_primary_model_when_path_
                 agent_role: Some("explorer".to_string()),
                 git_info: None,
                 name: Some("agent thread".to_string()),
+        prompt_profile: None,
+        prompt_profile_path: None,
                 turns: Vec::new(),
             },
         }),
@@ -4644,6 +4648,8 @@ async fn thread_read_session_state_does_not_reuse_primary_permission_profile() {
         agent_role: None,
         git_info: None,
         name: Some("read thread".to_string()),
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     };
 
@@ -8536,6 +8542,38 @@ async fn refreshed_snapshot_session_persists_resumed_turns() {
             completed_turns: 1,
             last_recapped_turn_count: None,
         }
+    );
+}
+
+#[tokio::test]
+async fn late_usage_result_can_follow_finalized_plan() {
+    let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
+    app.chat_widget
+        .add_token_activity_output(crate::chatwidget::TokenActivityView::Daily);
+    let request_id = match app_event_rx.try_recv() {
+        Ok(AppEvent::RefreshTokenActivity { request_id }) => request_id,
+        other => panic!("expected token activity refresh request, got {other:?}"),
+    };
+
+    app.chat_widget.note_stream_consolidation_queued();
+    app.transcript_cells
+        .push(Arc::new(history_cell::new_proposed_plan_stream(
+            vec![Line::from("finalized plan")],
+            /*is_stream_continuation*/ false,
+        )));
+    app.chat_widget.note_stream_consolidation_completed();
+
+    assert!(
+        app.chat_widget.finish_token_activity_refresh(
+            request_id,
+            Err("token activity unavailable".to_string()),
+        )
+    );
+    assert!(!app.pending_usage_output_insertion_blocked());
+    assert!(
+        app.chat_widget
+            .take_completed_token_activity_output()
+            .is_some()
     );
 }
 

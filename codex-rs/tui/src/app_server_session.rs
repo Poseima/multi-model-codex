@@ -144,6 +144,7 @@ use codex_protocol::openai_models::ModelServiceTier;
 use codex_protocol::openai_models::ModelUpgrade;
 use codex_protocol::openai_models::ReasoningEffortPreset;
 use codex_protocol::protocol::SubAgentSource;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_path_uri::PathUri;
 use color_eyre::eyre::ContextCompat;
@@ -806,6 +807,40 @@ impl AppServerSession {
         remote_cwd_override: Option<&std::path::Path>,
         selected_profile: Option<&PermissionProfileSelection>,
     ) -> Result<AppServerStartedThread> {
+        self.start_thread_with_overrides(
+            local_settings,
+            config,
+            session_start_source,
+            remote_cwd_override,
+            /*prompt_profile*/ None,
+        )
+        .await
+    }
+
+    pub(crate) async fn start_thread_with_prompt_profile(
+        &mut self,
+        local_settings: &LocalSettings,
+        config: &Config,
+        prompt_profile: Option<PromptSource>,
+    ) -> Result<AppServerStartedThread> {
+        self.start_thread_with_overrides(
+            local_settings,
+            config,
+            /*session_start_source*/ None,
+            /*remote_cwd_override*/ None,
+            prompt_profile,
+        )
+        .await
+    }
+
+    async fn start_thread_with_overrides(
+        &mut self,
+        local_settings: &LocalSettings,
+        config: &Config,
+        session_start_source: Option<ThreadStartSource>,
+        remote_cwd_override: Option<&std::path::Path>,
+        prompt_profile: Option<PromptSource>,
+    ) -> Result<AppServerStartedThread> {
         let request_id = self.next_request_id();
         let session_config = self.session_config_with_effective_service_tier(config);
         let mut params = thread_start_params_from_config(
@@ -813,6 +848,7 @@ impl AppServerSession {
             self.thread_params_mode(),
             remote_cwd_override.or(self.remote_cwd_override.as_deref()),
             session_start_source,
+            prompt_profile,
         );
         if let Some(selected_profile) = selected_profile {
             params.runtime_workspace_roots = None;
@@ -901,13 +937,15 @@ impl AppServerSession {
         goal_continuation: ForkGoalContinuation,
         selected_profile: Option<&PermissionProfileSelection>,
     ) -> Result<AppServerStartedThread> {
-        self.fork_thread_at_with_presentation(
+        self.fork_thread_with_options(
             local_settings,
             config,
             thread_id,
             last_turn_id,
             before_turn_id,
             goal_continuation,
+            None,
+            /*clear_prompt_profile*/ false,
             ForkPresentation::Regular,
             selected_profile,
             ForkPermissionMode::InheritSaved,
@@ -921,16 +959,59 @@ impl AppServerSession {
         config: Config,
         thread_id: ThreadId,
     ) -> Result<AppServerStartedThread> {
-        self.fork_thread_at_with_presentation(
+        self.fork_thread_with_options(
             local_settings,
             config,
             thread_id,
             /*last_turn_id*/ None,
             /*before_turn_id*/ None,
             ForkGoalContinuation::StartIfIdle,
+            None,
+            /*clear_prompt_profile*/ false,
             ForkPresentation::SideConversation,
             /*selected_profile*/ None,
             ForkPermissionMode::InheritSaved,
+        )
+        .await
+    }
+
+    pub(crate) async fn fork_thread_with_prompt_profile(
+        &mut self,
+        local_settings: &LocalSettings,
+        config: Config,
+        thread_id: ThreadId,
+        prompt_profile: Option<PromptSource>,
+    ) -> Result<AppServerStartedThread> {
+        self.fork_thread_with_options(
+            local_settings,
+            config,
+            thread_id,
+            /*last_turn_id*/ None,
+            /*before_turn_id*/ None,
+            ForkGoalContinuation::StartIfIdle,
+            prompt_profile,
+            /*clear_prompt_profile*/ false,
+            ForkPresentation::Regular,
+        )
+        .await
+    }
+
+    pub(crate) async fn fork_thread_clearing_prompt_profile(
+        &mut self,
+        local_settings: &LocalSettings,
+        config: Config,
+        thread_id: ThreadId,
+    ) -> Result<AppServerStartedThread> {
+        self.fork_thread_with_options(
+            local_settings,
+            config,
+            thread_id,
+            /*last_turn_id*/ None,
+            /*before_turn_id*/ None,
+            ForkGoalContinuation::StartIfIdle,
+            None,
+            /*clear_prompt_profile*/ true,
+            ForkPresentation::Regular,
         )
         .await
     }
@@ -939,7 +1020,7 @@ impl AppServerSession {
         clippy::too_many_arguments,
         reason = "keep local preferences separate while the legacy Config parameter is still required"
     )]
-    async fn fork_thread_at_with_presentation(
+    async fn fork_thread_with_options(
         &mut self,
         local_settings: &LocalSettings,
         config: Config,
@@ -947,6 +1028,8 @@ impl AppServerSession {
         last_turn_id: Option<String>,
         before_turn_id: Option<String>,
         goal_continuation: ForkGoalContinuation,
+        prompt_profile: Option<PromptSource>,
+        clear_prompt_profile: bool,
         presentation: ForkPresentation,
         selected_profile: Option<&PermissionProfileSelection>,
         permission_mode: ForkPermissionMode,
@@ -980,6 +1063,8 @@ impl AppServerSession {
                 thread_id,
                 self.thread_params_mode(),
                 self.remote_cwd_override.as_deref(),
+                prompt_profile,
+                clear_prompt_profile,
             )
         };
         if self.thread_params_mode() == ThreadParamsMode::Remote
@@ -1567,6 +1652,21 @@ impl AppServerSession {
         Ok(())
     }
 
+    pub(crate) async fn thread_archive(&mut self, thread_id: ThreadId) -> Result<()> {
+        let request_id = self.next_request_id();
+        let _: ThreadArchiveResponse = self
+            .client
+            .request_typed(ClientRequest::ThreadArchive {
+                request_id,
+                params: ThreadArchiveParams {
+                    thread_id: thread_id.to_string(),
+                },
+            })
+            .await
+            .wrap_err("thread/archive failed in app-server TUI")?;
+        Ok(())
+    }
+
     pub(crate) async fn thread_shell_command(
         &mut self,
         thread_id: ThreadId,
@@ -1720,6 +1820,7 @@ pub(crate) async fn start_thread_with_request_handle(
         thread_params_mode,
         remote_cwd_override.as_deref(),
         /*session_start_source*/ None,
+        /*prompt_profile*/ None,
     );
     thread_tool_transport.configure(&mut params);
     let (response, _history_support, task_tools_available) =
@@ -2057,6 +2158,7 @@ pub(crate) fn thread_start_params_from_config(
     thread_params_mode: ThreadParamsMode,
     remote_cwd_override: Option<&std::path::Path>,
     session_start_source: Option<ThreadStartSource>,
+    prompt_profile: Option<PromptSource>,
 ) -> ThreadStartParams {
     let permissions = permissions_selection_from_config(config, thread_params_mode);
     let sandbox = permissions
@@ -2089,6 +2191,8 @@ pub(crate) fn thread_start_params_from_config(
         developer_instructions: with_terminal_visualization_instructions(
             config, /*control_instructions*/ None,
         ),
+        prompt_profile,
+        persist_extended_history: true,
         ..ThreadStartParams::default()
     }
 }
@@ -2167,6 +2271,8 @@ fn thread_fork_params_from_config(
     thread_id: ThreadId,
     thread_params_mode: ThreadParamsMode,
     remote_cwd_override: Option<&std::path::Path>,
+    prompt_profile: Option<PromptSource>,
+    clear_prompt_profile: bool,
 ) -> ThreadForkParams {
     let permissions = permissions_selection_from_config(&config, thread_params_mode);
     let sandbox = permissions
@@ -2202,6 +2308,9 @@ fn thread_fork_params_from_config(
         ),
         ephemeral: config.ephemeral,
         thread_source: Some(ThreadSource::User),
+        prompt_profile,
+        clear_prompt_profile,
+        persist_extended_history: true,
         ..ThreadForkParams::default()
     }
 }
@@ -2308,6 +2417,8 @@ async fn thread_session_state_from_thread_start_response(
         response.thread.path.clone(),
         response.model.clone(),
         response.model_provider.clone(),
+        response.thread.prompt_profile.clone(),
+        response.thread.prompt_profile_path.clone(),
         response.service_tier.clone(),
         response.approval_policy,
         response.approvals_reviewer.to_core(),
@@ -2352,6 +2463,8 @@ async fn thread_session_state_from_thread_resume_response(
         response.thread.path.clone(),
         response.model.clone(),
         response.model_provider.clone(),
+        response.thread.prompt_profile.clone(),
+        response.thread.prompt_profile_path.clone(),
         response.service_tier.clone(),
         response.approval_policy,
         response.approvals_reviewer.to_core(),
@@ -2389,6 +2502,8 @@ async fn thread_session_state_from_thread_fork_response(
         response.thread.path.clone(),
         response.model.clone(),
         response.model_provider.clone(),
+        response.thread.prompt_profile.clone(),
+        response.thread.prompt_profile_path.clone(),
         response.service_tier.clone(),
         response.approval_policy,
         response.approvals_reviewer.to_core(),
@@ -2441,6 +2556,8 @@ async fn thread_session_state_from_thread_response(
     rollout_path: Option<PathBuf>,
     model: String,
     model_provider_id: String,
+    prompt_profile: Option<PromptSource>,
+    prompt_profile_path: Option<PathBuf>,
     service_tier: Option<String>,
     approval_policy: AskForApproval,
     approvals_reviewer: codex_protocol::config_types::ApprovalsReviewer,
@@ -2473,6 +2590,8 @@ async fn thread_session_state_from_thread_response(
         thread_name,
         model,
         model_provider_id,
+        prompt_profile,
+        prompt_profile_path,
         service_tier,
         approval_policy,
         approvals_reviewer,
@@ -2819,6 +2938,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
 
         assert_eq!(params.ephemeral, Some(true));
@@ -2925,6 +3045,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
 
         assert_eq!(params.cwd, Some(config.cwd.to_string_lossy().to_string()));
@@ -2955,6 +3076,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             Some(ThreadStartSource::Clear),
+            /*prompt_profile*/ None,
         );
 
         assert_eq!(params.session_start_source, Some(ThreadStartSource::Clear));
@@ -3173,6 +3295,7 @@ mod tests {
             ThreadParamsMode::Remote,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let resume = thread_resume_params_from_config(
             config.clone(),
@@ -3186,6 +3309,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Remote,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(start.cwd, None);
@@ -3327,6 +3452,7 @@ mod tests {
             ThreadParamsMode::Remote,
             Some(remote_cwd.as_path()),
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let resume = thread_resume_params_from_config(
             config.clone(),
@@ -3340,6 +3466,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Remote,
             Some(remote_cwd.as_path()),
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(start.cwd.as_deref(), Some("repo/on/server"));
@@ -3379,6 +3507,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let resume = thread_resume_params_from_config(
             config.clone(),
@@ -3392,6 +3521,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         let expected_service_tier = Some(Some(ServiceTier::Fast.request_value().to_string()));
@@ -3779,6 +3910,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(params.base_instructions.as_deref(), Some("Base override."));
@@ -3851,6 +3984,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let control_resume = thread_resume_params_from_config(
             config.clone(),
@@ -3864,6 +3998,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(control_start.developer_instructions, None);
@@ -3881,6 +4017,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let treatment_resume = thread_resume_params_from_config(
             config.clone(),
@@ -3894,6 +4031,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
         let expected = format!(
             "Developer override.\n\n{}",
@@ -3941,6 +4080,8 @@ mod tests {
                 model_provider: "openai".to_string(),
                 model: None,
                 reasoning_effort: None,
+                prompt_profile: None,
+                prompt_profile_path: None,
                 created_at: 1,
                 updated_at: 2,
                 recency_at: Some(2),
@@ -4164,6 +4305,8 @@ mod tests {
             /*rollout_path*/ None,
             "gpt-5.4".to_string(),
             "openai".to_string(),
+            /*prompt_profile*/ None,
+            /*prompt_profile_path*/ None,
             /*service_tier*/ None,
             AskForApproval::Never,
             codex_protocol::config_types::ApprovalsReviewer::User,
@@ -4201,6 +4344,8 @@ mod tests {
             /*rollout_path*/ None,
             "gpt-5.4".to_string(),
             "openai".to_string(),
+            /*prompt_profile*/ None,
+            /*prompt_profile_path*/ None,
             /*service_tier*/ None,
             AskForApproval::Never,
             codex_protocol::config_types::ApprovalsReviewer::User,
@@ -4256,5 +4401,23 @@ mod tests {
                 plan: Some(ref plan),
             }) if plan == "Business Premium"
         ));
+    }
+
+    #[tokio::test]
+    async fn thread_fork_params_can_clear_prompt_profile() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let config = build_config(&temp_dir).await;
+
+        let params = thread_fork_params_from_config(
+            config,
+            ThreadId::new(),
+            ThreadParamsMode::Embedded,
+            /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ true,
+        );
+
+        assert!(params.clear_prompt_profile);
+        assert_eq!(params.prompt_profile, None);
     }
 }
