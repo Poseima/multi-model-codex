@@ -897,6 +897,8 @@ mod tests {
             ephemeral: false,
             history_mode: Default::default(),
             model_provider: "mock-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 0,
             updated_at: 0,
             recency_at: Some(0),
@@ -910,6 +912,8 @@ mod tests {
             thread_source: None,
             git_info: None,
             name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
             turns: Vec::new(),
         }
     }
