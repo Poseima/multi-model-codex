@@ -224,3 +224,20 @@ Existing rollouts may contain historical `ThreadRolledBack` events. Their replay
 and migration remain supported so resuming, reading, and forking those threads
 preserves the surviving history. This disk compatibility does not require restoring
 support for new `thread/rollback` requests.
+
+# Prompt profiles
+
+`thread/start` and `thread/fork` also accept prompt-profile overrides:
+
+- `promptProfile` passes a normalized `PromptSource` payload directly.
+- `promptProfilePath` loads a profile from disk. The server accepts native
+  prompt-profile JSON, SillyTavern JSON cards, and SillyTavern PNG cards with
+  embedded `ccv3` or `chara` metadata.
+- If both are provided, `promptProfile` takes precedence.
+- `thread/fork` also accepts `clearPromptProfile: true` to drop an inherited
+  prompt profile from the forked thread. This cannot be combined with
+  `promptProfile` or `promptProfilePath`.
+
+Returned thread payloads from `thread/start`, `thread/fork`, `thread/read`, and
+`thread/resume` include `promptProfile` and the derived `promptProfilePath` when
+a prompt profile is active.

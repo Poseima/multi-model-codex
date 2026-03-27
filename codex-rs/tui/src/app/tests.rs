@@ -4455,6 +4455,8 @@ async fn inactive_thread_started_notification_initializes_replay_session() -> Re
                 agent_role: Some("explorer".to_string()),
                 git_info: None,
                 name: Some("agent thread".to_string()),
+        prompt_profile: None,
+        prompt_profile_path: None,
                 turns: Vec::new(),
             },
         }),
@@ -4559,6 +4561,8 @@ async fn inactive_thread_started_notification_preserves_primary_model_when_path_
                 agent_role: Some("explorer".to_string()),
                 git_info: None,
                 name: Some("agent thread".to_string()),
+        prompt_profile: None,
+        prompt_profile_path: None,
                 turns: Vec::new(),
             },
         }),
@@ -4630,6 +4634,8 @@ async fn thread_read_session_state_does_not_reuse_primary_permission_profile() {
         agent_role: None,
         git_info: None,
         name: Some("read thread".to_string()),
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     };
 
@@ -8564,6 +8570,66 @@ async fn late_usage_result_can_follow_finalized_plan() {
             .take_completed_token_activity_output()
             .is_some()
     );
+}
+
+#[tokio::test]
+async fn thread_rollback_response_discards_queued_active_thread_events() {
+    let mut app = make_test_app().await;
+    let thread_id = ThreadId::new();
+    let (tx, rx) = mpsc::channel(8);
+    app.active_thread_id = Some(thread_id);
+    app.active_thread_rx = Some(rx);
+    tx.send(ThreadBufferedEvent::Notification(
+        ServerNotification::ConfigWarning(ConfigWarningNotification {
+            summary: "stale warning".to_string(),
+            details: None,
+            path: None,
+            range: None,
+        }),
+    ))
+    .await
+    .expect("event should queue");
+
+    app.handle_thread_rollback_response(
+        thread_id,
+        /*num_turns*/ 1,
+        &ThreadRollbackResponse {
+            thread: Thread {
+                id: thread_id.to_string(),
+                extra: None,
+                session_id: thread_id.to_string(),
+                forked_from_id: None,
+                parent_thread_id: None,
+                preview: String::new(),
+                ephemeral: false,
+                history_mode: Default::default(),
+                model_provider: "openai".to_string(),
+                created_at: 0,
+                updated_at: 0,
+                recency_at: Some(0),
+                status: codex_app_server_protocol::ThreadStatus::Idle,
+                path: None,
+                cwd: test_path_buf("/tmp/project").abs(),
+                cli_version: "0.0.0".to_string(),
+                source: SessionSource::Cli,
+                thread_source: None,
+                agent_nickname: None,
+                agent_role: None,
+                git_info: None,
+                name: None,
+                prompt_profile: None,
+                prompt_profile_path: None,
+                turns: Vec::new(),
+            },
+        },
+    )
+    .await;
+
+    let rx = app
+        .active_thread_rx
+        .as_mut()
+        .expect("active receiver should remain attached");
+    assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
 }
 
 #[tokio::test]

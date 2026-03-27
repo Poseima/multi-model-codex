@@ -13,6 +13,7 @@ use codex_protocol::protocol::SessionSource as CoreSessionSource;
 use codex_protocol::protocol::SubAgentSource as CoreSubAgentSource;
 use codex_protocol::protocol::ThreadHistoryMode as CoreThreadHistoryMode;
 use codex_protocol::protocol::ThreadSource as CoreThreadSource;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 #[cfg(test)]
 use schemars::r#gen::SchemaGenerator;
@@ -286,6 +287,10 @@ pub struct Thread {
     /// Saved Daybreak choice, independent of turn execution. Null if unset.
     #[experimental("thread.daybreakEnabled")]
     pub daybreak_enabled: Option<bool>,
+    /// Saved prompt profile source, when a prompt profile is active.
+    pub prompt_profile: Option<PromptSource>,
+    /// Path used to load the saved prompt profile, when known.
+    pub prompt_profile_path: Option<PathBuf>,
     /// Only populated on `thread/resume`, `thread/fork`, and `thread/read`
     /// (when `includeTurns` is true) responses.
     /// For all other responses and notifications returning a Thread,
@@ -334,6 +339,8 @@ struct ThreadCompatibility {
     git_info: Option<GitInfo>,
     name: Option<String>,
     daybreak_enabled: Option<bool>,
+    prompt_profile: Option<PromptSource>,
+    prompt_profile_path: Option<PathBuf>,
     turns: Vec<Turn>,
 }
 
@@ -375,6 +382,8 @@ impl<'de> Deserialize<'de> for Thread {
             git_info: thread.git_info,
             name: thread.name,
             daybreak_enabled: thread.daybreak_enabled,
+            prompt_profile: thread.prompt_profile,
+            prompt_profile_path: thread.prompt_profile_path,
             turns: thread.turns,
         })
     }
