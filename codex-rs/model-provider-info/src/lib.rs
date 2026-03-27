@@ -424,7 +424,7 @@ pub fn built_in_model_providers(
     // providers are bundled with Codex CLI, so we only include the OpenAI and
     // open source ("oss") providers by default. Users are encouraged to add to
     // `model_providers` in config.toml to add their own providers.
-    let mut providers = [
+    let mut providers: HashMap<String, ModelProviderInfo> = [
         (OPENAI_PROVIDER_ID, openai_provider),
         (AMAZON_BEDROCK_PROVIDER_ID, amazon_bedrock_provider),
         (

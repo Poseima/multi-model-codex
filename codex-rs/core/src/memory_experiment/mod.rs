@@ -23,9 +23,9 @@ pub(crate) mod system_prompt;
 pub(crate) mod types;
 
 use crate::config::Config;
-use crate::features::Feature;
-use crate::features::Features;
 use crate::git_info::get_git_repo_root;
+use codex_features::Feature;
+use codex_features::Features;
 use codex_protocol::openai_models::ReasoningEffort;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
@@ -169,7 +169,7 @@ fn hash_path(path: &Path) -> u64 {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::features::Features;
+    use codex_features::Features;
     use pretty_assertions::assert_eq;
     use std::path::Path;
 

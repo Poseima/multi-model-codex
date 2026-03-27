@@ -150,6 +150,7 @@ fn fork_thread_accepts_legacy_usize_snapshot_argument() {
             usize::MAX,
             config,
             path,
+            /*prompt_profile*/ None,
             /*persist_extended_history*/ false,
             /*parent_trace*/ None,
         );
@@ -464,6 +465,7 @@ async fn interrupted_fork_snapshot_does_not_synthesize_turn_id_for_legacy_histor
             ForkSnapshot::Interrupted,
             config,
             source_path,
+            /*prompt_profile*/ None,
             /*persist_extended_history*/ false,
             /*parent_trace*/ None,
         )
@@ -576,6 +578,7 @@ async fn interrupted_fork_snapshot_preserves_explicit_turn_id() {
             ForkSnapshot::Interrupted,
             config,
             source_path,
+            /*prompt_profile*/ None,
             /*persist_extended_history*/ false,
             /*parent_trace*/ None,
         )
@@ -654,6 +657,7 @@ async fn interrupted_fork_snapshot_uses_persisted_mid_turn_history_without_live_
             ForkSnapshot::Interrupted,
             config.clone(),
             source_path,
+            /*prompt_profile*/ None,
             /*persist_extended_history*/ false,
             /*parent_trace*/ None,
         )
@@ -693,6 +697,7 @@ async fn interrupted_fork_snapshot_uses_persisted_mid_turn_history_without_live_
             ForkSnapshot::Interrupted,
             config,
             forked_path,
+            /*prompt_profile*/ None,
             /*persist_extended_history*/ false,
             /*parent_trace*/ None,
         )

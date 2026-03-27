@@ -1526,6 +1526,7 @@ async fn fork_startup_context_then_first_turn_diff_snapshot() -> anyhow::Result<
             usize::MAX,
             fork_config,
             rollout_path,
+            /*prompt_profile*/ None,
             /*persist_extended_history*/ false,
             /*parent_trace*/ None,
         )
@@ -2187,6 +2188,7 @@ async fn set_rate_limits_retains_previous_credits() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -2292,6 +2294,7 @@ async fn set_rate_limits_updates_plan_type_when_present() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -2560,6 +2563,7 @@ async fn attach_rollout_recorder(session: &Arc<Session>) -> PathBuf {
             /*forked_from_id*/ None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
@@ -2647,6 +2651,7 @@ pub(crate) async fn make_session_configuration_for_tests() -> SessionConfigurati
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -2964,6 +2969,7 @@ async fn session_new_fails_when_zsh_fork_enabled_without_zsh_path() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -3065,6 +3071,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -3231,6 +3238,8 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         services,
         js_repl,
         next_internal_sub_id: AtomicU64::new(0),
+        agent_task_registration_lock: Mutex::new(()),
+        inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     };
 
     (session, turn_context)
@@ -4377,6 +4386,7 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -4543,6 +4553,8 @@ pub(crate) async fn make_session_and_context_with_dynamic_tools_and_rx(
         services,
         js_repl,
         next_internal_sub_id: AtomicU64::new(0),
+        agent_task_registration_lock: Mutex::new(()),
+        inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     });
 
     (session, turn_context, rx_event)
@@ -5383,6 +5395,7 @@ async fn record_context_updates_and_set_reference_context_item_persists_baseline
             /*forked_from_id*/ None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
@@ -5530,6 +5543,7 @@ async fn record_context_updates_and_set_reference_context_item_persists_full_rei
             /*forked_from_id*/ None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
@@ -6061,6 +6075,7 @@ async fn steer_input_rejects_non_regular_turns() {
     for (task_kind, turn_kind) in [
         (TaskKind::Review, NonSteerableTurnKind::Review),
         (TaskKind::Compact, NonSteerableTurnKind::Compact),
+        (TaskKind::Archive, NonSteerableTurnKind::Compact),
     ] {
         let (sess, _tc, _rx) = make_session_and_context_with_rx().await;
         let input = vec![UserInput::Text {

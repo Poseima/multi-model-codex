@@ -1,3 +1,5 @@
+mod prompt_profile_support;
+
 use crate::bespoke_event_handling::apply_bespoke_event_handling;
 use crate::bespoke_event_handling::maybe_emit_hook_prompt_item_completed;
 use crate::command_exec::CommandExecManager;
@@ -117,7 +119,6 @@ use codex_app_server_protocol::PluginSource;
 use codex_app_server_protocol::PluginSummary;
 use codex_app_server_protocol::PluginUninstallParams;
 use codex_app_server_protocol::PluginUninstallResponse;
-use codex_app_server_protocol::ProductSurface as ApiProductSurface;
 use codex_app_server_protocol::ProviderInfo;
 use codex_app_server_protocol::ProviderListParams;
 use codex_app_server_protocol::ProviderListResponse;

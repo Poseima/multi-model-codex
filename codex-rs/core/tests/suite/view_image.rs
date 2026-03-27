@@ -1465,10 +1465,7 @@ async fn view_image_tool_returns_unsupported_message_for_text_only_model() -> an
         .function_call_output_content_and_success(call_id)
         .and_then(|(content, _)| content)
         .expect("output text present");
-    assert_eq!(
-        output_text,
-        "view_image is not allowed because you do not support image inputs"
-    );
+    assert_eq!(output_text, "unsupported call: view_image");
 
     Ok(())
 }

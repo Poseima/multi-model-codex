@@ -5,8 +5,6 @@ use crate::apply_patch::InternalApplyPatchInvocation;
 use crate::apply_patch::convert_apply_patch_to_protocol;
 use crate::function_tool::FunctionCallError;
 use crate::sandboxing::SandboxPermissions;
-use crate::sandboxing::effective_file_system_sandbox_policy;
-use crate::sandboxing::merge_permission_profiles;
 use crate::tools::context::FunctionToolOutput;
 use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolPayload;
@@ -27,6 +25,9 @@ use codex_protocol::models::FileSystemPermissions;
 use codex_protocol::models::PermissionProfile;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolSpec;
+use codex_sandboxing::policy_transforms::effective_file_system_sandbox_policy;
+use codex_sandboxing::policy_transforms::merge_permission_profiles;
+use codex_sandboxing::policy_transforms::normalize_additional_permissions;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -173,7 +174,12 @@ impl ToolHandler for StructuredEditHandler {
                     )
                 })?;
                 let new_str = args.new_str.unwrap_or_default();
-                let file_path = cwd.join(&args.path);
+                let file_path = cwd.join(&args.path).map_err(|e| {
+                    FunctionCallError::RespondToModel(format!(
+                        "failed to resolve file '{}': {e}",
+                        args.path
+                    ))
+                })?;
                 let file_content = std::fs::read_to_string(&file_path).map_err(|e| {
                     FunctionCallError::RespondToModel(format!(
                         "failed to read file '{}': {e}",
@@ -210,7 +216,7 @@ impl ToolHandler for StructuredEditHandler {
                 let additional_permissions = write_paths
                     .filter(|write_paths| !write_paths.is_empty())
                     .and_then(|write_paths| {
-                        crate::sandboxing::normalize_additional_permissions(PermissionProfile {
+                        normalize_additional_permissions(PermissionProfile {
                             file_system: Some(FileSystemPermissions {
                                 read: Some(vec![]),
                                 write: Some(write_paths),
@@ -258,14 +264,11 @@ impl ToolHandler for StructuredEditHandler {
                             file_paths,
                             changes,
                             exec_approval_requirement: apply.exec_approval_requirement,
-                            sandbox_permissions: effective_additional_permissions
-                                .sandbox_permissions,
                             additional_permissions: effective_additional_permissions
                                 .additional_permissions,
                             permissions_preapproved: effective_additional_permissions
                                 .permissions_preapproved,
                             timeout_ms: None,
-                            codex_exe: turn.codex_linux_sandbox_exe.clone(),
                         };
 
                         let mut orchestrator = ToolOrchestrator::new();

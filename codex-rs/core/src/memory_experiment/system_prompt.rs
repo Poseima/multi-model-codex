@@ -5,10 +5,10 @@
 //! rather than injected as separate developer messages. This keeps them in
 //! the system prompt prefix for better prompt cache efficiency.
 
-use crate::features::Feature;
-use crate::features::Features;
 use crate::memories::prompts::build_memory_tool_developer_instructions;
 use crate::memory_experiment;
+use codex_features::Feature;
+use codex_features::Features;
 use std::path::Path;
 
 /// Append memory content to base instructions when the memory experiment is active.
@@ -67,8 +67,8 @@ pub(crate) async fn compose_base_instructions_with_memory(
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::features::Features;
     use crate::memory_experiment::get_project_memory_root;
+    use codex_features::Features;
     use pretty_assertions::assert_eq;
     use std::path::Path;
 
