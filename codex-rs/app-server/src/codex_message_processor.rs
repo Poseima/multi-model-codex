@@ -2649,12 +2649,12 @@ impl CodexMessageProcessor {
             Ok(new_conv) => {
                 let NewThread {
                     thread_id,
-                    thread,
+                    thread: loaded_thread,
                     session_configured,
                     ..
                 } = new_conv;
                 if let Err(error) = Self::set_app_server_client_info(
-                    thread.as_ref(),
+                    loaded_thread.as_ref(),
                     app_server_client_name,
                     app_server_client_version,
                 )
@@ -2666,7 +2666,7 @@ impl CodexMessageProcessor {
                         .await;
                     return;
                 }
-                let config_snapshot = thread
+                let config_snapshot = loaded_thread
                     .config_snapshot()
                     .instrument(tracing::info_span!(
                         "app_server.thread_start.config_snapshot",
@@ -2678,6 +2678,7 @@ impl CodexMessageProcessor {
                     &config_snapshot,
                     session_configured.rollout_path.clone(),
                 );
+                attach_thread_prompt_profile_from_loaded_thread(&mut thread, &loaded_thread).await;
 
                 // Auto-attach a thread listener when starting a thread.
                 Self::log_listener_attach_result(
@@ -4004,6 +4005,12 @@ impl CodexMessageProcessor {
             )));
         };
 
+        if let Some(rollout_path) = thread.path.as_deref() {
+            attach_thread_prompt_profile_from_rollout(&mut thread, rollout_path).await;
+        } else if let Some(loaded_thread) = loaded_thread.as_ref() {
+            attach_thread_prompt_profile_from_loaded_thread(&mut thread, loaded_thread).await;
+        }
+
         let has_live_in_progress_turn = if let Some(loaded_thread) = loaded_thread.as_ref() {
             matches!(loaded_thread.agent_status().await, AgentStatus::Running)
         } else {
@@ -4322,8 +4329,9 @@ impl CodexMessageProcessor {
     ) {
         if let Ok(thread) = self.thread_manager.get_thread(thread_id).await {
             let config_snapshot = thread.config_snapshot().await;
-            let loaded_thread =
+            let mut loaded_thread =
                 build_thread_from_snapshot(thread_id, &config_snapshot, thread.rollout_path());
+            attach_thread_prompt_profile_from_loaded_thread(&mut loaded_thread, &thread).await;
             self.thread_watch_manager.upsert_thread(loaded_thread).await;
         }
 
@@ -4863,7 +4871,7 @@ impl CodexMessageProcessor {
     async fn load_thread_from_resume_source_or_send_internal(
         &self,
         thread_id: ThreadId,
-        thread: &CodexThread,
+        loaded_thread: &CodexThread,
         thread_history: &InitialHistory,
         rollout_path: &Path,
         fallback_provider: &str,
@@ -4881,7 +4889,7 @@ impl CodexMessageProcessor {
                 .await
             }
             InitialHistory::Forked(items) => {
-                let config_snapshot = thread.config_snapshot().await;
+                let config_snapshot = loaded_thread.config_snapshot().await;
                 let mut thread = build_thread_from_snapshot(
                     thread_id,
                     &config_snapshot,
@@ -4905,6 +4913,7 @@ impl CodexMessageProcessor {
         )
         .await?;
         self.attach_thread_name(thread_id, &mut thread).await;
+        attach_thread_prompt_profile_from_loaded_thread(&mut thread, loaded_thread).await;
         Ok(thread)
     }
 
@@ -4930,6 +4939,9 @@ impl CodexMessageProcessor {
             base_instructions,
             developer_instructions,
             ephemeral,
+            prompt_profile,
+            prompt_profile_path,
+            clear_prompt_profile,
             persist_extended_history,
         } = params;
         if sandbox.is_some() && permission_profile.is_some() {
@@ -5039,23 +5051,53 @@ impl CodexMessageProcessor {
 
         let fallback_model_provider = config.model_provider_id.clone();
         let instruction_sources = Self::instruction_sources_from_config(&config).await;
+        if clear_prompt_profile && (prompt_profile.is_some() || prompt_profile_path.is_some()) {
+            self.send_invalid_request_error(
+                request_id,
+                "clearPromptProfile cannot be combined with promptProfile or promptProfilePath"
+                    .to_string(),
+            )
+            .await;
+            return;
+        }
+        let prompt_profile = match prompt_profile_support::resolve_prompt_profile_override(
+            prompt_profile,
+            prompt_profile_path,
+        ) {
+            Ok(prompt_profile) => prompt_profile,
+            Err(message) => {
+                self.send_invalid_request_error(request_id, message).await;
+                return;
+            }
+        };
 
         let NewThread {
             thread_id,
             thread: forked_thread,
             session_configured,
             ..
-        } = match self
-            .thread_manager
-            .fork_thread(
-                ForkSnapshot::Interrupted,
-                config,
-                rollout_path.clone(),
-                persist_extended_history,
-                self.request_trace_context(&request_id).await,
-            )
-            .await
-        {
+        } = match if clear_prompt_profile {
+            self.thread_manager
+                .fork_thread_clearing_prompt_profile(
+                    ForkSnapshot::Interrupted,
+                    config,
+                    rollout_path.clone(),
+                    persist_extended_history,
+                    self.request_trace_context(&request_id).await,
+                )
+                .await
+        } else {
+            self.thread_manager
+                .fork_thread(
+                    ForkSnapshot::Interrupted,
+                    config,
+                    rollout_path.clone(),
+                    prompt_profile,
+                    persist_extended_history,
+                    self.request_trace_context(&request_id).await,
+                )
+                .await
+        } {
             Ok(thread) => thread,
             Err(err) => {
                 match err {
@@ -5174,6 +5216,13 @@ impl CodexMessageProcessor {
         {
             self.send_internal_error(request_id, message).await;
             return;
+        }
+
+        if let Some(fork_rollout_path) = session_configured.rollout_path.as_ref() {
+            attach_thread_prompt_profile_from_rollout(&mut thread, fork_rollout_path.as_path())
+                .await;
+        } else {
+            attach_thread_prompt_profile_from_loaded_thread(&mut thread, &forked_thread).await;
         }
 
         self.thread_watch_manager
@@ -6859,26 +6908,6 @@ impl CodexMessageProcessor {
             .map(V2UserInput::into_core)
             .collect();
 
-<<<<<<< HEAD
-        // Resolve provider_id: use explicit param, or infer from model presets.
-        let provider_id = params.provider_id.or_else(|| {
-            let model_slug = collaboration_mode
-                .as_ref()
-                .map(|cm| &cm.settings.model)
-                .or(params.model.as_ref());
-            model_slug.and_then(|slug| {
-                codex_core::models_manager::model_presets::all_model_presets()
-                    .iter()
-                    .find(|p| p.model == *slug)
-                    .and_then(|p| {
-                        codex_core::models_manager::fork_provider_mapping::provider_for_preset(
-                            &p.id,
-                        )
-                        .map(String::from)
-                    })
-            })
-        });
-=======
         // Resolve provider_id: use explicit param, or infer from model presets
         let provider_id = params.provider_id.or_else(|| {
             let model_slug = collaboration_mode
@@ -6889,7 +6918,6 @@ impl CodexMessageProcessor {
                 codex_core::models_manager::fork_provider_mapping::provider_for_model_slug(slug)
             })
         });
->>>>>>> bd932e85dd (refactor: extract provider_id from ModelPreset into fork_provider_mapping)
 
         let has_any_overrides = params.cwd.is_some()
             || params.approval_policy.is_some()
@@ -9764,6 +9792,7 @@ async fn load_thread_summary_for_rollout(
     if let Some(title) = title {
         set_thread_name_from_title(&mut thread, title);
     }
+    attach_thread_prompt_profile_from_rollout(&mut thread, rollout_path).await;
     Ok(thread)
 }
 
@@ -9777,6 +9806,40 @@ async fn forked_from_id_from_rollout(path: &Path) -> Option<String> {
 
 fn merge_mutable_thread_metadata(thread: &mut Thread, persisted_thread: Thread) {
     thread.git_info = persisted_thread.git_info;
+}
+
+fn prompt_profile_path_from_profile(prompt_profile: &PromptSource) -> Option<PathBuf> {
+    prompt_profile
+        .origin
+        .as_ref()
+        .and_then(|origin| origin.source_path.as_deref())
+        .map(PathBuf::from)
+}
+
+fn set_thread_prompt_profile(thread: &mut Thread, prompt_profile: Option<PromptSource>) {
+    thread.prompt_profile_path = prompt_profile
+        .as_ref()
+        .and_then(prompt_profile_path_from_profile);
+    thread.prompt_profile = prompt_profile;
+}
+
+async fn attach_thread_prompt_profile_from_loaded_thread(
+    thread: &mut Thread,
+    loaded_thread: &CodexThread,
+) {
+    set_thread_prompt_profile(thread, loaded_thread.prompt_profile().await);
+}
+
+async fn attach_thread_prompt_profile_from_rollout(thread: &mut Thread, rollout_path: &Path) {
+    match read_session_meta_line(rollout_path).await {
+        Ok(meta_line) => {
+            set_thread_prompt_profile(thread, meta_line.meta.prompt_profile);
+        }
+        Err(err) => {
+            let rollout_path = rollout_path.display();
+            warn!("failed to read session metadata from rollout {rollout_path}: {err}");
+        }
+    }
 }
 
 fn preview_from_rollout_items(items: &[RolloutItem]) -> String {
@@ -9901,6 +9964,8 @@ fn build_thread_from_snapshot(
         preview: String::new(),
         ephemeral: config_snapshot.ephemeral,
         model_provider: config_snapshot.model_provider_id.clone(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         created_at: now,
         updated_at: now,
         status: ThreadStatus::NotLoaded,
@@ -9956,6 +10021,8 @@ pub(crate) fn summary_to_thread(
         preview,
         ephemeral: false,
         model_provider,
+        prompt_profile: None,
+        prompt_profile_path: None,
         created_at: created_at.map(|dt| dt.timestamp()).unwrap_or(0),
         updated_at: updated_at.map(|dt| dt.timestamp()).unwrap_or(0),
         status: ThreadStatus::NotLoaded,

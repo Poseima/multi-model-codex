@@ -262,6 +262,29 @@ To continue a stored session, call `thread/resume` with the `thread.id` you prev
 By default, resume uses the latest persisted `model` and `reasoningEffort` values associated with the thread. Supplying any of `model`, `modelProvider`, `config.model`, or `config.model_reasoning_effort` disables that persisted fallback and uses the explicit overrides plus normal config resolution instead.
 
 Example:
+`thread/start` and `thread/fork` also accept prompt-profile overrides:
+
+- `promptProfile` — pass a normalized `PromptSource` payload directly.
+- `promptProfilePath` — load a profile from disk. The server accepts native prompt-profile JSON, SillyTavern JSON cards, and SillyTavern PNG cards with embedded `ccv3`/`chara` metadata.
+- If both are provided, `promptProfile` takes precedence.
+- `thread/fork` also accepts `clearPromptProfile: true` to drop any inherited prompt profile on the forked thread. This cannot be combined with `promptProfile` or `promptProfilePath`.
+- Returned thread payloads from `thread/start`, `thread/fork`, `thread/read`, and `thread/resume` include `promptProfile` and the derived `promptProfilePath` when a prompt profile is active.
+
+Example:
+
+```json
+{ "method": "thread/start", "id": 10, "params": {
+    "model": "gpt-5.1-codex",
+    "cwd": "/Users/me/project",
+    "promptProfilePath": "/Users/me/cards/reikurose.png"
+} }
+```
+
+To continue a stored session, call `thread/resume` with the `thread.id` you previously recorded. The response shape matches `thread/start`, and no additional notifications are emitted. You can also pass the same configuration overrides supported by `thread/start`, including `approvalsReviewer`.
+
+By default, resume uses the latest persisted `model` and `reasoningEffort` values associated with the thread. Supplying any of `model`, `modelProvider`, `config.model`, or `config.model_reasoning_effort` disables that persisted fallback and uses the explicit overrides plus normal config resolution instead.
+
+Example:
 
 ```json
 { "method": "thread/resume", "id": 11, "params": {

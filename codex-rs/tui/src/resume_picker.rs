@@ -2037,6 +2037,8 @@ mod tests {
             preview: String::from("remote thread"),
             ephemeral: false,
             model_provider: String::from("openai"),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 1,
             updated_at: 2,
             status: codex_app_server_protocol::ThreadStatus::Idle,

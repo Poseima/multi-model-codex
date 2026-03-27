@@ -14,6 +14,9 @@ pub enum SlashCommand {
     // more frequently used commands should be listed first.
     Model,
     Fast,
+    Provider,
+    #[strum(serialize = "switch_account")]
+    SwitchAccount,
     Approvals,
     Permissions,
     #[strum(serialize = "setup-default-sandbox")]
@@ -30,6 +33,7 @@ pub enum SlashCommand {
     Fork,
     Init,
     Compact,
+    Archive,
     Plan,
     Collab,
     Agent,
@@ -55,6 +59,7 @@ pub enum SlashCommand {
     #[strum(to_string = "stop", serialize = "clean")]
     Stop,
     Clear,
+    Profile,
     Personality,
     Realtime,
     Settings,
@@ -76,10 +81,12 @@ impl SlashCommand {
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
+            SlashCommand::Archive => "extract memories from conversation into memory files",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
             SlashCommand::Clear => "clear the terminal and start a new chat",
+            SlashCommand::Profile => "load, show, or clear a prompt profile / character card",
             SlashCommand::Fork => "fork the current chat",
             // SlashCommand::Undo => "ask Codex to undo a turn",
             SlashCommand::Quit | SlashCommand::Exit => "exit Codex",
@@ -97,9 +104,10 @@ impl SlashCommand {
             SlashCommand::MemoryDrop => "DO NOT USE",
             SlashCommand::MemoryUpdate => "DO NOT USE",
             SlashCommand::Model => "choose what model and reasoning effort to use",
-            SlashCommand::Fast => {
-                "toggle Fast mode to enable fastest inference with increased plan usage"
-            }
+            SlashCommand::Fast =>
+                "toggle Fast mode to enable fastest inference with increased plan usage",
+            SlashCommand::Provider => "switch between configured model providers",
+            SlashCommand::SwitchAccount => "switch auth.json from CODEX_HOME/multi_auths",
             SlashCommand::Personality => "choose a communication style for Codex",
             SlashCommand::Realtime => "toggle realtime voice mode (experimental)",
             SlashCommand::Settings => "configure realtime microphone/speaker",
@@ -142,6 +150,7 @@ impl SlashCommand {
                 | SlashCommand::Side
                 | SlashCommand::Resume
                 | SlashCommand::SandboxReadRoot
+                | SlashCommand::Profile
         )
     }
 
@@ -161,9 +170,12 @@ impl SlashCommand {
             | SlashCommand::Fork
             | SlashCommand::Init
             | SlashCommand::Compact
+            | SlashCommand::Archive
             // | SlashCommand::Undo
             | SlashCommand::Model
             | SlashCommand::Fast
+            | SlashCommand::Provider
+            | SlashCommand::SwitchAccount
             | SlashCommand::Personality
             | SlashCommand::Approvals
             | SlashCommand::Permissions
@@ -192,6 +204,7 @@ impl SlashCommand {
             | SlashCommand::Feedback
             | SlashCommand::Quit
             | SlashCommand::Exit
+            | SlashCommand::Profile => true,
             | SlashCommand::Side => true,
             SlashCommand::Rollout => true,
             SlashCommand::TestApproval => true,

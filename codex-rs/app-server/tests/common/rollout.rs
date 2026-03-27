@@ -1,6 +1,7 @@
 use anyhow::Result;
 use codex_protocol::ThreadId;
 use codex_protocol::protocol::EventMsg;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::GitInfo;
 use codex_protocol::protocol::SessionMeta;
 use codex_protocol::protocol::SessionMetaLine;
@@ -143,6 +144,86 @@ pub fn create_fake_rollout_with_source(
         agent_role: None,
         model_provider: model_provider.map(str::to_string),
         base_instructions: None,
+        dynamic_tools: None,
+        memory_mode: None,
+    };
+    let payload = serde_json::to_value(SessionMetaLine {
+        meta,
+        git: git_info,
+    })?;
+
+    let lines = [
+        json!({
+            "timestamp": meta_rfc3339,
+            "type": "session_meta",
+            "payload": payload
+        })
+        .to_string(),
+        json!({
+            "timestamp": meta_rfc3339,
+            "type":"response_item",
+            "payload": {
+                "type":"message",
+                "role":"user",
+                "content":[{"type":"input_text","text": preview}]
+            }
+        })
+        .to_string(),
+        json!({
+            "timestamp": meta_rfc3339,
+            "type":"event_msg",
+            "payload": {
+                "type":"user_message",
+                "message": preview,
+                "kind": "plain"
+            }
+        })
+        .to_string(),
+    ];
+
+    fs::write(&file_path, lines.join("\n") + "\n")?;
+    let parsed = chrono::DateTime::parse_from_rfc3339(meta_rfc3339)?.with_timezone(&chrono::Utc);
+    let times = FileTimes::new().set_modified(parsed.into());
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(&file_path)?
+        .set_times(times)?;
+    Ok(uuid_str)
+}
+
+pub fn create_fake_rollout_with_prompt_profile(
+    codex_home: &Path,
+    filename_ts: &str,
+    meta_rfc3339: &str,
+    preview: &str,
+    model_provider: Option<&str>,
+    git_info: Option<GitInfo>,
+    prompt_profile: PromptSource,
+) -> Result<String> {
+    let uuid = Uuid::new_v4();
+    let uuid_str = uuid.to_string();
+    let conversation_id = ThreadId::from_string(&uuid_str)?;
+
+    let file_path = rollout_path(codex_home, filename_ts, &uuid_str);
+    let dir = file_path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("missing rollout parent directory"))?;
+    fs::create_dir_all(dir)?;
+
+    let meta = SessionMeta {
+        id: conversation_id,
+        forked_from_id: None,
+        timestamp: meta_rfc3339.to_string(),
+        cwd: PathBuf::from("/"),
+        originator: "codex".to_string(),
+        cli_version: "0.0.0".to_string(),
+        source: SessionSource::Cli,
+        agent_path: None,
+        agent_nickname: None,
+        agent_role: None,
+        model_provider: model_provider.map(str::to_string),
+        base_instructions: None,
+        prompt_profile: Some(prompt_profile),
         dynamic_tools: None,
         memory_mode: None,
     };

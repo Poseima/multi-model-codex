@@ -14104,6 +14104,24 @@
             "description": "Usually the first user message in the thread, if available.",
             "type": "string"
           },
+          "promptProfile": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/v2/PromptSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Active prompt profile for this thread, if any."
+          },
+          "promptProfilePath": {
+            "description": "Source path recorded for the active prompt profile, if any.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "source": {
             "allOf": [
               {
@@ -14269,6 +14287,10 @@
               "string",
               "null"
             ]
+          },
+          "clearPromptProfile": {
+            "description": "Clear any inherited prompt profile on the forked thread.",
+            "type": "boolean"
           },
           "config": {
             "additionalProperties": true,

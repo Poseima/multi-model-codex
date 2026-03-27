@@ -94,6 +94,7 @@ use codex_protocol::protocol::SkillToolDependency as CoreSkillToolDependency;
 use codex_protocol::protocol::SubAgentSource as CoreSubAgentSource;
 use codex_protocol::protocol::TokenUsage as CoreTokenUsage;
 use codex_protocol::protocol::TokenUsageInfo as CoreTokenUsageInfo;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::request_permissions::PermissionGrantScope as CorePermissionGrantScope;
 use codex_protocol::request_permissions::RequestPermissionProfile as CoreRequestPermissionProfile;
 use codex_protocol::user_input::ByteRange as CoreByteRange;
@@ -3521,6 +3522,13 @@ pub struct ThreadForkParams {
     pub developer_instructions: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ephemeral: bool,
+    #[ts(optional = nullable)]
+    pub prompt_profile: Option<PromptSource>,
+    #[ts(optional = nullable)]
+    pub prompt_profile_path: Option<PathBuf>,
+    /// Clear any inherited prompt profile on the forked thread.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub clear_prompt_profile: bool,
     /// If true, persist additional rollout EventMsg variants required to
     /// reconstruct a richer thread history on subsequent resume/fork/read.
     #[experimental("thread/fork.persistFullHistory")]
@@ -4500,6 +4508,10 @@ pub struct Thread {
     pub ephemeral: bool,
     /// Model provider used for this thread (for example, 'openai').
     pub model_provider: String,
+    /// Active prompt profile for this thread, if any.
+    pub prompt_profile: Option<PromptSource>,
+    /// Source path recorded for the active prompt profile, if any.
+    pub prompt_profile_path: Option<PathBuf>,
     /// Unix timestamp (in seconds) when the thread was created.
     #[ts(type = "number")]
     pub created_at: i64,
@@ -10173,6 +10185,96 @@ mod tests {
         assert_eq!(start.permission_profile, None);
         assert_eq!(resume.permission_profile, None);
         assert_eq!(fork.permission_profile, None);
+    }
+
+    #[test]
+    fn thread_start_params_round_trip_prompt_profile() {
+        let prompt_profile = PromptSource {
+            name: Some("Rei Kurose".to_string()),
+            identity: Some(codex_protocol::prompt_profile::PromptIdentity {
+                name: Some("Rei Kurose".to_string()),
+                description: Some("A quiet late-night engineering companion.".to_string()),
+                personality: Some("Restrained, observant, surgical.".to_string()),
+            }),
+            scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+            ..Default::default()
+        };
+
+        let params: ThreadStartParams = serde_json::from_value(json!({
+            "promptProfile": serde_json::to_value(&prompt_profile).expect("prompt profile json")
+        }))
+        .expect("params should deserialize");
+        assert_eq!(params.prompt_profile, Some(prompt_profile.clone()));
+
+        let serialized = serde_json::to_value(ThreadStartParams {
+            prompt_profile: Some(prompt_profile.clone()),
+            prompt_profile_path: None,
+            ..Default::default()
+        })
+        .expect("params should serialize");
+        assert_eq!(
+            serialized.get("promptProfile"),
+            Some(&serde_json::to_value(prompt_profile).expect("prompt profile json"))
+        );
+    }
+
+    #[test]
+    fn thread_start_params_round_trip_prompt_profile_path() {
+        let path = PathBuf::from("/cards/reikurose.png");
+
+        let params: ThreadStartParams = serde_json::from_value(json!({
+            "promptProfilePath": path
+        }))
+        .expect("params should deserialize");
+        assert_eq!(params.prompt_profile_path, Some(path.clone()));
+
+        let serialized = serde_json::to_value(ThreadStartParams {
+            prompt_profile_path: Some(path.clone()),
+            ..Default::default()
+        })
+        .expect("params should serialize");
+        assert_eq!(serialized.get("promptProfilePath"), Some(&json!(path)));
+    }
+
+    #[test]
+    fn thread_fork_params_round_trip_prompt_profile_path() {
+        let path = PathBuf::from("/cards/reikurose.png");
+
+        let params: ThreadForkParams = serde_json::from_value(json!({
+            "threadId": "thr_123",
+            "promptProfilePath": path
+        }))
+        .expect("params should deserialize");
+        assert_eq!(params.prompt_profile_path, Some(path.clone()));
+
+        let serialized = serde_json::to_value(ThreadForkParams {
+            thread_id: "thr_123".to_string(),
+            prompt_profile_path: Some(path.clone()),
+            ..Default::default()
+        })
+        .expect("params should serialize");
+        assert_eq!(serialized.get("promptProfilePath"), Some(&json!(path)));
+    }
+
+    #[test]
+    fn thread_fork_params_round_trip_clear_prompt_profile() {
+        let params: ThreadForkParams = serde_json::from_value(json!({
+            "threadId": "thr_123",
+            "clearPromptProfile": true
+        }))
+        .expect("params should deserialize");
+        assert!(params.clear_prompt_profile);
+
+        let serialized = serde_json::to_value(ThreadForkParams {
+            thread_id: "thr_123".to_string(),
+            clear_prompt_profile: true,
+            ..Default::default()
+        })
+        .expect("params should serialize");
+        assert_eq!(
+            serialized.get("clearPromptProfile"),
+            Some(&serde_json::Value::Bool(true))
+        );
     }
 
     #[test]

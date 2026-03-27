@@ -891,6 +891,8 @@ mod tests {
             preview: String::new(),
             ephemeral: false,
             model_provider: "mock-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 0,
             updated_at: 0,
             status: ThreadStatus::NotLoaded,

@@ -158,7 +158,6 @@ use super::footer::FooterMode;
 use super::footer::FooterProps;
 use super::footer::SummaryLeft;
 use super::footer::can_show_left_with_context;
-use super::footer::context_window_line;
 use super::footer::esc_hint_mode;
 use super::footer::footer_height;
 use super::footer::footer_hint_items_width;
@@ -362,6 +361,7 @@ pub(crate) struct ChatComposer {
     #[cfg(not(target_os = "linux"))]
     next_element_id: u64,
     context_window_used_tokens: Option<i64>,
+    context_window_total: Option<i64>,
     skills: Option<Vec<SkillMetadata>>,
     plugins: Option<Vec<PluginCapabilitySummary>>,
     connectors_snapshot: Option<ConnectorsSnapshot>,
@@ -507,6 +507,7 @@ impl ChatComposer {
             #[cfg(not(target_os = "linux"))]
             next_element_id: 0,
             context_window_used_tokens: None,
+            context_window_total: None,
             skills: None,
             plugins: None,
             connectors_snapshot: None,
@@ -3201,8 +3202,9 @@ impl ChatComposer {
 
     /// Resolve the effective footer mode via a small priority waterfall.
     ///
-    /// The base mode is derived solely from whether the composer is empty:
-    /// `ComposerEmpty` iff empty, otherwise `ComposerHasDraft`. Transient
+    /// The base mode is derived from task state and whether the composer is empty.
+    /// While a task is running, the footer pivots to context summary modes;
+    /// otherwise it falls back to the standard empty/draft states. Transient
     /// modes (Esc hint, overlay, quit reminder) can override that base when
     /// their conditions are active.
     fn footer_mode(&self) -> FooterMode {
@@ -3210,7 +3212,13 @@ impl ChatComposer {
             return FooterMode::HistorySearch;
         }
 
-        let base_mode = if self.is_empty() {
+        let base_mode = if self.is_task_running {
+            if self.is_empty() {
+                FooterMode::ShortcutSummary
+            } else {
+                FooterMode::ContextOnly
+            }
+        } else if self.is_empty() {
             FooterMode::ComposerEmpty
         } else {
             FooterMode::ComposerHasDraft
@@ -3230,6 +3238,7 @@ impl ChatComposer {
             }
             FooterMode::QuitShortcutReminder => base_mode,
             FooterMode::ComposerEmpty | FooterMode::ComposerHasDraft => base_mode,
+            FooterMode::ShortcutSummary | FooterMode::ContextOnly => base_mode,
         }
     }
 
@@ -3707,6 +3716,10 @@ impl ChatComposer {
         self.context_window_used_tokens = used_tokens;
     }
 
+    pub(crate) fn set_context_window_total(&mut self, total: Option<i64>) {
+        self.context_window_total = total;
+    }
+
     pub(crate) fn set_esc_backtrack_hint(&mut self, show: bool) {
         self.esc_backtrack_hint = show;
         if show {
@@ -3893,15 +3906,20 @@ impl ChatComposer {
                     FooterMode::HistorySearch
                     | FooterMode::QuitShortcutReminder
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary
+                    | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match footer_props.mode {
-                    FooterMode::ComposerHasDraft => footer_props.is_task_running,
+                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => {
+                        footer_props.is_task_running
+                    }
                     FooterMode::HistorySearch
                     | FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary => false,
                 };
                 let custom_height = self.custom_footer_height();
                 let footer_hint_height =
@@ -3983,9 +4001,12 @@ impl ChatComposer {
                             compact
                         }
                     } else {
-                        Some(context_window_line(
+                        Some(super::fork_footer::context_window_line_with_total(
                             footer_props.context_window_percent,
                             footer_props.context_window_used_tokens,
+                            self.context_window_total,
+                            left_mode_indicator,
+                            show_cycle_hint,
                         ))
                     };
                     let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
@@ -4024,7 +4045,9 @@ impl ChatComposer {
                             FooterMode::EscHint
                             | FooterMode::HistorySearch
                             | FooterMode::QuitShortcutReminder
-                            | FooterMode::ShortcutOverlay => None,
+                            | FooterMode::ShortcutOverlay
+                            | FooterMode::ShortcutSummary
+                            | FooterMode::ContextOnly => None,
                         }
                     };
                     let show_right = if matches!(
@@ -4033,6 +4056,8 @@ impl ChatComposer {
                             | FooterMode::HistorySearch
                             | FooterMode::QuitShortcutReminder
                             | FooterMode::ShortcutOverlay
+                            | FooterMode::ShortcutSummary
+                            | FooterMode::ContextOnly
                     ) {
                         false
                     } else {
@@ -4910,6 +4935,16 @@ mod tests {
     #[test]
     fn zellij_empty_composer_snapshot() {
         snapshot_zellij_composer_state("zellij_empty_composer", |_composer| {});
+    }
+
+    #[test]
+    fn footer_context_total_snapshot() {
+        snapshot_composer_state_with_width("footer_context_total", 120, true, |composer| {
+            composer.set_collaboration_modes_enabled(true);
+            composer.set_collaboration_mode_indicator(Some(CollaborationModeIndicator::Plan));
+            composer.set_context_window(Some(95), Some(12_345));
+            composer.set_context_window_total(Some(256_000));
+        });
     }
 
     #[test]
@@ -6667,6 +6702,61 @@ mod tests {
                 None => panic!("no selected command for '/res'"),
             },
             _ => panic!("slash popup not active after typing '/res'"),
+        }
+    }
+
+    #[test]
+    fn slash_popup_profile_and_provider_for_pro_ui() {
+        use ratatui::Terminal;
+        use ratatui::backend::TestBackend;
+
+        let (tx, _rx) = unbounded_channel::<AppEvent>();
+        let sender = AppEventSender::new(tx);
+
+        let mut composer = ChatComposer::new(
+            true,
+            sender,
+            false,
+            "Ask Codex to do anything".to_string(),
+            false,
+        );
+
+        type_chars_humanlike(&mut composer, &['/', 'p', 'r', 'o']);
+
+        let mut terminal = Terminal::new(TestBackend::new(60, 6)).expect("terminal");
+        terminal
+            .draw(|f| composer.render(f.area(), f.buffer_mut()))
+            .expect("draw composer");
+
+        insta::assert_snapshot!("slash_popup_pro", terminal.backend());
+    }
+
+    #[test]
+    fn slash_popup_profile_exact_for_profile_logic() {
+        use super::super::command_popup::CommandItem;
+
+        let (tx, _rx) = unbounded_channel::<AppEvent>();
+        let sender = AppEventSender::new(tx);
+        let mut composer = ChatComposer::new(
+            true,
+            sender,
+            false,
+            "Ask Codex to do anything".to_string(),
+            false,
+        );
+        type_chars_humanlike(&mut composer, &['/', 'p', 'r', 'o', 'f', 'i', 'l', 'e']);
+
+        match &composer.active_popup {
+            ActivePopup::Command(popup) => match popup.selected_item() {
+                Some(CommandItem::Builtin(cmd)) => {
+                    assert_eq!(cmd.command(), "profile")
+                }
+                Some(CommandItem::UserPrompt(_)) => {
+                    panic!("unexpected prompt selected for '/profile'")
+                }
+                None => panic!("no selected command for '/profile'"),
+            },
+            _ => panic!("slash popup not active after typing '/profile'"),
         }
     }
 

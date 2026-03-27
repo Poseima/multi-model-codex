@@ -116,6 +116,8 @@ mod tests {
             preview: String::new(),
             ephemeral: false,
             model_provider: "openai".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 0,
             updated_at: 0,
             status: ThreadStatus::Idle,

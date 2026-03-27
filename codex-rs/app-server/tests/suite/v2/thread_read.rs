@@ -32,6 +32,7 @@ use codex_app_server_protocol::TurnStartResponse;
 use codex_app_server_protocol::TurnStatus;
 use codex_app_server_protocol::UserInput;
 use codex_core::ARCHIVED_SESSIONS_SUBDIR;
+use codex_core::load_prompt_profile_from_path;
 use codex_protocol::user_input::ByteRange;
 use codex_protocol::user_input::TextElement;
 use core_test_support::responses;
@@ -418,12 +419,29 @@ async fn thread_read_loaded_thread_returns_precomputed_path_before_materializati
     let server = create_mock_responses_server_repeating_assistant("Done").await;
     let codex_home = TempDir::new()?;
     create_config_toml(codex_home.path(), &server.uri())?;
+    let card_path = codex_home.path().join("rei.json");
+    std::fs::write(
+        &card_path,
+        serde_json::to_vec(&serde_json::json!({
+            "spec": "chara_card_v2",
+            "spec_version": "2.0",
+            "data": {
+                "name": "Rei Kurose",
+                "description": "A quiet late-night engineering companion.",
+                "personality": "Restrained, observant, surgical.",
+                "scenario": "Late-night pair debugging in quiet places.",
+                "first_mes": "The carriage is quiet tonight."
+            }
+        }))?,
+    )?;
+    let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
 
     let mut mcp = McpProcess::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let start_id = mcp
         .send_thread_start_request(ThreadStartParams {
+            prompt_profile_path: Some(card_path.clone()),
             model: Some("mock-model".to_string()),
             ..Default::default()
         })
@@ -456,6 +474,8 @@ async fn thread_read_loaded_thread_returns_precomputed_path_before_materializati
     assert_eq!(read.id, thread.id);
     assert_eq!(read.path, Some(thread_path));
     assert!(read.preview.is_empty());
+    assert_eq!(read.prompt_profile, Some(expected_prompt_profile));
+    assert_eq!(read.prompt_profile_path, Some(card_path));
     assert_eq!(read.turns.len(), 0);
     assert_eq!(read.status, ThreadStatus::Idle);
 

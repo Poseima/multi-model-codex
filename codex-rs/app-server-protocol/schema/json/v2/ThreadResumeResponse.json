@@ -9,10 +9,9 @@
       "type": "string"
     },
     "ApprovalsReviewer": {
-      "description": "Configures who approval requests are routed to for review. Examples include sandbox escapes, blocked network access, MCP approval prompts, and ARC escalations. Defaults to `user`. `auto_review` uses a carefully prompted subagent to gather relevant context and apply a risk-based decision framework before approving or denying the request. The legacy value `guardian_subagent` is accepted for compatibility.",
+      "description": "Configures who approval requests are routed to for review. Examples include sandbox escapes, blocked network access, MCP approval prompts, and ARC escalations. Defaults to `user`. `guardian_subagent` uses a carefully prompted subagent to gather relevant context and apply a risk-based decision framework before approving or denying the request.",
       "enum": [
         "user",
-        "auto_review",
         "guardian_subagent"
       ],
       "type": "string"
@@ -449,217 +448,6 @@
       ],
       "type": "string"
     },
-    "FileSystemAccessMode": {
-      "enum": [
-        "read",
-        "write",
-        "none"
-      ],
-      "type": "string"
-    },
-    "FileSystemPath": {
-      "oneOf": [
-        {
-          "properties": {
-            "path": {
-              "$ref": "#/definitions/AbsolutePathBuf"
-            },
-            "type": {
-              "enum": [
-                "path"
-              ],
-              "title": "PathFileSystemPathType",
-              "type": "string"
-            }
-          },
-          "required": [
-            "path",
-            "type"
-          ],
-          "title": "PathFileSystemPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "pattern": {
-              "type": "string"
-            },
-            "type": {
-              "enum": [
-                "glob_pattern"
-              ],
-              "title": "GlobPatternFileSystemPathType",
-              "type": "string"
-            }
-          },
-          "required": [
-            "pattern",
-            "type"
-          ],
-          "title": "GlobPatternFileSystemPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "type": {
-              "enum": [
-                "special"
-              ],
-              "title": "SpecialFileSystemPathType",
-              "type": "string"
-            },
-            "value": {
-              "$ref": "#/definitions/FileSystemSpecialPath"
-            }
-          },
-          "required": [
-            "type",
-            "value"
-          ],
-          "title": "SpecialFileSystemPath",
-          "type": "object"
-        }
-      ]
-    },
-    "FileSystemSandboxEntry": {
-      "properties": {
-        "access": {
-          "$ref": "#/definitions/FileSystemAccessMode"
-        },
-        "path": {
-          "$ref": "#/definitions/FileSystemPath"
-        }
-      },
-      "required": [
-        "access",
-        "path"
-      ],
-      "type": "object"
-    },
-    "FileSystemSpecialPath": {
-      "oneOf": [
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "root"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "title": "RootFileSystemSpecialPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "minimal"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "title": "MinimalFileSystemSpecialPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "current_working_directory"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "title": "CurrentWorkingDirectoryFileSystemSpecialPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "project_roots"
-              ],
-              "type": "string"
-            },
-            "subpath": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "title": "KindFileSystemSpecialPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "tmpdir"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "title": "TmpdirFileSystemSpecialPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "slash_tmp"
-              ],
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "title": "SlashTmpFileSystemSpecialPath",
-          "type": "object"
-        },
-        {
-          "properties": {
-            "kind": {
-              "enum": [
-                "unknown"
-              ],
-              "type": "string"
-            },
-            "path": {
-              "type": "string"
-            },
-            "subpath": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "kind",
-            "path"
-          ],
-          "type": "object"
-        }
-      ]
-    },
     "FileUpdateChange": {
       "properties": {
         "diff": {
@@ -898,58 +686,339 @@
         }
       ]
     },
-    "PermissionProfile": {
+    "PromptDepthPrompt": {
       "properties": {
-        "fileSystem": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/PermissionProfileFileSystemPermissions"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "content": {
+          "type": "string"
         },
-        "network": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/PermissionProfileNetworkPermissions"
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "depth": {
+          "format": "uint32",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "role": {
+          "$ref": "#/definitions/PromptInjectionRole"
+        }
+      },
+      "required": [
+        "content",
+        "depth",
+        "role"
+      ],
+      "type": "object"
+    },
+    "PromptExample": {
+      "properties": {
+        "messages": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptExampleMessage"
+          },
+          "type": "array"
         }
       },
       "type": "object"
     },
-    "PermissionProfileFileSystemPermissions": {
+    "PromptExampleMessage": {
       "properties": {
-        "entries": {
-          "items": {
-            "$ref": "#/definitions/FileSystemSandboxEntry"
-          },
-          "type": "array"
+        "content": {
+          "type": "string"
         },
-        "globScanMaxDepth": {
-          "format": "uint",
-          "minimum": 1.0,
+        "role": {
+          "$ref": "#/definitions/PromptInjectionRole"
+        }
+      },
+      "required": [
+        "content",
+        "role"
+      ],
+      "type": "object"
+    },
+    "PromptGreeting": {
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/PromptGreetingKind"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "type": "object"
+    },
+    "PromptGreetingKind": {
+      "enum": [
+        "primary",
+        "alternate"
+      ],
+      "type": "string"
+    },
+    "PromptIdentity": {
+      "properties": {
+        "description": {
+          "default": null,
           "type": [
-            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "personality": {
+          "default": null,
+          "type": [
+            "string",
             "null"
           ]
         }
       },
+      "type": "object"
+    },
+    "PromptInjectionRole": {
+      "enum": [
+        "system",
+        "developer",
+        "user",
+        "assistant"
+      ],
+      "type": "string"
+    },
+    "PromptKnowledgeEntry": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "insertionOrder": {
+          "default": null,
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "keys": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "default": null
+        },
+        "position": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secondaryKeys": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
       "required": [
-        "entries"
+        "content"
       ],
       "type": "object"
     },
-    "PermissionProfileNetworkPermissions": {
+    "PromptKnowledgeSource": {
       "properties": {
-        "enabled": {
+        "description": {
+          "default": null,
           "type": [
-            "boolean",
+            "string",
+            "null"
+          ]
+        },
+        "entries": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptKnowledgeEntry"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metadata": {
+          "default": null
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PromptSource": {
+      "properties": {
+        "creatorNotes": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "depthPrompt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptDepthPrompt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "examples": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptExample"
+          },
+          "type": "array"
+        },
+        "greetings": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptGreeting"
+          },
+          "type": "array"
+        },
+        "id": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identity": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "knowledge": {
+          "default": [],
+          "items": {
+            "$ref": "#/definitions/PromptKnowledgeSource"
+          },
+          "type": "array"
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptSourceOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "postHistoryInstructions": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rawExtensions": {
+          "default": null
+        },
+        "scenario": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "systemOverlay": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "variables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "PromptSourceOrigin": {
+      "properties": {
+        "format": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourcePath": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spec": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "specVersion": {
+          "default": null,
+          "type": [
+            "string",
             "null"
           ]
         }
@@ -1361,6 +1430,24 @@
         "preview": {
           "description": "Usually the first user message in the thread, if available.",
           "type": "string"
+        },
+        "promptProfile": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PromptSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Active prompt profile for this thread, if any."
+        },
+        "promptProfilePath": {
+          "description": "Source path recorded for the active prompt profile, if any.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "source": {
           "allOf": [
@@ -1782,12 +1869,6 @@
             },
             "id": {
               "type": "string"
-            },
-            "namespace": {
-              "type": [
-                "string",
-                "null"
-              ]
             },
             "status": {
               "$ref": "#/definitions/DynamicToolCallStatus"
@@ -2497,18 +2578,6 @@
     "modelProvider": {
       "type": "string"
     },
-    "permissionProfile": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/PermissionProfile"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Canonical active permissions view for this thread when representable. This is `null` for external sandbox policies because external enforcement cannot be round-tripped as a `PermissionProfile`."
-    },
     "reasoningEffort": {
       "anyOf": [
         {
@@ -2520,12 +2589,7 @@
       ]
     },
     "sandbox": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/SandboxPolicy"
-        }
-      ],
-      "description": "Legacy sandbox policy retained for compatibility. New clients should use `permissionProfile` when present as the canonical active permissions view."
+      "$ref": "#/definitions/SandboxPolicy"
     },
     "serviceTier": {
       "anyOf": [

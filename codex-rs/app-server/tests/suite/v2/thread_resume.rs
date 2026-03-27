@@ -2,6 +2,7 @@ use anyhow::Result;
 use app_test_support::ChatGptAuthFixture;
 use app_test_support::McpProcess;
 use app_test_support::create_apply_patch_sse_response;
+use app_test_support::create_fake_rollout_with_prompt_profile;
 use app_test_support::create_fake_rollout_with_text_elements;
 use app_test_support::create_fake_rollout_with_token_usage;
 use app_test_support::create_final_assistant_message_sse_response;
@@ -47,6 +48,9 @@ use codex_protocol::ThreadId;
 use codex_protocol::config_types::Personality;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::ResponseItem;
+use codex_protocol::prompt_profile::PromptIdentity;
+use codex_protocol::prompt_profile::PromptSource;
+use codex_protocol::prompt_profile::PromptSourceOrigin;
 use codex_protocol::protocol::AgentMessageEvent;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::SessionMeta;
@@ -543,6 +547,61 @@ async fn thread_resume_token_usage_replay_can_belong_to_interrupted_turn() -> Re
     assert_eq!(notification.turn_id, interrupted_turn_id);
     assert_eq!(notification.token_usage.total.total_tokens, 230);
     assert_eq!(notification.token_usage.last.total_tokens, 130);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_resume_surfaces_prompt_profile_metadata() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let prompt_profile_path = codex_home.path().join("rei.json");
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        origin: Some(PromptSourceOrigin {
+            format: Some("chara_card_v2".to_string()),
+            source_path: Some(prompt_profile_path.display().to_string()),
+            spec: Some("chara_card_v2".to_string()),
+            spec_version: Some("2.0".to_string()),
+        }),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+    let conversation_id = create_fake_rollout_with_prompt_profile(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        None,
+        prompt_profile.clone(),
+    )?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let resume_id = mcp
+        .send_thread_resume_request(ThreadResumeParams {
+            thread_id: conversation_id,
+            ..Default::default()
+        })
+        .await?;
+    let resume_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(resume_id)),
+    )
+    .await??;
+    let ThreadResumeResponse { thread, .. } = to_response::<ThreadResumeResponse>(resume_resp)?;
+
+    assert_eq!(thread.prompt_profile, Some(prompt_profile));
+    assert_eq!(thread.prompt_profile_path, Some(prompt_profile_path));
 
     Ok(())
 }

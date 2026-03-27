@@ -3,6 +3,7 @@ use app_test_support::ChatGptAuthFixture;
 use app_test_support::McpProcess;
 use app_test_support::create_fake_rollout;
 use app_test_support::create_fake_rollout_with_token_usage;
+use app_test_support::create_fake_rollout_with_prompt_profile;
 use app_test_support::create_mock_responses_server_repeating_assistant;
 use app_test_support::to_response;
 use app_test_support::write_chatgpt_auth;
@@ -28,6 +29,11 @@ use codex_app_server_protocol::TurnStatus;
 use codex_app_server_protocol::UserInput;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_login::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
+use codex_core::load_prompt_profile_from_path;
+use codex_core::read_session_meta_line;
+use codex_protocol::prompt_profile::PromptIdentity;
+use codex_protocol::prompt_profile::PromptSource;
+use codex_protocol::prompt_profile::PromptSourceOrigin;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 use serde_json::json;
@@ -286,6 +292,128 @@ async fn thread_fork_tracks_thread_initialized_analytics() -> Result<()> {
 }
 
 #[tokio::test]
+async fn thread_fork_persists_override_prompt_profile() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let conversation_id = create_fake_rollout(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        /*git_info*/ None,
+    )?;
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let fork_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            prompt_profile: Some(prompt_profile.clone()),
+            prompt_profile_path: None,
+            thread_id: conversation_id,
+            ..Default::default()
+        })
+        .await?;
+    let fork_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(fork_id)),
+    )
+    .await??;
+    let ThreadForkResponse { thread, .. } = to_response::<ThreadForkResponse>(fork_resp)?;
+    assert_eq!(thread.prompt_profile, Some(prompt_profile.clone()));
+    assert_eq!(thread.prompt_profile_path, None);
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+
+    let rollout_path = thread.path.expect("forked thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(session_meta.meta.prompt_profile, Some(prompt_profile));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_fork_imports_prompt_profile_from_path() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let conversation_id = create_fake_rollout(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        /*git_info*/ None,
+    )?;
+    let card_path = codex_home.path().join("rei.json");
+    std::fs::write(
+        &card_path,
+        serde_json::to_vec(&serde_json::json!({
+            "spec": "chara_card_v2",
+            "spec_version": "2.0",
+            "data": {
+                "name": "Rei Kurose",
+                "description": "A quiet late-night engineering companion.",
+                "personality": "Restrained, observant, surgical.",
+                "scenario": "Late-night pair debugging in quiet places.",
+                "first_mes": "The carriage is quiet tonight."
+            }
+        }))?,
+    )?;
+    let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let fork_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            thread_id: conversation_id,
+            prompt_profile_path: Some(card_path.clone()),
+            ..Default::default()
+        })
+        .await?;
+    let fork_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(fork_id)),
+    )
+    .await??;
+    let ThreadForkResponse { thread, .. } = to_response::<ThreadForkResponse>(fork_resp)?;
+    assert_eq!(thread.prompt_profile, Some(expected_prompt_profile.clone()));
+    assert_eq!(thread.prompt_profile_path, Some(card_path.clone()));
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+
+    let rollout_path = thread.path.expect("forked thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(
+        session_meta.meta.prompt_profile,
+        Some(expected_prompt_profile)
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn thread_fork_rejects_unmaterialized_thread() -> Result<()> {
     let server = create_mock_responses_server_repeating_assistant("Done").await;
     let codex_home = TempDir::new()?;
@@ -325,6 +453,250 @@ async fn thread_fork_rejects_unmaterialized_thread() -> Result<()> {
             .contains("no rollout found for thread id"),
         "unexpected fork error: {}",
         fork_err.error.message
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_fork_rejects_clear_prompt_profile_with_override_inputs() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let conversation_id = create_fake_rollout(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        None,
+    )?;
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        ..Default::default()
+    };
+    let card_path = codex_home.path().join("rei.json");
+    std::fs::write(
+        &card_path,
+        b"{\"spec\":\"chara_card_v2\",\"spec_version\":\"2.0\",\"data\":{\"name\":\"Rei\"}}",
+    )?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let invalid_direct_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            thread_id: conversation_id.clone(),
+            prompt_profile: Some(prompt_profile),
+            clear_prompt_profile: true,
+            ..Default::default()
+        })
+        .await?;
+    let invalid_direct_error: JSONRPCError = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(invalid_direct_id)),
+    )
+    .await??;
+    assert_eq!(invalid_direct_error.error.code, -32600);
+    assert!(
+        invalid_direct_error
+            .error
+            .message
+            .contains("clearPromptProfile cannot be combined"),
+        "unexpected clear+promptProfile error: {}",
+        invalid_direct_error.error.message
+    );
+
+    let invalid_path_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            thread_id: conversation_id,
+            prompt_profile_path: Some(card_path),
+            clear_prompt_profile: true,
+            ..Default::default()
+        })
+        .await?;
+    let invalid_path_error: JSONRPCError = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(invalid_path_id)),
+    )
+    .await??;
+    assert_eq!(invalid_path_error.error.code, -32600);
+    assert!(
+        invalid_path_error
+            .error
+            .message
+            .contains("clearPromptProfile cannot be combined"),
+        "unexpected clear+promptProfilePath error: {}",
+        invalid_path_error.error.message
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_fork_clear_prompt_profile_removes_inherited_profile() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let prompt_profile_path = codex_home.path().join("rei.json");
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        origin: Some(PromptSourceOrigin {
+            format: Some("chara_card_v2".to_string()),
+            source_path: Some(prompt_profile_path.display().to_string()),
+            spec: Some("chara_card_v2".to_string()),
+            spec_version: Some("2.0".to_string()),
+        }),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+    let conversation_id = create_fake_rollout_with_prompt_profile(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        None,
+        prompt_profile,
+    )?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let fork_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            thread_id: conversation_id,
+            clear_prompt_profile: true,
+            ..Default::default()
+        })
+        .await?;
+    let fork_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(fork_id)),
+    )
+    .await??;
+    let ThreadForkResponse { thread, .. } = to_response::<ThreadForkResponse>(fork_resp)?;
+    assert_eq!(thread.prompt_profile, None);
+    assert_eq!(thread.prompt_profile_path, None);
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+
+    let rollout_path = thread.path.expect("forked thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(session_meta.meta.prompt_profile, None);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_fork_can_clear_prompt_profile() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let start_id = mcp
+        .send_thread_start_request(ThreadStartParams {
+            prompt_profile: Some(prompt_profile),
+            ..Default::default()
+        })
+        .await?;
+    let start_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(start_id)),
+    )
+    .await??;
+    let ThreadStartResponse { thread, .. } = to_response::<ThreadStartResponse>(start_resp)?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+    materialize_thread_rollout(&mut mcp, &thread.id).await?;
+
+    let fork_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            thread_id: thread.id,
+            clear_prompt_profile: true,
+            ..Default::default()
+        })
+        .await?;
+    let fork_resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(fork_id)),
+    )
+    .await??;
+    let ThreadForkResponse { thread, .. } = to_response::<ThreadForkResponse>(fork_resp)?;
+    assert_eq!(thread.prompt_profile, None);
+    assert_eq!(thread.prompt_profile_path, None);
+
+    let rollout_path = thread.path.expect("forked thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(session_meta.meta.prompt_profile, None);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_fork_rejects_clear_prompt_profile_with_override() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+
+    let conversation_id = create_fake_rollout(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        None,
+    )?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let fork_id = mcp
+        .send_thread_fork_request(ThreadForkParams {
+            thread_id: conversation_id,
+            clear_prompt_profile: true,
+            prompt_profile: Some(PromptSource {
+                name: Some("invalid".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+        .await?;
+    let err: JSONRPCError = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(fork_id)),
+    )
+    .await??;
+    assert_eq!(
+        err.error.message,
+        "clearPromptProfile cannot be combined with promptProfile or promptProfilePath"
     );
 
     Ok(())
@@ -589,6 +961,30 @@ async fn thread_fork_ephemeral_remains_pathless_and_omits_listing() -> Result<()
     )
     .await??;
 
+    Ok(())
+}
+
+async fn materialize_thread_rollout(mcp: &mut McpProcess, thread_id: &str) -> Result<()> {
+    let turn_req = mcp
+        .send_turn_start_request(TurnStartParams {
+            thread_id: thread_id.to_string(),
+            input: vec![UserInput::Text {
+                text: "materialize rollout".to_string(),
+                text_elements: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .await?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(turn_req)),
+    )
+    .await??;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("turn/completed"),
+    )
+    .await??;
     Ok(())
 }
 
