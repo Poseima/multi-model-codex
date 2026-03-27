@@ -14,6 +14,10 @@ pub enum SlashCommand {
     // more frequently used commands should be listed first.
     Model,
     Ide,
+    Provider,
+    #[strum(serialize = "switch_account")]
+    SwitchAccount,
+    Approvals,
     Permissions,
     Keymap,
     Vim,
@@ -34,6 +38,7 @@ pub enum SlashCommand {
     Fork,
     Init,
     Compact,
+    Archive,
     Plan,
     Goal,
     Agent,
@@ -61,6 +66,7 @@ pub enum SlashCommand {
     #[strum(to_string = "stop", serialize = "clean")]
     Stop,
     Clear,
+    Profile,
     Personality,
     Realtime,
     Settings,
@@ -82,10 +88,12 @@ impl SlashCommand {
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
+            SlashCommand::Archive => "extract memories from conversation into memory files",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
             SlashCommand::Resume => "resume a saved chat",
             SlashCommand::Clear => "clear the terminal and start a new chat",
+            SlashCommand::Profile => "load, show, or clear a prompt profile / character card",
             SlashCommand::Fork => "fork the current chat",
             SlashCommand::Quit | SlashCommand::Exit => "exit Codex",
             SlashCommand::Copy => "copy last response as markdown",
@@ -108,6 +116,9 @@ impl SlashCommand {
             SlashCommand::Ide => {
                 "include current selection, open files, and other context from your IDE"
             }
+            SlashCommand::Provider => "switch between configured model providers",
+            SlashCommand::SwitchAccount => "switch auth.json from CODEX_HOME/multi_auths",
+            SlashCommand::Approvals => "configure approval review routing",
             SlashCommand::Personality => "choose a communication style for Codex",
             SlashCommand::Realtime => "toggle realtime voice mode (experimental)",
             SlashCommand::Settings => "configure realtime microphone/speaker",
@@ -156,6 +167,7 @@ impl SlashCommand {
                 | SlashCommand::Side
                 | SlashCommand::Resume
                 | SlashCommand::SandboxReadRoot
+                | SlashCommand::Profile
         )
     }
 
@@ -180,7 +192,11 @@ impl SlashCommand {
             | SlashCommand::Fork
             | SlashCommand::Init
             | SlashCommand::Compact
+            | SlashCommand::Archive
             | SlashCommand::Model
+            | SlashCommand::Provider
+            | SlashCommand::SwitchAccount
+            | SlashCommand::Approvals
             | SlashCommand::Personality
             | SlashCommand::Permissions
             | SlashCommand::Keymap
@@ -217,6 +233,7 @@ impl SlashCommand {
             | SlashCommand::Ide
             | SlashCommand::Quit
             | SlashCommand::Exit
+            | SlashCommand::Profile => true,
             | SlashCommand::Side => true,
             SlashCommand::Rollout => true,
             SlashCommand::TestApproval => true,

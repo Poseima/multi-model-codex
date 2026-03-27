@@ -93,6 +93,7 @@ pub(crate) mod custom_prompt_view;
 mod experimental_features_view;
 mod file_search_popup;
 mod footer;
+mod fork_footer;
 mod list_selection_view;
 mod memories_settings_view;
 mod mentions_v2;
@@ -232,6 +233,7 @@ pub(crate) struct BottomPane {
     pending_thread_approvals: PendingThreadApprovals,
     context_window_percent: Option<i64>,
     context_window_used_tokens: Option<i64>,
+    context_window_total: Option<i64>,
     keymap: RuntimeKeymap,
 }
 
@@ -289,6 +291,7 @@ impl BottomPane {
             animations_enabled,
             context_window_percent: None,
             context_window_used_tokens: None,
+            context_window_total: None,
             keymap,
         }
     }
@@ -1029,6 +1032,15 @@ impl BottomPane {
         self.context_window_used_tokens = used_tokens;
         self.composer
             .set_context_window(percent, self.context_window_used_tokens);
+        self.request_redraw();
+    }
+
+    pub(crate) fn set_context_window_total(&mut self, total: Option<i64>) {
+        if self.context_window_total == total {
+            return;
+        }
+        self.context_window_total = total;
+        self.composer.set_context_window_total(total);
         self.request_redraw();
     }
 
