@@ -894,6 +894,8 @@ mod tests {
             preview: String::new(),
             ephemeral: false,
             model_provider: "mock-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 0,
             updated_at: 0,
             status: ThreadStatus::NotLoaded,
@@ -906,6 +908,8 @@ mod tests {
             thread_source: None,
             git_info: None,
             name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
             turns: Vec::new(),
         }
     }

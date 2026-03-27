@@ -206,6 +206,17 @@ pub(crate) enum AppEvent {
     /// Fork the current session into a new thread.
     ForkCurrentSession,
 
+    /// Load a prompt profile or imported character card for the current session.
+    LoadPromptProfile {
+        path: PathBuf,
+    },
+
+    /// Show the current session's active prompt profile summary.
+    ShowPromptProfile,
+
+    /// Clear the current session's active prompt profile.
+    ClearPromptProfile,
+
     /// Request to exit the application.
     ///
     /// Use `ShutdownFirst` for user-initiated quits so core cleanup runs and the
@@ -614,6 +625,9 @@ pub(crate) enum AppEvent {
     /// Update the current personality in the running app and widget.
     UpdatePersonality(Personality),
 
+    /// Update the current model provider in the running app and widget.
+    UpdateProvider(String),
+
     /// Persist the selected model and reasoning effort to the appropriate config.
     PersistModelSelection {
         model: String,
@@ -647,6 +661,11 @@ pub(crate) enum AppEvent {
         kind: RealtimeAudioDeviceKind,
     },
 
+    /// Persist the selected provider to the appropriate config.
+    PersistProviderSelection {
+        provider: String,
+    },
+
     /// Result of creating a TUI-owned realtime WebRTC offer.
     RealtimeWebrtcOfferCreated {
         result: Result<RealtimeWebrtcOffer, String>,
@@ -657,7 +676,6 @@ pub(crate) enum AppEvent {
 
     /// Local microphone level from a TUI-owned realtime WebRTC session.
     RealtimeWebrtcLocalAudioLevel(u16),
-
     /// Open the reasoning selection popup after picking a model.
     OpenReasoningPopup {
         model: ModelPreset,

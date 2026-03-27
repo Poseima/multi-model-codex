@@ -3363,6 +3363,10 @@
             "null"
           ]
         },
+        "clearPromptProfile": {
+          "description": "Clear any inherited prompt profile on the forked thread.",
+          "type": "boolean"
+        },
         "config": {
           "additionalProperties": true,
           "type": [

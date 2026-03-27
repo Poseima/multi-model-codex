@@ -9,6 +9,7 @@ use codex_app_server_protocol::AskForApproval;
 use codex_protocol::ThreadId;
 use codex_protocol::models::ActivePermissionProfile;
 use codex_protocol::models::PermissionProfile;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,6 +32,8 @@ pub(crate) struct ThreadSessionState {
     pub(crate) thread_name: Option<String>,
     pub(crate) model: String,
     pub(crate) model_provider_id: String,
+    pub(crate) prompt_profile: Option<PromptSource>,
+    pub(crate) prompt_profile_path: Option<PathBuf>,
     pub(crate) service_tier: Option<String>,
     pub(crate) approval_policy: AskForApproval,
     pub(crate) approvals_reviewer: codex_protocol::config_types::ApprovalsReviewer,

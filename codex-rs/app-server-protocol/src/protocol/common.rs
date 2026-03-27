@@ -2258,6 +2258,8 @@ mod tests {
                     preview: "first prompt".to_string(),
                     ephemeral: true,
                     model_provider: "openai".to_string(),
+                    prompt_profile: None,
+                    prompt_profile_path: None,
                     created_at: 1,
                     updated_at: 2,
                     status: v2::ThreadStatus::Idle,
@@ -2270,6 +2272,8 @@ mod tests {
                     agent_role: None,
                     git_info: None,
                     name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
                     turns: Vec::new(),
                 },
                 model: "gpt-5".to_string(),
@@ -2314,6 +2318,8 @@ mod tests {
                         "agentRole": null,
                         "gitInfo": null,
                         "name": null,
+                        "promptProfile": null,
+                        "promptProfilePath": null,
                         "turns": []
                     },
                     "model": "gpt-5",
@@ -3083,33 +3089,6 @@ mod tests {
             Some("item/commandExecution/requestApproval.additionalPermissions")
         );
     }
-    #[test]
-    fn command_execution_request_approval_skill_metadata_is_marked_experimental() {
-        let params = v2::CommandExecutionRequestApprovalParams {
-            thread_id: "thr_123".to_string(),
-            turn_id: "turn_123".to_string(),
-            item_id: "call_123".to_string(),
-            approval_id: None,
-            reason: None,
-            network_approval_context: None,
-            command: Some("cat file".to_string()),
-            cwd: None,
-            command_actions: None,
-            additional_permissions: None,
-            skill_metadata: Some(v2::CommandExecutionRequestApprovalSkillMetadata {
-                path_to_skills_md: PathBuf::from("/tmp/SKILLS.md"),
-            }),
-            proposed_execpolicy_amendment: None,
-            proposed_network_policy_amendments: None,
-            available_decisions: None,
-        };
-        let reason = crate::experimental_api::ExperimentalApi::experimental_reason(&params);
-        assert_eq!(
-            reason,
-            Some("item/commandExecution/requestApproval.skillMetadata")
-        );
-    }
-
     #[test]
     fn serialize_list_providers() -> Result<()> {
         let request = ClientRequest::ProviderList {

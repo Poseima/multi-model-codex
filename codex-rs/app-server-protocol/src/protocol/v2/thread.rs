@@ -16,6 +16,7 @@ use codex_experimental_api_macros::ExperimentalApi;
 use codex_protocol::config_types::Personality;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::ThreadGoalStatus as CoreThreadGoalStatus;
 use codex_protocol::protocol::TokenUsage as CoreTokenUsage;
 use codex_protocol::protocol::TokenUsageInfo as CoreTokenUsageInfo;
@@ -139,6 +140,10 @@ pub struct ThreadStartParams {
     /// Optional client-supplied analytics source classification for this thread.
     #[ts(optional = nullable)]
     pub thread_source: Option<ThreadSource>,
+    #[ts(optional = nullable)]
+    pub prompt_profile: Option<PromptSource>,
+    #[ts(optional = nullable)]
+    pub prompt_profile_path: Option<PathBuf>,
     /// Optional sticky environments for this thread.
     ///
     /// Omitted selects the default environment when environment access is
@@ -396,6 +401,12 @@ pub struct ThreadForkParams {
     /// Optional client-supplied analytics source classification for this forked thread.
     #[ts(optional = nullable)]
     pub thread_source: Option<ThreadSource>,
+    #[ts(optional = nullable)]
+    pub prompt_profile: Option<PromptSource>,
+    #[ts(optional = nullable)]
+    pub prompt_profile_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub clear_prompt_profile: bool,
     /// When true, return only thread metadata and live fork state without
     /// populating `thread.turns`. This is useful when the client plans to call
     /// `thread/turns/list` immediately after forking.

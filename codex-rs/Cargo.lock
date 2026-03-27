@@ -2658,6 +2658,7 @@ dependencies = [
  "codex-protocol",
  "codex-skills",
  "codex-utils-absolute-path",
+ "codex-utils-home-dir",
  "codex-utils-output-truncation",
  "codex-utils-plugins",
  "dirs",
