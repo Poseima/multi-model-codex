@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use codex_features::Feature;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
@@ -16,6 +17,7 @@ use crate::config::Constrained;
 use crate::memory_experiment;
 use crate::protocol::SubAgentSource;
 use crate::state::TaskKind;
+use codex_utils_absolute_path::AbsolutePathBuf;
 
 use super::SessionTask;
 use super::SessionTaskContext;
@@ -130,7 +132,11 @@ async fn start_archive_conversation(
     }
 
     // Set the working directory to the project memory root.
-    sub_agent_config.cwd = project_root.clone();
+    let Ok(project_root_abs) = AbsolutePathBuf::try_from(project_root.clone()) else {
+        warn!("failed to convert memory root to absolute path");
+        return None;
+    };
+    sub_agent_config.cwd = project_root_abs;
 
     // Check if this is a fresh memory directory (no existing .md files).
     let is_fresh = memory_experiment::is_memory_empty(&project_root).await;
@@ -352,9 +358,7 @@ impl Drop for InlineArchiveRunGuard {
 /// No-ops when the memory experiment is disabled or an inline archive run is
 /// already in progress for this session.
 pub(crate) fn spawn_inline_archive(session: Arc<Session>, ctx: Arc<TurnContext>) {
-    let feature_flag = ctx
-        .features
-        .enabled(crate::features::Feature::MemoryExperiment);
+    let feature_flag = ctx.features.enabled(Feature::MemoryExperiment);
     let enabled = memory_experiment::is_enabled(&ctx.config.codex_home, &ctx.cwd, &ctx.features);
     tracing::info!(
         enabled,
@@ -383,9 +387,7 @@ pub(crate) fn spawn_inline_archive(session: Arc<Session>, ctx: Arc<TurnContext>)
 /// No-ops when the memory experiment is not enabled for the current project.
 /// Failures are logged but do not propagate — archive must never block compaction.
 pub(crate) async fn run_inline_archive(session: Arc<Session>, ctx: Arc<TurnContext>) {
-    let feature_flag = ctx
-        .features
-        .enabled(crate::features::Feature::MemoryExperiment);
+    let feature_flag = ctx.features.enabled(Feature::MemoryExperiment);
     let enabled = memory_experiment::is_enabled(&ctx.config.codex_home, &ctx.cwd, &ctx.features);
     tracing::info!(
         enabled,

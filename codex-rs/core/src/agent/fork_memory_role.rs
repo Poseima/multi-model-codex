@@ -11,6 +11,7 @@ use std::path::Path;
 
 use crate::config::Config;
 use crate::memory_experiment;
+use codex_utils_absolute_path::AbsolutePathBuf;
 
 /// System prompt for the retrieval research agent.
 const RETRIEVAL_PROMPT: &str =
@@ -64,7 +65,9 @@ pub(crate) async fn enrich_config_if_memory_role(
 
     // Override cwd to the memory root so the agent's file tools operate
     // in the memory directory by default.
-    config.cwd = project_root;
+    if let Ok(project_root) = AbsolutePathBuf::try_from(project_root) {
+        config.cwd = project_root;
+    }
 }
 
 async fn read_clues(project_root: &Path) -> String {
