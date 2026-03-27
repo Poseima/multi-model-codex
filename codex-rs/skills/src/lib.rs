@@ -217,7 +217,9 @@ mod tests {
         );
         assert!(
             paths
-                .binary_search_by(|probe| probe.as_str().cmp("dawn-im-management/scripts/dawn_im.py"))
+                .binary_search_by(|probe| probe
+                    .as_str()
+                    .cmp("dawn-im-management/scripts/dawn_im.py"))
                 .is_ok()
         );
     }
