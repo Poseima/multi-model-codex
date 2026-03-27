@@ -7,6 +7,7 @@ use codex_protocol::protocol::SessionSource as CoreSessionSource;
 use codex_protocol::protocol::SubAgentSource as CoreSubAgentSource;
 use codex_protocol::protocol::ThreadHistoryMode as CoreThreadHistoryMode;
 use codex_protocol::protocol::ThreadSource as CoreThreadSource;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use schemars::JsonSchema;
 use schemars::r#gen::SchemaGenerator;
@@ -218,6 +219,8 @@ pub struct Thread {
     pub git_info: Option<GitInfo>,
     /// Optional user-facing thread title.
     pub name: Option<String>,
+    pub prompt_profile: Option<PromptSource>,
+    pub prompt_profile_path: Option<PathBuf>,
     /// Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read`
     /// (when `includeTurns` is true) responses.
     /// For all other responses and notifications returning a Thread,
