@@ -177,7 +177,12 @@ impl ToolHandler for StructuredEditHandler {
                     )
                 })?;
                 let new_str = args.new_str.unwrap_or_default();
-                let file_path = cwd.join(&args.path);
+                let file_path = cwd.join(&args.path).map_err(|e| {
+                    FunctionCallError::RespondToModel(format!(
+                        "failed to resolve file '{}': {e}",
+                        args.path
+                    ))
+                })?;
                 let file_content = std::fs::read_to_string(&file_path).map_err(|e| {
                     FunctionCallError::RespondToModel(format!(
                         "failed to read file '{}': {e}",
