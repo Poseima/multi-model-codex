@@ -13,6 +13,7 @@ use chrono::SecondsFormat;
 use codex_protocol::ThreadId;
 use codex_protocol::dynamic_tools::DynamicToolSpec;
 use codex_protocol::models::BaseInstructions;
+use codex_protocol::prompt_profile::PromptSource;
 use serde_json::Value;
 use time::OffsetDateTime;
 use time::format_description::FormatItem;
@@ -87,6 +88,7 @@ pub enum RolloutRecorderParams {
         source: SessionSource,
         thread_source: Option<ThreadSource>,
         base_instructions: BaseInstructions,
+        prompt_profile: Option<PromptSource>,
         dynamic_tools: Vec<DynamicToolSpec>,
         multi_agent_version: Option<MultiAgentVersion>,
     },
@@ -164,6 +166,7 @@ impl RolloutRecorderParams {
         source: SessionSource,
         thread_source: Option<ThreadSource>,
         base_instructions: BaseInstructions,
+        prompt_profile: Option<PromptSource>,
         dynamic_tools: Vec<DynamicToolSpec>,
     ) -> Self {
         Self::Create {
@@ -173,6 +176,7 @@ impl RolloutRecorderParams {
             source,
             thread_source,
             base_instructions,
+            prompt_profile,
             dynamic_tools,
             multi_agent_version: None,
         }
@@ -702,6 +706,7 @@ impl RolloutRecorder {
                 source,
                 thread_source,
                 base_instructions,
+                prompt_profile,
                 dynamic_tools,
                 multi_agent_version,
             } => {
@@ -733,6 +738,7 @@ impl RolloutRecorder {
                     thread_source,
                     model_provider: Some(config.model_provider_id().to_string()),
                     base_instructions: Some(base_instructions),
+                    prompt_profile,
                     dynamic_tools: if dynamic_tools.is_empty() {
                         None
                     } else {

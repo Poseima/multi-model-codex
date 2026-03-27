@@ -3384,6 +3384,7 @@ async fn set_rate_limits_retains_previous_credits() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -3491,6 +3492,7 @@ async fn set_rate_limits_updates_plan_type_when_present() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -4019,6 +4021,7 @@ pub(crate) async fn make_session_configuration_for_tests() -> SessionConfigurati
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -4886,6 +4889,7 @@ async fn session_new_fails_when_zsh_fork_enabled_without_packaged_zsh() {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -4999,6 +5003,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -5185,6 +5190,8 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
         services,
         next_internal_sub_id: AtomicU64::new(0),
+        agent_task_registration_lock: Mutex::new(()),
+        inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     };
 
     (session, turn_context)
@@ -7059,6 +7066,7 @@ where
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -7244,6 +7252,8 @@ where
         guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
         services,
         next_internal_sub_id: AtomicU64::new(0),
+        agent_task_registration_lock: Mutex::new(()),
+        inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     });
 
     (session, turn_context, rx_event)
@@ -9339,6 +9349,7 @@ async fn steer_input_rejects_non_regular_turns() {
     for (task_kind, turn_kind) in [
         (TaskKind::Review, NonSteerableTurnKind::Review),
         (TaskKind::Compact, NonSteerableTurnKind::Compact),
+        (TaskKind::Archive, NonSteerableTurnKind::Compact),
     ] {
         let (sess, _tc, _rx) = make_session_and_context_with_rx().await;
         let input = vec![TurnInput::UserInput {
