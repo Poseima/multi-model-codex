@@ -4181,6 +4181,8 @@ pub(crate) fn thread_from_stored_thread(
         thread_source: thread.thread_source.map(Into::into),
         git_info,
         name: thread.name,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     };
     (thread, history)
@@ -4387,6 +4389,8 @@ fn build_thread_from_snapshot(
         thread_source: config_snapshot.thread_source.clone().map(Into::into),
         git_info: None,
         name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     }
 }

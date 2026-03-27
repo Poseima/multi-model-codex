@@ -156,7 +156,7 @@ impl CollaborationModeIndicator {
         }
     }
 
-    fn styled_span(self, show_cycle_hint: bool) -> Span<'static> {
+    pub(crate) fn styled_span(self, show_cycle_hint: bool) -> Span<'static> {
         let label = self.label(show_cycle_hint);
         match self {
             CollaborationModeIndicator::Plan => Span::from(label).magenta(),
@@ -188,6 +188,10 @@ pub(crate) enum FooterMode {
     /// The shortcuts hint is suppressed here; when a task is running, this
     /// mode can show the queue hint instead.
     ComposerHasDraft,
+    /// Context-only display showing token usage with shortcuts hint.
+    ShortcutSummary,
+    /// Context display with optional queue hint.
+    ContextOnly,
 }
 
 pub(crate) fn toggle_shortcut_mode(
@@ -225,7 +229,9 @@ pub(crate) fn reset_mode_after_activity(current: FooterMode) -> FooterMode {
         | FooterMode::ShortcutOverlay
         | FooterMode::QuitShortcutReminder
         | FooterMode::HistorySearch
-        | FooterMode::ComposerHasDraft => FooterMode::ComposerEmpty,
+        | FooterMode::ComposerHasDraft
+        | FooterMode::ShortcutSummary
+        | FooterMode::ContextOnly => FooterMode::ComposerEmpty,
         other => other,
     }
 }
@@ -233,19 +239,22 @@ pub(crate) fn reset_mode_after_activity(current: FooterMode) -> FooterMode {
 pub(crate) fn footer_height(props: &FooterProps) -> u16 {
     let show_shortcuts_hint = match props.mode {
         FooterMode::ComposerEmpty => true,
-        FooterMode::ComposerHasDraft => false,
         FooterMode::HistorySearch
         | FooterMode::QuitShortcutReminder
         | FooterMode::ShortcutOverlay
-        | FooterMode::EscHint => false,
+        | FooterMode::EscHint
+        | FooterMode::ComposerHasDraft
+        | FooterMode::ShortcutSummary
+        | FooterMode::ContextOnly => false,
     };
     let show_queue_hint = match props.mode {
-        FooterMode::ComposerHasDraft => props.is_task_running,
+        FooterMode::ComposerHasDraft | FooterMode::ContextOnly => props.is_task_running,
         FooterMode::QuitShortcutReminder
         | FooterMode::HistorySearch
         | FooterMode::ComposerEmpty
         | FooterMode::ShortcutOverlay
-        | FooterMode::EscHint => false,
+        | FooterMode::EscHint
+        | FooterMode::ShortcutSummary => false,
     };
     footer_from_props_lines(
         props,
@@ -772,6 +781,30 @@ fn footer_from_props_lines(
                 key_hints,
             )]
         }
+        FooterMode::ShortcutSummary => {
+            let mut line = context_window_line(
+                props.context_window_percent,
+                props.context_window_used_tokens,
+            );
+            line.push_span(" · ".dim());
+            line.extend(vec![
+                key_hint::plain(KeyCode::Char('?')).into(),
+                " for shortcuts".dim(),
+            ]);
+            vec![line]
+        }
+        FooterMode::ContextOnly => {
+            let mut line = context_window_line(
+                props.context_window_percent,
+                props.context_window_used_tokens,
+            );
+            if props.is_task_running {
+                line.push_span(" · ".dim());
+                line.push_span(key_hint::plain(KeyCode::Tab));
+                line.push_span(" to queue message".dim());
+            }
+            vec![line]
+        }
     }
 }
 
@@ -814,7 +847,9 @@ pub(crate) fn shows_passive_footer_line(props: &FooterProps) -> bool {
         FooterMode::HistorySearch
         | FooterMode::QuitShortcutReminder
         | FooterMode::ShortcutOverlay
-        | FooterMode::EscHint => false,
+        | FooterMode::EscHint
+        | FooterMode::ShortcutSummary
+        | FooterMode::ContextOnly => false,
     }
 }
 
@@ -1324,19 +1359,22 @@ mod tests {
                 let show_cycle_hint = !props.is_task_running;
                 let show_shortcuts_hint = match props.mode {
                     FooterMode::ComposerEmpty => true,
-                    FooterMode::ComposerHasDraft => false,
                     FooterMode::HistorySearch
                     | FooterMode::QuitShortcutReminder
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ComposerHasDraft
+                    | FooterMode::ShortcutSummary
+                    | FooterMode::ContextOnly => false,
                 };
                 let show_queue_hint = match props.mode {
-                    FooterMode::ComposerHasDraft => props.is_task_running,
+                    FooterMode::ComposerHasDraft | FooterMode::ContextOnly => props.is_task_running,
                     FooterMode::HistorySearch
                     | FooterMode::QuitShortcutReminder
                     | FooterMode::ComposerEmpty
                     | FooterMode::ShortcutOverlay
-                    | FooterMode::EscHint => false,
+                    | FooterMode::EscHint
+                    | FooterMode::ShortcutSummary => false,
                 };
                 let status_line_active = uses_passive_footer_status_layout(props);
                 let passive_status_line = if status_line_active {

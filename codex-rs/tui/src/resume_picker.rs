@@ -5726,6 +5726,8 @@ session_picker_view = "dense"
             preview: String::from("remote thread"),
             ephemeral: false,
             model_provider: String::from("openai"),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 1,
             updated_at: 2,
             recency_at: Some(2),
@@ -5739,6 +5741,8 @@ session_picker_view = "dense"
             agent_role: None,
             git_info: None,
             name: Some(String::from("Named thread")),
+        prompt_profile: None,
+        prompt_profile_path: None,
             turns: Vec::new(),
         };
 
