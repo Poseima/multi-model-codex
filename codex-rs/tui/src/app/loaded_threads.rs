@@ -146,6 +146,8 @@ mod tests {
             section_entered_at: None,
             history_mode: Default::default(),
             model_provider: "openai".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 0,
             updated_at: 0,
             recency_at: Some(0),
@@ -160,6 +162,8 @@ mod tests {
             agent_role: None,
             git_info: None,
             name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
             turns: Vec::new(),
         }
     }
