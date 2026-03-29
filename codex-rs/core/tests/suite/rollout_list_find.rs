@@ -190,6 +190,8 @@ async fn find_locates_rollout_file_written_by_recorder() -> std::io::Result<()> 
             /*thread_source*/ None,
             "test_originator".to_string(),
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         ),
     )

@@ -5,27 +5,27 @@
 /**
  * Summary of a configured model provider.
  */
-export type ProviderInfo = { 
+export type ProviderInfo = {
 /**
  * Key in the providers map (e.g. `"openai"`, `"ollama"`).
  */
-id: string, 
+id: string,
 /**
  * Friendly display name.
  */
-name: string, 
+name: string,
 /**
  * Base URL for the provider's API.
  */
-baseUrl: string | null, 
+baseUrl: string | null,
 /**
  * Wire protocol: `"responses"` or `"chat"`.
  */
-wireApi: string, 
+wireApi: string,
 /**
  * Environment variable that stores the API key.
  */
-envKey: string | null, 
+envKey: string | null,
 /**
  * Whether this provider requires OpenAI authentication.
  */
