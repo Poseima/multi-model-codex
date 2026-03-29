@@ -27,6 +27,7 @@ use codex_protocol::permissions::FileSystemPath;
 use codex_protocol::permissions::FileSystemSpecialPath;
 use codex_protocol::protocol::EnvironmentConfig;
 use codex_protocol::protocol::HookCompletedEvent;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::MultiAgentVersion;
 use codex_protocol::protocol::ThreadHistoryMode;
 use codex_protocol::protocol::ThreadSource;
@@ -93,6 +94,8 @@ pub(crate) struct SessionConfiguration {
 
     /// Base instructions for the session.
     pub(super) base_instructions: String,
+    pub(super) prompt_profile: Option<PromptSource>,
+    pub(super) prompt_profile_path: Option<PathBuf>,
 
     /// Permission profile state for the session. Keep the constrained profile,
     /// active profile id, and profile-defined workspace roots in sync by using
@@ -879,6 +882,8 @@ impl Session {
                                 text: session_configuration.base_instructions.clone(),
                                 provenance: base_instructions_provenance.clone(),
                             },
+                            prompt_profile: session_configuration.prompt_profile.clone(),
+                            prompt_profile_path: session_configuration.prompt_profile_path.clone(),
                             dynamic_tools: session_configuration.dynamic_tools.clone(),
                             selected_capability_roots: selected_capability_roots.clone(),
                             multi_agent_version: initial_multi_agent_version,

@@ -92,7 +92,10 @@ impl SwappableModelClient {
     }
 
     pub(crate) fn responses_websocket_enabled(&self) -> bool {
-        self.inner.read().expect("lock poisoned").responses_websocket_enabled()
+        self.inner
+            .read()
+            .expect("lock poisoned")
+            .responses_websocket_enabled()
     }
 
     pub(crate) fn replace(&self, new_client: ModelClient) {

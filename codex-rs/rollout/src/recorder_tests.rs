@@ -634,6 +634,7 @@ async fn recorder_materializes_on_flush_with_pending_items() -> std::io::Result<
             "test_originator".to_string(),
             BaseInstructions::default(),
             None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         )
         .with_session_id(session_id)
@@ -741,6 +742,8 @@ async fn referenced_paginated_rollout_starts_at_history_cutoff_and_resumes() -> 
             /*thread_source*/ None,
             "test_originator".to_string(),
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         )
         .with_history_mode(ThreadHistoryMode::Paginated)
@@ -840,6 +843,8 @@ async fn recorder_omits_ordinals_from_legacy_rollouts() -> std::io::Result<()> {
             /*thread_source*/ None,
             "test_originator".to_string(),
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         ),
     )
@@ -898,6 +903,8 @@ async fn persist_reports_filesystem_error_and_retries_buffered_items() -> std::i
             /*thread_source*/ None,
             "test_originator".to_string(),
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         ),
     )
@@ -1135,6 +1142,7 @@ async fn metadata_irrelevant_events_coalesce_state_db_updated_at() -> std::io::R
             /*thread_source*/ None,
             BaseInstructions::default(),
             None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),

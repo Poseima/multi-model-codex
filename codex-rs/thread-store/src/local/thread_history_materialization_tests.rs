@@ -125,6 +125,8 @@ async fn split_homes_support_backfill_listing_and_paginated_history() {
             /*thread_source*/ None,
             "test-originator".to_string(),
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         )
         .with_history_mode(ThreadHistoryMode::Paginated)
@@ -2579,6 +2581,8 @@ async fn create_paginated_subagent_thread(
             thread_source: None,
             originator: "test_originator".to_string(),
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             selected_capability_roots: Vec::new(),
             multi_agent_version: None,
