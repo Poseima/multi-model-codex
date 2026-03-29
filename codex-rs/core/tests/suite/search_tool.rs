@@ -937,7 +937,11 @@ async fn tool_search_returns_deferred_dynamic_tool_and_routes_follow_up_call() -
     let base_test = builder.build(&server).await?;
     let new_thread = base_test
         .thread_manager
-        .start_thread_with_tools(base_test.config.clone(), vec![dynamic_tool])
+        .start_thread_with_tools(
+            base_test.config.clone(),
+            vec![dynamic_tool],
+            /*persist_extended_history*/ false,
+        )
         .await?;
     let mut test = base_test;
     test.codex = new_thread.thread;
@@ -1570,7 +1574,11 @@ async fn tool_search_matches_dynamic_tools_by_name_description_namespace_and_sch
     let base_test = builder.build(&server).await?;
     let new_thread = base_test
         .thread_manager
-        .start_thread_with_tools(base_test.config.clone(), vec![dynamic_tool])
+        .start_thread_with_tools(
+            base_test.config.clone(),
+            vec![dynamic_tool],
+            /*persist_extended_history*/ false,
+        )
         .await?;
     let mut test = base_test;
     test.codex = new_thread.thread;

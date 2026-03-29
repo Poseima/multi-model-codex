@@ -141,6 +141,7 @@ async fn spawn_v2_subagent(
             Some(parent_thread_id),
             /*forked_from_thread_id*/ None,
             Some(ThreadSource::Subagent),
+            /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*initial_multi_agent_mode*/ None,
             /*inherited_environments*/ None,

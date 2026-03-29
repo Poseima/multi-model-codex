@@ -151,7 +151,11 @@ async fn resume_restores_dynamic_tools_from_rollout_with_sqlite_enabled() -> Res
     let base_test = builder.build(&server).await?;
     let started = base_test
         .thread_manager
-        .start_thread_with_tools(base_test.config.clone(), vec![dynamic_tool])
+        .start_thread_with_tools(
+            base_test.config.clone(),
+            vec![dynamic_tool],
+            /*persist_extended_history*/ false,
+        )
         .await?;
     let rollout_path = started
         .session_configured
@@ -248,7 +252,11 @@ async fn resume_restores_legacy_dynamic_tools_from_rollout_with_sqlite_enabled()
     let base_test = builder.build(&server).await?;
     let started = base_test
         .thread_manager
-        .start_thread_with_tools(base_test.config.clone(), Vec::new())
+        .start_thread_with_tools(
+            base_test.config.clone(),
+            Vec::new(),
+            /*persist_extended_history*/ false,
+        )
         .await?;
     let rollout_path = started
         .session_configured
@@ -370,6 +378,8 @@ async fn backfill_scans_existing_rollouts() -> Result<()> {
                     agent_role: None,
                     model_provider: None,
                     base_instructions: None,
+                    prompt_profile: None,
+                    prompt_profile_path: None,
                     dynamic_tools: None,
                     memory_mode: None,
                     multi_agent_version: None,

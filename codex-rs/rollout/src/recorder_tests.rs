@@ -376,6 +376,7 @@ async fn recorder_materializes_on_flush_with_pending_items() -> std::io::Result<
             /*thread_source*/ None,
             BaseInstructions::default(),
             None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         ),
     )
@@ -550,6 +551,7 @@ async fn metadata_irrelevant_events_coalesce_state_db_updated_at() -> std::io::R
             /*thread_source*/ None,
             BaseInstructions::default(),
             None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
