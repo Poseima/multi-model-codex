@@ -55,6 +55,8 @@ async fn write_rollout_with_user_event(dir: &Path, thread_id: ThreadId) -> io::R
             agent_role: None,
             model_provider: None,
             base_instructions: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: None,
             memory_mode: None,
         },

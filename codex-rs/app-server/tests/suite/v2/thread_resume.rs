@@ -709,6 +709,8 @@ stream_max_retries = 0
         agent_role: None,
         model_provider: Some("mock_provider".to_string()),
         base_instructions: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         dynamic_tools: None,
         memory_mode: None,
     };

@@ -50,9 +50,9 @@ use codex_protocol::protocol::TurnCompleteEvent;
 use codex_protocol::protocol::WarningEvent;
 use codex_protocol::user_input::UserInput;
 
-use codex_features::Feature;
 pub(crate) use archive::ArchiveTask;
 pub(crate) use archive::spawn_inline_archive;
+use codex_features::Feature;
 pub(crate) use compact::CompactTask;
 pub(crate) use ghost_snapshot::GhostSnapshotTask;
 pub(crate) use regular::RegularTask;

@@ -5,6 +5,7 @@ use crate::config::Config;
 use crate::file_watcher::FileWatcher;
 use crate::mcp::McpManager;
 use crate::plugins::PluginsManager;
+use crate::prompt_profile_loader::PromptProfileOverride;
 use crate::rollout::RolloutRecorder;
 use crate::rollout::truncation;
 use crate::session::Codex;
@@ -520,6 +521,31 @@ impl ThreadManager {
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             dynamic_tools,
+            PromptProfileOverride::Inherit,
+            persist_extended_history,
+            metrics_service_name,
+            parent_trace,
+            /*user_shell_override*/ None,
+        ))
+        .await
+    }
+
+    pub async fn start_thread_with_tools_service_name_and_prompt_profile(
+        &self,
+        config: Config,
+        dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        prompt_profile_override: PromptProfileOverride,
+        persist_extended_history: bool,
+        metrics_service_name: Option<String>,
+        parent_trace: Option<W3cTraceContext>,
+    ) -> CodexResult<NewThread> {
+        Box::pin(self.state.spawn_thread(
+            config,
+            InitialHistory::New,
+            Arc::clone(&self.state.auth_manager),
+            self.agent_control(),
+            dynamic_tools,
+            prompt_profile_override,
             persist_extended_history,
             metrics_service_name,
             parent_trace,
@@ -560,6 +586,7 @@ impl ThreadManager {
             auth_manager,
             self.agent_control(),
             Vec::new(),
+            PromptProfileOverride::Inherit,
             persist_extended_history,
             /*metrics_service_name*/ None,
             parent_trace,
@@ -579,6 +606,7 @@ impl ThreadManager {
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             Vec::new(),
+            PromptProfileOverride::Inherit,
             /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*parent_trace*/ None,
@@ -601,6 +629,7 @@ impl ThreadManager {
             auth_manager,
             self.agent_control(),
             Vec::new(),
+            PromptProfileOverride::Inherit,
             /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*parent_trace*/ None,
@@ -709,6 +738,54 @@ impl ThreadManager {
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            persist_extended_history,
+            /*metrics_service_name*/ None,
+            parent_trace,
+            /*user_shell_override*/ None,
+        ))
+        .await
+    }
+
+    pub async fn fork_thread_with_prompt_profile<S>(
+        &self,
+        snapshot: S,
+        config: Config,
+        path: PathBuf,
+        prompt_profile_override: PromptProfileOverride,
+        persist_extended_history: bool,
+        parent_trace: Option<W3cTraceContext>,
+    ) -> CodexResult<NewThread>
+    where
+        S: Into<ForkSnapshot>,
+    {
+        let snapshot = snapshot.into();
+        let history = RolloutRecorder::get_rollout_history(&path).await?;
+        let snapshot_state = snapshot_turn_state(&history);
+        let history = match snapshot {
+            ForkSnapshot::TruncateBeforeNthUserMessage(nth_user_message) => {
+                truncate_before_nth_user_message(history, nth_user_message, &snapshot_state)
+            }
+            ForkSnapshot::Interrupted => {
+                let history = match history {
+                    InitialHistory::New => InitialHistory::New,
+                    InitialHistory::Forked(history) => InitialHistory::Forked(history),
+                    InitialHistory::Resumed(resumed) => InitialHistory::Forked(resumed.history),
+                };
+                if snapshot_state.ends_mid_turn {
+                    append_interrupted_boundary(history, snapshot_state.active_turn_id)
+                } else {
+                    history
+                }
+            }
+        };
+        Box::pin(self.state.spawn_thread(
+            config,
+            history,
+            Arc::clone(&self.state.auth_manager),
+            self.agent_control(),
+            Vec::new(),
+            prompt_profile_override,
             persist_extended_history,
             /*metrics_service_name*/ None,
             parent_trace,
@@ -808,6 +885,7 @@ impl ThreadManagerState {
             agent_control,
             session_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
             persist_extended_history,
             metrics_service_name,
             inherited_shell_snapshot,
@@ -835,6 +913,7 @@ impl ThreadManagerState {
             agent_control,
             session_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
             /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             inherited_shell_snapshot,
@@ -863,6 +942,7 @@ impl ThreadManagerState {
             agent_control,
             session_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
             persist_extended_history,
             /*metrics_service_name*/ None,
             inherited_shell_snapshot,
@@ -882,6 +962,7 @@ impl ThreadManagerState {
         auth_manager: Arc<AuthManager>,
         agent_control: AgentControl,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        prompt_profile_override: PromptProfileOverride,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
         parent_trace: Option<W3cTraceContext>,
@@ -894,6 +975,7 @@ impl ThreadManagerState {
             agent_control,
             self.session_source.clone(),
             dynamic_tools,
+            prompt_profile_override,
             persist_extended_history,
             metrics_service_name,
             /*inherited_shell_snapshot*/ None,
@@ -913,6 +995,7 @@ impl ThreadManagerState {
         agent_control: AgentControl,
         session_source: SessionSource,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        prompt_profile_override: PromptProfileOverride,
         persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -949,6 +1032,7 @@ impl ThreadManagerState {
             session_source,
             agent_control,
             dynamic_tools,
+            prompt_profile_override,
             persist_extended_history,
             metrics_service_name,
             inherited_shell_snapshot,

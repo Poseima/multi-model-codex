@@ -196,8 +196,14 @@ async fn returns_config_error_for_invalid_managed_config_toml() {
         &codex_config::NoopThreadConfigLoader,
         /*host_name*/ None,
     )
-    .await
-    .expect_err("expected error");
+    .await;
+
+    if codex_utils_home_dir::is_embedded_mode() {
+        assert!(err.is_ok(), "embedded mode should ignore managed config");
+        return;
+    }
+
+    let err = err.expect_err("expected error");
 
     let config_error = config_error_from_io(&err);
     let expected_toml_error = toml::from_str::<TomlValue>(contents).expect_err("parse error");
@@ -288,16 +294,29 @@ extra = true
     let loaded = state.effective_config();
     let table = loaded.as_table().expect("top-level table expected");
 
-    assert_eq!(table.get("foo"), Some(&TomlValue::Integer(2)));
-    let nested = table
-        .get("nested")
-        .and_then(|v| v.as_table())
-        .expect("nested");
-    assert_eq!(
-        nested.get("value"),
-        Some(&TomlValue::String("managed_config".to_string()))
-    );
-    assert_eq!(nested.get("extra"), Some(&TomlValue::Boolean(true)));
+    if codex_utils_home_dir::is_embedded_mode() {
+        assert_eq!(table.get("foo"), Some(&TomlValue::Integer(1)));
+        let nested = table
+            .get("nested")
+            .and_then(|v| v.as_table())
+            .expect("nested");
+        assert_eq!(
+            nested.get("value"),
+            Some(&TomlValue::String("base".to_string()))
+        );
+        assert_eq!(nested.get("extra"), None);
+    } else {
+        assert_eq!(table.get("foo"), Some(&TomlValue::Integer(2)));
+        let nested = table
+            .get("nested")
+            .and_then(|v| v.as_table())
+            .expect("nested");
+        assert_eq!(
+            nested.get("value"),
+            Some(&TomlValue::String("managed_config".to_string()))
+        );
+        assert_eq!(nested.get("extra"), Some(&TomlValue::Boolean(true)));
+    }
 }
 
 #[tokio::test]
@@ -466,29 +485,42 @@ flag = false
     )
     .await
     .expect("load config");
-    let loaded = state.effective_config();
-    let nested = loaded
-        .get("nested")
-        .and_then(|v| v.as_table())
-        .expect("nested table");
-    assert_eq!(
-        nested.get("value"),
-        Some(&TomlValue::String("managed".to_string()))
-    );
-    assert_eq!(nested.get("flag"), Some(&TomlValue::Boolean(false)));
-    let mdm_layer = state
-        .layers_high_to_low()
-        .into_iter()
-        .find(|layer| {
-            matches!(
-                layer.name,
-                super::ConfigLayerSource::LegacyManagedConfigTomlFromMdm
-            )
-        })
-        .expect("mdm layer");
-    let raw = mdm_layer.raw_toml().expect("preserved mdm toml");
-    assert!(raw.contains("# managed profile"));
-    assert!(raw.contains("value = \"managed\""));
+    if codex_utils_home_dir::is_embedded_mode() {
+        let loaded = state.effective_config();
+        let nested = loaded
+            .get("nested")
+            .and_then(|v| v.as_table())
+            .expect("nested table");
+        assert_eq!(
+            nested.get("value"),
+            Some(&TomlValue::String("base".to_string()))
+        );
+        assert_eq!(nested.get("flag"), None);
+    } else {
+        let loaded = state.effective_config();
+        let nested = loaded
+            .get("nested")
+            .and_then(|v| v.as_table())
+            .expect("nested table");
+        assert_eq!(
+            nested.get("value"),
+            Some(&TomlValue::String("managed".to_string()))
+        );
+        assert_eq!(nested.get("flag"), Some(&TomlValue::Boolean(false)));
+        let mdm_layer = state
+            .layers_high_to_low()
+            .into_iter()
+            .find(|layer| {
+                matches!(
+                    layer.name,
+                    super::ConfigLayerSource::LegacyManagedConfigTomlFromMdm
+                )
+            })
+            .expect("mdm layer");
+        let raw = mdm_layer.raw_toml().expect("preserved mdm toml");
+        assert!(raw.contains("# managed profile"));
+        assert!(raw.contains("value = \"managed\""));
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -522,18 +554,25 @@ writable_roots = ["~/code"]
         .build()
         .await?;
 
-    let expected_root = AbsolutePathBuf::from_absolute_path(home.join("code"))?;
-    match config.permissions.sandbox_policy.get() {
-        SandboxPolicy::WorkspaceWrite { writable_roots, .. } => {
-            assert_eq!(
-                writable_roots
-                    .iter()
-                    .filter(|root| **root == expected_root)
-                    .count(),
-                1,
-            );
+    if codex_utils_home_dir::is_embedded_mode() {
+        assert_eq!(
+            *config.permissions.sandbox_policy.get(),
+            SandboxPolicy::new_read_only_policy()
+        );
+    } else {
+        let expected_root = AbsolutePathBuf::from_absolute_path(home.join("code"))?;
+        match config.permissions.sandbox_policy.get() {
+            SandboxPolicy::WorkspaceWrite { writable_roots, .. } => {
+                assert_eq!(
+                    writable_roots
+                        .iter()
+                        .filter(|root| **root == expected_root)
+                        .count(),
+                    1,
+                );
+            }
+            other => panic!("expected workspace-write policy, got {other:?}"),
         }
-        other => panic!("expected workspace-write policy, got {other:?}"),
     }
 
     Ok(())

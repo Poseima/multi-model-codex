@@ -144,6 +144,8 @@ pub fn create_fake_rollout_with_source(
         agent_role: None,
         model_provider: model_provider.map(str::to_string),
         base_instructions: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         dynamic_tools: None,
         memory_mode: None,
     };
@@ -210,6 +212,11 @@ pub fn create_fake_rollout_with_prompt_profile(
         .ok_or_else(|| anyhow::anyhow!("missing rollout parent directory"))?;
     fs::create_dir_all(dir)?;
 
+    let prompt_profile_path = prompt_profile
+        .origin
+        .as_ref()
+        .and_then(|origin| origin.source_path.as_deref())
+        .map(PathBuf::from);
     let meta = SessionMeta {
         id: conversation_id,
         forked_from_id: None,
@@ -224,6 +231,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         model_provider: model_provider.map(str::to_string),
         base_instructions: None,
         prompt_profile: Some(prompt_profile),
+        prompt_profile_path,
         dynamic_tools: None,
         memory_mode: None,
     };
@@ -307,6 +315,8 @@ pub fn create_fake_rollout_with_text_elements(
         agent_role: None,
         model_provider: model_provider.map(str::to_string),
         base_instructions: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         dynamic_tools: None,
         memory_mode: None,
     };

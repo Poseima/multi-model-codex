@@ -1150,6 +1150,8 @@ async fn test_updated_at_uses_file_mtime() -> Result<()> {
                 agent_role: None,
                 model_provider: Some("test-provider".into()),
                 base_instructions: None,
+                prompt_profile: None,
+                prompt_profile_path: None,
                 dynamic_tools: None,
                 memory_mode: None,
             },

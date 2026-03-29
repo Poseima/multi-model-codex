@@ -148,6 +148,8 @@ async fn backfill_scans_existing_rollouts() -> Result<()> {
                     agent_role: None,
                     model_provider: None,
                     base_instructions: None,
+                    prompt_profile: None,
+                    prompt_profile_path: None,
                     dynamic_tools: Some(dynamic_tools_for_hook),
                     memory_mode: None,
                 },

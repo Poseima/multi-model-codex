@@ -1283,17 +1283,16 @@ impl ModelClientSession {
         loop {
             let client_setup = self.client.current_client_setup().await?;
             let transport = ReqwestTransport::new(build_reqwest_client());
-            let (request_telemetry, sse_telemetry) =
-                Self::build_streaming_telemetry(
-                    session_telemetry,
-                    AuthRequestTelemetryContext::new(
-                        client_setup.auth.as_ref().map(CodexAuth::auth_mode),
-                        &client_setup.api_auth,
-                        pending_retry,
-                    ),
-                    RequestRouteTelemetry::for_endpoint(CHAT_COMPLETIONS_ENDPOINT),
-                    self.client.state.auth_env_telemetry.clone(),
-                );
+            let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(
+                session_telemetry,
+                AuthRequestTelemetryContext::new(
+                    client_setup.auth.as_ref().map(CodexAuth::auth_mode),
+                    &client_setup.api_auth,
+                    pending_retry,
+                ),
+                RequestRouteTelemetry::for_endpoint(CHAT_COMPLETIONS_ENDPOINT),
+                self.client.state.auth_env_telemetry.clone(),
+            );
             let client = ApiChatCompatClient::new(
                 transport,
                 client_setup.api_provider,

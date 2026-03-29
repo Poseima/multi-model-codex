@@ -237,6 +237,24 @@ async fn read_includes_origins_and_layers() {
         .await
         .expect("response");
 
+    if codex_utils_home_dir::is_embedded_mode() {
+        assert_eq!(response.config.approval_policy, None);
+        assert!(!response.origins.contains_key("approval_policy"));
+        let layers = response.layers.expect("layers present");
+        assert_eq!(layers.len(), 2, "expected user and system layers only");
+        assert_eq!(
+            layers.first().unwrap().name,
+            ConfigLayerSource::User {
+                file: user_file.clone()
+            }
+        );
+        assert!(matches!(
+            layers.get(1).unwrap().name,
+            ConfigLayerSource::System { .. }
+        ));
+        return;
+    }
+
     assert_eq!(response.config.approval_policy, Some(AskForApproval::Never));
 
     assert_eq!(
@@ -367,20 +385,38 @@ async fn write_value_reports_override() {
         })
         .await
         .expect("read");
-    assert_eq!(
-        read_after.config.approval_policy,
-        Some(AskForApproval::Never)
-    );
-    assert_eq!(
-        read_after
-            .origins
-            .get("approval_policy")
-            .expect("origin")
-            .name,
-        ConfigLayerSource::LegacyManagedConfigTomlFromFile {
-            file: managed_file.clone()
-        }
-    );
+
+    if codex_utils_home_dir::is_embedded_mode() {
+        let user_file =
+            AbsolutePathBuf::try_from(tmp.path().join(CONFIG_TOML_FILE)).expect("user file");
+        assert_eq!(
+            read_after.config.approval_policy,
+            Some(AskForApproval::Never)
+        );
+        assert_eq!(
+            read_after
+                .origins
+                .get("approval_policy")
+                .expect("origin")
+                .name,
+            ConfigLayerSource::User { file: user_file }
+        );
+    } else {
+        assert_eq!(
+            read_after.config.approval_policy,
+            Some(AskForApproval::Never)
+        );
+        assert_eq!(
+            read_after
+                .origins
+                .get("approval_policy")
+                .expect("origin")
+                .name,
+            ConfigLayerSource::LegacyManagedConfigTomlFromFile {
+                file: managed_file.clone()
+            }
+        );
+    }
     assert_eq!(result.status, WriteStatus::Ok);
     assert!(result.overridden_metadata.is_none());
 }
@@ -623,6 +659,24 @@ async fn read_reports_managed_overrides_user_and_session_flags() {
         .await
         .expect("response");
 
+    if codex_utils_home_dir::is_embedded_mode() {
+        assert_eq!(response.config.model.as_deref(), Some("session"));
+        assert_eq!(
+            response.origins.get("model").expect("origin").name,
+            ConfigLayerSource::SessionFlags,
+        );
+        let layers = response.layers.expect("layers");
+        assert_eq!(
+            layers.first().unwrap().name,
+            ConfigLayerSource::SessionFlags
+        );
+        assert_eq!(
+            layers.get(1).unwrap().name,
+            ConfigLayerSource::User { file: user_file }
+        );
+        return;
+    }
+
     assert_eq!(response.config.model.as_deref(), Some("system"));
     assert_eq!(
         response.origins.get("model").expect("origin").name,
@@ -680,13 +734,18 @@ async fn write_value_reports_managed_override() {
         .await
         .expect("result");
 
-    assert_eq!(result.status, WriteStatus::OkOverridden);
-    let overridden = result.overridden_metadata.expect("overridden metadata");
-    assert_eq!(
-        overridden.overriding_layer.name,
-        ConfigLayerSource::LegacyManagedConfigTomlFromFile { file: managed_file }
-    );
-    assert_eq!(overridden.effective_value, serde_json::json!("never"));
+    if codex_utils_home_dir::is_embedded_mode() {
+        assert_eq!(result.status, WriteStatus::Ok);
+        assert!(result.overridden_metadata.is_none());
+    } else {
+        assert_eq!(result.status, WriteStatus::OkOverridden);
+        let overridden = result.overridden_metadata.expect("overridden metadata");
+        assert_eq!(
+            overridden.overriding_layer.name,
+            ConfigLayerSource::LegacyManagedConfigTomlFromFile { file: managed_file }
+        );
+        assert_eq!(overridden.effective_value, serde_json::json!("never"));
+    }
 }
 
 #[tokio::test]

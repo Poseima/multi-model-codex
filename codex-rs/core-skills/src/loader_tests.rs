@@ -1769,8 +1769,6 @@ async fn hides_system_skill_when_user_skill_has_same_name() {
             interface: None,
             dependencies: None,
             policy: None,
-            permission_profile: None,
-            managed_network_override: None,
             path_to_skills_md: normalized(&user_skill_path),
             scope: SkillScope::User,
         }]

@@ -87,6 +87,7 @@ pub(crate) async fn run_codex_thread_interactive(
         session_source: SessionSource::SubAgent(subagent_source.clone()),
         agent_control: parent_session.services.agent_control.clone(),
         dynamic_tools: Vec::new(),
+        prompt_profile_override: crate::PromptProfileOverride::Inherit,
         persist_extended_history: false,
         metrics_service_name: None,
         inherited_shell_snapshot: None,

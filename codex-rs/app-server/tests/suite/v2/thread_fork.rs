@@ -409,6 +409,7 @@ async fn thread_fork_imports_prompt_profile_from_path() -> Result<()> {
         session_meta.meta.prompt_profile,
         Some(expected_prompt_profile)
     );
+    assert_eq!(session_meta.meta.prompt_profile_path, Some(card_path));
 
     Ok(())
 }
@@ -594,6 +595,7 @@ async fn thread_fork_clear_prompt_profile_removes_inherited_profile() -> Result<
     let rollout_path = thread.path.expect("forked thread path should be present");
     let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
     assert_eq!(session_meta.meta.prompt_profile, None);
+    assert_eq!(session_meta.meta.prompt_profile_path, None);
 
     Ok(())
 }

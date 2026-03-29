@@ -445,6 +445,13 @@ mod tests {
         }
     }
 
+    fn reset_all_connectors_cache() {
+        let mut cache_guard = ALL_CONNECTORS_CACHE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        *cache_guard = None;
+    }
+
     #[tokio::test]
     #[expect(
         clippy::await_holding_invalid_type,
@@ -452,6 +459,7 @@ mod tests {
     )]
     async fn list_all_connectors_uses_shared_cache() -> anyhow::Result<()> {
         let _cache_guard = ALL_CONNECTORS_CACHE_TEST_LOCK.lock().await;
+        reset_all_connectors_cache();
 
         let calls = Arc::new(AtomicUsize::new(0));
         let call_counter = Arc::clone(&calls);
@@ -496,6 +504,7 @@ mod tests {
     )]
     async fn list_all_connectors_merges_and_normalizes_directory_apps() -> anyhow::Result<()> {
         let _cache_guard = ALL_CONNECTORS_CACHE_TEST_LOCK.lock().await;
+        reset_all_connectors_cache();
 
         let key = cache_key("merged");
         let calls = Arc::new(AtomicUsize::new(0));

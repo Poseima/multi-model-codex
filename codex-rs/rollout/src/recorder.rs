@@ -92,6 +92,7 @@ pub enum RolloutRecorderParams {
         source: SessionSource,
         base_instructions: BaseInstructions,
         prompt_profile: Option<PromptSource>,
+        prompt_profile_path: Option<PathBuf>,
         dynamic_tools: Vec<DynamicToolSpec>,
         event_persistence_mode: EventPersistenceMode,
     },
@@ -169,6 +170,7 @@ impl RolloutRecorderParams {
         source: SessionSource,
         base_instructions: BaseInstructions,
         prompt_profile: Option<PromptSource>,
+        prompt_profile_path: Option<PathBuf>,
         dynamic_tools: Vec<DynamicToolSpec>,
         event_persistence_mode: EventPersistenceMode,
     ) -> Self {
@@ -178,6 +180,7 @@ impl RolloutRecorderParams {
             source,
             base_instructions,
             prompt_profile,
+            prompt_profile_path,
             dynamic_tools,
             event_persistence_mode,
         }
@@ -650,6 +653,7 @@ impl RolloutRecorder {
                     source,
                     base_instructions,
                     prompt_profile,
+                    prompt_profile_path,
                     dynamic_tools,
                     event_persistence_mode,
                 } => {
@@ -680,6 +684,7 @@ impl RolloutRecorder {
                         model_provider: Some(config.model_provider_id().to_string()),
                         base_instructions: Some(base_instructions),
                         prompt_profile,
+                        prompt_profile_path,
                         dynamic_tools: if dynamic_tools.is_empty() {
                             None
                         } else {

@@ -694,21 +694,18 @@
     "PromptIdentity": {
       "properties": {
         "description": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "name": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "personality": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -736,14 +733,12 @@
           "type": "boolean"
         },
         "id": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "insertionOrder": {
-          "default": null,
           "format": "int64",
           "type": [
             "integer",
@@ -757,11 +752,8 @@
           },
           "type": "array"
         },
-        "metadata": {
-          "default": null
-        },
+        "metadata": true,
         "position": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -783,7 +775,6 @@
     "PromptKnowledgeSource": {
       "properties": {
         "description": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -797,17 +788,13 @@
           "type": "array"
         },
         "kind": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
-        "metadata": {
-          "default": null
-        },
+        "metadata": true,
         "name": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -819,7 +806,6 @@
     "PromptSource": {
       "properties": {
         "creatorNotes": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -833,8 +819,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "examples": {
           "default": [],
@@ -851,7 +836,6 @@
           "type": "array"
         },
         "id": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -865,8 +849,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "knowledge": {
           "default": [],
@@ -876,7 +859,6 @@
           "type": "array"
         },
         "name": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -890,28 +872,22 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "postHistoryInstructions": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
-        "rawExtensions": {
-          "default": null
-        },
+        "rawExtensions": true,
         "scenario": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "systemOverlay": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -930,28 +906,24 @@
     "PromptSourceOrigin": {
       "properties": {
         "format": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "sourcePath": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "spec": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "specVersion": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -1018,7 +990,9 @@
           "enum": [
             "review",
             "compact",
-            "memory_consolidation"
+            "archive",
+            "memory_consolidation",
+            "memory_retrieval"
           ],
           "type": "string"
         },

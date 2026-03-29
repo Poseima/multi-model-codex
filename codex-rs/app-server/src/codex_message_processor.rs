@@ -122,8 +122,6 @@ use codex_app_server_protocol::PluginUninstallResponse;
 use codex_app_server_protocol::ProviderInfo;
 use codex_app_server_protocol::ProviderListParams;
 use codex_app_server_protocol::ProviderListResponse;
-use codex_app_server_protocol::RemoveConversationListenerParams;
-use codex_app_server_protocol::RemoveConversationSubscriptionResponse;
 use codex_app_server_protocol::RequestId;
 use codex_app_server_protocol::ReviewDelivery as ApiReviewDelivery;
 use codex_app_server_protocol::ReviewStartParams;
@@ -229,6 +227,7 @@ use codex_core::CodexThread;
 use codex_core::CodexThreadTurnContextOverrides;
 use codex_core::ForkSnapshot;
 use codex_core::NewThread;
+use codex_core::PromptProfileOverride;
 use codex_core::RolloutRecorder;
 use codex_core::SessionMeta;
 use codex_core::SteerInputError;
@@ -2367,6 +2366,8 @@ impl CodexMessageProcessor {
             service_name,
             base_instructions,
             developer_instructions,
+            prompt_profile,
+            prompt_profile_path,
             dynamic_tools,
             mock_experimental_field: _mock_experimental_field,
             experimental_raw_events,
@@ -2383,6 +2384,16 @@ impl CodexMessageProcessor {
             .await;
             return;
         }
+        let prompt_profile_override = match prompt_profile_support::resolve_prompt_profile_override(
+            prompt_profile,
+            prompt_profile_path,
+        ) {
+            Ok(prompt_profile_override) => prompt_profile_override,
+            Err(message) => {
+                self.send_invalid_request_error(request_id, message).await;
+                return;
+            }
+        };
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -2421,6 +2432,7 @@ impl CodexMessageProcessor {
                 typesafe_overrides,
                 dynamic_tools,
                 session_start_source,
+                prompt_profile_override,
                 persist_extended_history,
                 service_name,
                 experimental_raw_events,
@@ -2495,6 +2507,7 @@ impl CodexMessageProcessor {
         typesafe_overrides: ConfigOverrides,
         dynamic_tools: Option<Vec<ApiDynamicToolSpec>>,
         session_start_source: Option<codex_app_server_protocol::ThreadStartSource>,
+        prompt_profile_override: PromptProfileOverride,
         persist_extended_history: bool,
         service_name: Option<String>,
         experimental_raw_events: bool,
@@ -2625,7 +2638,7 @@ impl CodexMessageProcessor {
 
         match listener_task_context
             .thread_manager
-            .start_thread_with_tools_and_service_name(
+            .start_thread_with_tools_service_name_and_prompt_profile(
                 config,
                 match session_start_source
                     .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
@@ -2634,6 +2647,7 @@ impl CodexMessageProcessor {
                     codex_app_server_protocol::ThreadStartSource::Clear => InitialHistory::Cleared,
                 },
                 core_dynamic_tools,
+                prompt_profile_override,
                 persist_extended_history,
                 service_name,
                 request_trace,
@@ -3861,7 +3875,10 @@ impl CodexMessageProcessor {
             let conversation_id = summary.conversation_id;
             thread_ids.insert(conversation_id);
 
-            let thread = summary_to_thread(summary, &self.config.cwd);
+            let mut thread = summary_to_thread(summary, &self.config.cwd);
+            if let Some(path) = thread.path.clone() {
+                attach_thread_prompt_profile_from_rollout(&mut thread, path.as_path()).await;
+            }
             status_ids.push(thread.id.clone());
             threads.push((conversation_id, thread));
         }
@@ -5060,14 +5077,18 @@ impl CodexMessageProcessor {
             .await;
             return;
         }
-        let prompt_profile = match prompt_profile_support::resolve_prompt_profile_override(
-            prompt_profile,
-            prompt_profile_path,
-        ) {
-            Ok(prompt_profile) => prompt_profile,
-            Err(message) => {
-                self.send_invalid_request_error(request_id, message).await;
-                return;
+        let prompt_profile_override = if clear_prompt_profile {
+            PromptProfileOverride::Clear
+        } else {
+            match prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            ) {
+                Ok(prompt_profile_override) => prompt_profile_override,
+                Err(message) => {
+                    self.send_invalid_request_error(request_id, message).await;
+                    return;
+                }
             }
         };
 
@@ -5078,21 +5099,22 @@ impl CodexMessageProcessor {
             ..
         } = match if clear_prompt_profile {
             self.thread_manager
-                .fork_thread_clearing_prompt_profile(
+                .fork_thread_with_prompt_profile(
                     ForkSnapshot::Interrupted,
                     config,
                     rollout_path.clone(),
+                    PromptProfileOverride::Clear,
                     persist_extended_history,
                     self.request_trace_context(&request_id).await,
                 )
                 .await
         } else {
             self.thread_manager
-                .fork_thread(
+                .fork_thread_with_prompt_profile(
                     ForkSnapshot::Interrupted,
                     config,
                     rollout_path.clone(),
-                    prompt_profile,
+                    prompt_profile_override,
                     persist_extended_history,
                     self.request_trace_context(&request_id).await,
                 )
@@ -9808,18 +9830,12 @@ fn merge_mutable_thread_metadata(thread: &mut Thread, persisted_thread: Thread) 
     thread.git_info = persisted_thread.git_info;
 }
 
-fn prompt_profile_path_from_profile(prompt_profile: &PromptSource) -> Option<PathBuf> {
-    prompt_profile
-        .origin
-        .as_ref()
-        .and_then(|origin| origin.source_path.as_deref())
-        .map(PathBuf::from)
-}
-
-fn set_thread_prompt_profile(thread: &mut Thread, prompt_profile: Option<PromptSource>) {
-    thread.prompt_profile_path = prompt_profile
-        .as_ref()
-        .and_then(prompt_profile_path_from_profile);
+fn set_thread_prompt_profile(
+    thread: &mut Thread,
+    prompt_profile: Option<codex_protocol::prompt_profile::PromptSource>,
+    prompt_profile_path: Option<PathBuf>,
+) {
+    thread.prompt_profile_path = prompt_profile_path;
     thread.prompt_profile = prompt_profile;
 }
 
@@ -9827,13 +9843,21 @@ async fn attach_thread_prompt_profile_from_loaded_thread(
     thread: &mut Thread,
     loaded_thread: &CodexThread,
 ) {
-    set_thread_prompt_profile(thread, loaded_thread.prompt_profile().await);
+    set_thread_prompt_profile(
+        thread,
+        loaded_thread.prompt_profile().await,
+        loaded_thread.prompt_profile_path().await,
+    );
 }
 
 async fn attach_thread_prompt_profile_from_rollout(thread: &mut Thread, rollout_path: &Path) {
     match read_session_meta_line(rollout_path).await {
         Ok(meta_line) => {
-            set_thread_prompt_profile(thread, meta_line.meta.prompt_profile);
+            set_thread_prompt_profile(
+                thread,
+                meta_line.meta.prompt_profile,
+                meta_line.meta.prompt_profile_path,
+            );
         }
         Err(err) => {
             let rollout_path = rollout_path.display();

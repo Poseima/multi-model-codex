@@ -19,15 +19,21 @@ use codex_app_server_protocol::ThreadStartResponse;
 use codex_app_server_protocol::ThreadStartedNotification;
 use codex_app_server_protocol::ThreadStatus;
 use codex_app_server_protocol::ThreadStatusChangedNotification;
+use codex_app_server_protocol::TurnStartParams;
+use codex_app_server_protocol::UserInput;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_core::config::set_project_trust_level;
 use codex_core::config_loader::project_trust_key;
 use codex_exec_server::LOCAL_FS;
+use codex_core::load_prompt_profile_from_path;
+use codex_core::read_session_meta_line;
 use codex_git_utils::resolve_root_git_project_for_trust;
 use codex_login::REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::config_types::TrustLevel;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptIdentity;
+use codex_protocol::prompt_profile::PromptSource;
 use pretty_assertions::assert_eq;
 use serde_json::Value;
 use serde_json::json;
@@ -519,6 +525,74 @@ async fn thread_start_imports_prompt_profile_from_path() -> Result<()> {
         session_meta.meta.prompt_profile,
         Some(expected_prompt_profile)
     );
+    assert_eq!(session_meta.meta.prompt_profile_path, Some(card_path));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_start_imports_plain_json_prompt_profile_from_path() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+    let prompt_profile_path = codex_home.path().join("plain-profile.json");
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+    std::fs::write(
+        &prompt_profile_path,
+        serde_json::to_vec(&prompt_profile).expect("prompt profile json"),
+    )?;
+    let expected_prompt_profile = load_prompt_profile_from_path(prompt_profile_path.as_path())?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let req_id = mcp
+        .send_thread_start_request(ThreadStartParams {
+            prompt_profile_path: Some(prompt_profile_path.clone()),
+            ..Default::default()
+        })
+        .await?;
+
+    let resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(req_id)),
+    )
+    .await??;
+    let ThreadStartResponse { thread, .. } = to_response::<ThreadStartResponse>(resp)?;
+    assert_eq!(thread.prompt_profile, Some(expected_prompt_profile.clone()));
+    assert_eq!(
+        thread.prompt_profile_path,
+        Some(prompt_profile_path.clone())
+    );
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("thread/started"),
+    )
+    .await??;
+
+    materialize_thread_rollout(&mut mcp, &thread.id).await?;
+
+    let rollout_path = thread
+        .path
+        .expect("persistent thread path should be present");
+    let session_meta = read_session_meta_line(rollout_path.as_path()).await?;
+    assert_eq!(
+        session_meta.meta.prompt_profile,
+        Some(expected_prompt_profile)
+    );
+    assert_eq!(
+        session_meta.meta.prompt_profile_path,
+        Some(prompt_profile_path)
+    );
 
     Ok(())
 }
@@ -550,6 +624,41 @@ async fn thread_start_rejects_invalid_prompt_profile_path() -> Result<()> {
             .message
             .contains("failed to load prompt profile"),
         "expected invalid prompt profile path error, got {}",
+        error.error.message
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_start_rejects_malformed_prompt_profile_json() -> Result<()> {
+    let server = create_mock_responses_server_repeating_assistant("Done").await;
+    let codex_home = TempDir::new()?;
+    create_config_toml(codex_home.path(), &server.uri())?;
+    let invalid_prompt_profile_path = codex_home.path().join("invalid-profile.json");
+    std::fs::write(&invalid_prompt_profile_path, br#"{"foo":"bar"}"#)?;
+
+    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
+
+    let req_id = mcp
+        .send_thread_start_request(ThreadStartParams {
+            prompt_profile_path: Some(invalid_prompt_profile_path),
+            ..Default::default()
+        })
+        .await?;
+    let error: JSONRPCError = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_error_message(RequestId::Integer(req_id)),
+    )
+    .await??;
+    assert_eq!(error.error.code, -32600);
+    assert!(
+        error
+            .error
+            .message
+            .contains("no supported prompt profile fields were found"),
+        "expected malformed prompt profile rejection, got {}",
         error.error.message
     );
 
@@ -1040,6 +1149,30 @@ stream_max_retries = 0
 "#
         ),
     )
+}
+
+async fn materialize_thread_rollout(mcp: &mut McpProcess, thread_id: &str) -> Result<()> {
+    let turn_req = mcp
+        .send_turn_start_request(TurnStartParams {
+            thread_id: thread_id.to_string(),
+            input: vec![UserInput::Text {
+                text: "materialize rollout".to_string(),
+                text_elements: Vec::new(),
+            }],
+            ..Default::default()
+        })
+        .await?;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(turn_req)),
+    )
+    .await??;
+    timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_notification_message("turn/completed"),
+    )
+    .await??;
+    Ok(())
 }
 
 fn create_config_toml_with_chatgpt_base_url(

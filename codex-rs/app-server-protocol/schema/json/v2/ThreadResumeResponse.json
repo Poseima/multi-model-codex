@@ -9,9 +9,10 @@
       "type": "string"
     },
     "ApprovalsReviewer": {
-      "description": "Configures who approval requests are routed to for review. Examples include sandbox escapes, blocked network access, MCP approval prompts, and ARC escalations. Defaults to `user`. `guardian_subagent` uses a carefully prompted subagent to gather relevant context and apply a risk-based decision framework before approving or denying the request.",
+      "description": "Configures who approval requests are routed to for review. Examples include sandbox escapes, blocked network access, MCP approval prompts, and ARC escalations. Defaults to `user`. `auto_review` uses a carefully prompted subagent to gather relevant context and apply a risk-based decision framework before approving or denying the request. The legacy value `guardian_subagent` is accepted for compatibility.",
       "enum": [
         "user",
+        "auto_review",
         "guardian_subagent"
       ],
       "type": "string"
@@ -448,6 +449,217 @@
       ],
       "type": "string"
     },
+    "FileSystemAccessMode": {
+      "enum": [
+        "read",
+        "write",
+        "none"
+      ],
+      "type": "string"
+    },
+    "FileSystemPath": {
+      "oneOf": [
+        {
+          "properties": {
+            "path": {
+              "$ref": "#/definitions/AbsolutePathBuf"
+            },
+            "type": {
+              "enum": [
+                "path"
+              ],
+              "title": "PathFileSystemPathType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "type"
+          ],
+          "title": "PathFileSystemPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "glob_pattern"
+              ],
+              "title": "GlobPatternFileSystemPathType",
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern",
+            "type"
+          ],
+          "title": "GlobPatternFileSystemPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "enum": [
+                "special"
+              ],
+              "title": "SpecialFileSystemPathType",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/FileSystemSpecialPath"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ],
+          "title": "SpecialFileSystemPath",
+          "type": "object"
+        }
+      ]
+    },
+    "FileSystemSandboxEntry": {
+      "properties": {
+        "access": {
+          "$ref": "#/definitions/FileSystemAccessMode"
+        },
+        "path": {
+          "$ref": "#/definitions/FileSystemPath"
+        }
+      },
+      "required": [
+        "access",
+        "path"
+      ],
+      "type": "object"
+    },
+    "FileSystemSpecialPath": {
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "root"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "RootFileSystemSpecialPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "minimal"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "MinimalFileSystemSpecialPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "current_working_directory"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "CurrentWorkingDirectoryFileSystemSpecialPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "project_roots"
+              ],
+              "type": "string"
+            },
+            "subpath": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "KindFileSystemSpecialPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "tmpdir"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "TmpdirFileSystemSpecialPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "slash_tmp"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "SlashTmpFileSystemSpecialPath",
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "unknown"
+              ],
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "subpath": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "path"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "FileUpdateChange": {
       "properties": {
         "diff": {
@@ -686,6 +898,64 @@
         }
       ]
     },
+    "PermissionProfile": {
+      "properties": {
+        "fileSystem": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PermissionProfileFileSystemPermissions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "network": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PermissionProfileNetworkPermissions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "PermissionProfileFileSystemPermissions": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/definitions/FileSystemSandboxEntry"
+          },
+          "type": "array"
+        },
+        "globScanMaxDepth": {
+          "format": "uint",
+          "minimum": 1.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "PermissionProfileNetworkPermissions": {
+      "properties": {
+        "enabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "PromptDepthPrompt": {
       "properties": {
         "content": {
@@ -759,21 +1029,18 @@
     "PromptIdentity": {
       "properties": {
         "description": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "name": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "personality": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -801,14 +1068,12 @@
           "type": "boolean"
         },
         "id": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "insertionOrder": {
-          "default": null,
           "format": "int64",
           "type": [
             "integer",
@@ -822,11 +1087,8 @@
           },
           "type": "array"
         },
-        "metadata": {
-          "default": null
-        },
+        "metadata": true,
         "position": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -848,7 +1110,6 @@
     "PromptKnowledgeSource": {
       "properties": {
         "description": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -862,17 +1123,13 @@
           "type": "array"
         },
         "kind": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
-        "metadata": {
-          "default": null
-        },
+        "metadata": true,
         "name": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -884,7 +1141,6 @@
     "PromptSource": {
       "properties": {
         "creatorNotes": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -898,8 +1154,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "examples": {
           "default": [],
@@ -916,7 +1171,6 @@
           "type": "array"
         },
         "id": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -930,8 +1184,7 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "knowledge": {
           "default": [],
@@ -941,7 +1194,6 @@
           "type": "array"
         },
         "name": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -955,28 +1207,22 @@
             {
               "type": "null"
             }
-          ],
-          "default": null
+          ]
         },
         "postHistoryInstructions": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
-        "rawExtensions": {
-          "default": null
-        },
+        "rawExtensions": true,
         "scenario": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "systemOverlay": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -995,28 +1241,24 @@
     "PromptSourceOrigin": {
       "properties": {
         "format": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "sourcePath": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "spec": {
-          "default": null,
           "type": [
             "string",
             "null"
           ]
         },
         "specVersion": {
-          "default": null,
           "type": [
             "string",
             "null"
@@ -1870,6 +2112,12 @@
             "id": {
               "type": "string"
             },
+            "namespace": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "status": {
               "$ref": "#/definitions/DynamicToolCallStatus"
             },
@@ -2578,6 +2826,18 @@
     "modelProvider": {
       "type": "string"
     },
+    "permissionProfile": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PermissionProfile"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Canonical active permissions view for this thread when representable. This is `null` for external sandbox policies because external enforcement cannot be round-tripped as a `PermissionProfile`."
+    },
     "reasoningEffort": {
       "anyOf": [
         {
@@ -2589,7 +2849,12 @@
       ]
     },
     "sandbox": {
-      "$ref": "#/definitions/SandboxPolicy"
+      "allOf": [
+        {
+          "$ref": "#/definitions/SandboxPolicy"
+        }
+      ],
+      "description": "Legacy sandbox policy retained for compatibility. New clients should use `permissionProfile` when present as the canonical active permissions view."
     },
     "serviceTier": {
       "anyOf": [

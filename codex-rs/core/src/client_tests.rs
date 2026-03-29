@@ -163,11 +163,11 @@ fn auth_request_telemetry_context_tracks_attached_auth_and_retry_phase() {
     );
 
     assert_eq!(auth_context.auth_mode, Some("Chatgpt"));
-    assert!(auth_context.auth_header_attached);
-    assert_eq!(auth_context.auth_header_name, Some("authorization"));
-    assert!(auth_context.retry_after_unauthorized);
-    assert_eq!(auth_context.recovery_mode, Some("managed"));
-    assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
+assert!(auth_context.auth_header_attached);
+assert_eq!(auth_context.auth_header_name, Some("authorization"));
+assert!(auth_context.retry_after_unauthorized);
+assert_eq!(auth_context.recovery_mode, Some("managed"));
+assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
 }
 #[test]
 fn normalize_responses_input_rewrites_system_to_developer_for_openai() {
