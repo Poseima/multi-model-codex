@@ -8,6 +8,8 @@ use crate::current_time::TimeProvider;
 use crate::environment_selection::TurnEnvironmentSnapshot;
 use crate::environment_selection::default_thread_environment_selections;
 use crate::mcp::McpManager;
+use crate::prompt_profile_loader::PromptProfileOverride;
+use crate::rollout::RolloutRecorder;
 use crate::rollout::truncation;
 use crate::session::Codex;
 use crate::session::CodexSpawnArgs;
@@ -192,6 +194,7 @@ pub struct StartThreadOptions {
     pub session_source: Option<SessionSource>,
     pub thread_source: Option<ThreadSource>,
     pub dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+    pub persist_extended_history: bool,
     pub metrics_service_name: Option<String>,
     pub parent_trace: Option<W3cTraceContext>,
     pub environments: Vec<TurnEnvironmentSelection>,
@@ -221,6 +224,24 @@ fn effective_originator_value(
         .or(inherited_originator)
         .or(env_originator)
         .unwrap_or(default_originator)
+}
+
+pub struct ForkThreadHistoryOptions {
+    pub thread_source: Option<ThreadSource>,
+    pub prompt_profile_override: PromptProfileOverride,
+    pub persist_extended_history: bool,
+    pub parent_trace: Option<W3cTraceContext>,
+}
+
+impl Default for ForkThreadHistoryOptions {
+    fn default() -> Self {
+        Self {
+            thread_source: None,
+            prompt_profile_override: PromptProfileOverride::Inherit,
+            persist_extended_history: false,
+            parent_trace: None,
+        }
+    }
 }
 
 pub(crate) struct ResumeThreadWithHistoryOptions {
@@ -633,13 +654,19 @@ impl ThreadManager {
     pub async fn start_thread(&self, config: Config) -> CodexResult<NewThread> {
         // Box delegated thread-spawn futures so these convenience wrappers do
         // not inline the full spawn path into every caller's async state.
-        Box::pin(self.start_thread_with_tools(config, Vec::new())).await
+        Box::pin(self.start_thread_with_tools(
+            config,
+            Vec::new(),
+            /*persist_extended_history*/ false,
+        ))
+        .await
     }
 
     pub async fn start_thread_with_tools(
         &self,
         config: Config,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        persist_extended_history: bool,
     ) -> CodexResult<NewThread> {
         let environments = default_thread_environment_selections(
             self.state.environment_manager.as_ref(),
@@ -653,6 +680,7 @@ impl ThreadManager {
             session_source: None,
             thread_source: None,
             dynamic_tools,
+            persist_extended_history,
             metrics_service_name: None,
             parent_trace: None,
             environments,
@@ -666,13 +694,43 @@ impl ThreadManager {
         &self,
         options: StartThreadOptions,
     ) -> CodexResult<NewThread> {
-        self.start_thread_with_options_and_fork_source(options, /*forked_from_thread_id*/ None)
-            .await
+        self.start_thread_with_options_and_prompt_profile(
+            options,
+            PromptProfileOverride::Inherit,
+        )
+        .await
+    }
+
+    pub async fn start_thread_with_options_and_prompt_profile(
+        &self,
+        options: StartThreadOptions,
+        prompt_profile_override: PromptProfileOverride,
+    ) -> CodexResult<NewThread> {
+        self.start_thread_with_options_and_prompt_profile_and_fork_source(
+            options,
+            prompt_profile_override,
+            /*forked_from_thread_id*/ None,
+        )
+        .await
     }
 
     async fn start_thread_with_options_and_fork_source(
         &self,
         options: StartThreadOptions,
+        forked_from_thread_id: Option<ThreadId>,
+    ) -> CodexResult<NewThread> {
+        self.start_thread_with_options_and_prompt_profile_and_fork_source(
+            options,
+            PromptProfileOverride::Inherit,
+            forked_from_thread_id,
+        )
+        .await
+    }
+
+    async fn start_thread_with_options_and_prompt_profile_and_fork_source(
+        &self,
+        options: StartThreadOptions,
+        prompt_profile_override: PromptProfileOverride,
         forked_from_thread_id: Option<ThreadId>,
     ) -> CodexResult<NewThread> {
         let agent_control = self.agent_control_for_config(&options.config);
@@ -694,6 +752,8 @@ impl ThreadManager {
             forked_from_thread_id,
             thread_source,
             options.dynamic_tools,
+            prompt_profile_override,
+            options.persist_extended_history,
             options.metrics_service_name,
             /*inherited_environments*/ None,
             /*inherited_exec_policy*/ None,
@@ -756,6 +816,7 @@ impl ThreadManager {
             config,
             initial_history,
             auth_manager,
+            /*persist_extended_history*/ false,
             parent_trace,
             supports_openai_form_elicitation,
         ))
@@ -768,6 +829,7 @@ impl ThreadManager {
         config: Config,
         initial_history: InitialHistory,
         auth_manager: Arc<AuthManager>,
+        persist_extended_history: bool,
         parent_trace: Option<W3cTraceContext>,
         supports_openai_form_elicitation: bool,
     ) -> CodexResult<NewThread> {
@@ -791,6 +853,8 @@ impl ThreadManager {
             /*forked_from_thread_id*/ None,
             thread_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            persist_extended_history,
             /*metrics_service_name*/ None,
             /*inherited_environments*/ None,
             /*inherited_exec_policy*/ None,
@@ -823,6 +887,8 @@ impl ThreadManager {
             /*forked_from_thread_id*/ None,
             /*thread_source*/ None,
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*parent_trace*/ None,
             environments,
@@ -862,6 +928,8 @@ impl ThreadManager {
             /*forked_from_thread_id*/ None,
             thread_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*inherited_environments*/ None,
             /*inherited_exec_policy*/ None,
@@ -954,6 +1022,7 @@ impl ThreadManager {
             config,
             history,
             thread_source,
+            /*persist_extended_history*/ false,
             parent_trace,
             /*supports_openai_form_elicitation*/ false,
         )
@@ -985,6 +1054,7 @@ impl ThreadManager {
         config: Config,
         history: InitialHistory,
         thread_source: Option<ThreadSource>,
+        persist_extended_history: bool,
         parent_trace: Option<W3cTraceContext>,
         supports_openai_form_elicitation: bool,
     ) -> CodexResult<NewThread>
@@ -995,9 +1065,33 @@ impl ThreadManager {
             snapshot.into(),
             config,
             history,
-            thread_source,
-            parent_trace,
+            ForkThreadHistoryOptions {
+                thread_source,
+                persist_extended_history,
+                parent_trace,
+                ..ForkThreadHistoryOptions::default()
+            },
             supports_openai_form_elicitation,
+        )
+        .await
+    }
+
+    pub async fn fork_thread_from_history_with_prompt_profile<S>(
+        &self,
+        snapshot: S,
+        config: Config,
+        history: InitialHistory,
+        options: ForkThreadHistoryOptions,
+    ) -> CodexResult<NewThread>
+    where
+        S: Into<ForkSnapshot>,
+    {
+        self.fork_thread_with_initial_history(
+            snapshot.into(),
+            config,
+            history,
+            options,
+            /*supports_openai_form_elicitation*/ false,
         )
         .await
     }
@@ -1007,8 +1101,7 @@ impl ThreadManager {
         snapshot: ForkSnapshot,
         config: Config,
         history: InitialHistory,
-        thread_source: Option<ThreadSource>,
-        parent_trace: Option<W3cTraceContext>,
+        options: ForkThreadHistoryOptions,
         supports_openai_form_elicitation: bool,
     ) -> CodexResult<NewThread> {
         // `forked_from_id()` describes this history's existing lineage. When
@@ -1043,15 +1136,45 @@ impl ThreadManager {
             agent_control,
             /*parent_thread_id*/ None,
             source_thread_id,
-            thread_source,
+            options.thread_source,
             Vec::new(),
+            options.prompt_profile_override,
+            options.persist_extended_history,
             /*metrics_service_name*/ None,
-            parent_trace,
+            options.parent_trace,
             environments,
             /*thread_extension_init*/ ExtensionDataInit::default(),
             supports_openai_form_elicitation,
             /*user_shell_override*/ None,
         ))
+        .await
+    }
+
+    pub async fn fork_thread_with_prompt_profile<S>(
+        &self,
+        snapshot: S,
+        config: Config,
+        path: PathBuf,
+        prompt_profile_override: PromptProfileOverride,
+        persist_extended_history: bool,
+        parent_trace: Option<W3cTraceContext>,
+    ) -> CodexResult<NewThread>
+    where
+        S: Into<ForkSnapshot>,
+    {
+        let history = self.initial_history_from_rollout_path(path).await?;
+        self.fork_thread_with_initial_history(
+            snapshot.into(),
+            config,
+            history,
+            ForkThreadHistoryOptions {
+                prompt_profile_override,
+                persist_extended_history,
+                parent_trace,
+                ..ForkThreadHistoryOptions::default()
+            },
+            /*supports_openai_form_elicitation*/ false,
+        )
         .await
     }
 
@@ -1327,6 +1450,7 @@ impl ThreadManagerState {
             /*parent_thread_id*/ None,
             /*forked_from_thread_id*/ None,
             /*thread_source*/ None,
+            /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*inherited_environments*/ None,
             /*inherited_exec_policy*/ None,
@@ -1344,6 +1468,7 @@ impl ThreadManagerState {
         parent_thread_id: Option<ThreadId>,
         forked_from_thread_id: Option<ThreadId>,
         thread_source: Option<ThreadSource>,
+        persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_environments: Option<TurnEnvironmentSnapshot>,
         inherited_exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
@@ -1364,6 +1489,8 @@ impl ThreadManagerState {
             forked_from_thread_id,
             thread_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            persist_extended_history,
             metrics_service_name,
             inherited_environments,
             inherited_exec_policy,
@@ -1404,6 +1531,8 @@ impl ThreadManagerState {
             /*forked_from_thread_id*/ None,
             thread_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             inherited_environments,
             inherited_exec_policy,
@@ -1426,6 +1555,7 @@ impl ThreadManagerState {
         thread_source: Option<ThreadSource>,
         parent_thread_id: Option<ThreadId>,
         forked_from_thread_id: Option<ThreadId>,
+        persist_extended_history: bool,
         inherited_environments: Option<TurnEnvironmentSnapshot>,
         inherited_exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
         environments: Option<Vec<TurnEnvironmentSelection>>,
@@ -1446,6 +1576,8 @@ impl ThreadManagerState {
             forked_from_thread_id,
             thread_source,
             Vec::new(),
+            PromptProfileOverride::Inherit,
+            persist_extended_history,
             /*metrics_service_name*/ None,
             inherited_environments,
             inherited_exec_policy,
@@ -1470,6 +1602,8 @@ impl ThreadManagerState {
         forked_from_thread_id: Option<ThreadId>,
         thread_source: Option<ThreadSource>,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        prompt_profile_override: PromptProfileOverride,
+        persist_extended_history: bool,
         metrics_service_name: Option<String>,
         parent_trace: Option<W3cTraceContext>,
         environments: Vec<TurnEnvironmentSelection>,
@@ -1489,6 +1623,8 @@ impl ThreadManagerState {
             forked_from_thread_id,
             thread_source,
             dynamic_tools,
+            prompt_profile_override,
+            persist_extended_history,
             metrics_service_name,
             /*inherited_environments*/ None,
             /*inherited_exec_policy*/ None,
@@ -1515,6 +1651,8 @@ impl ThreadManagerState {
         forked_from_thread_id: Option<ThreadId>,
         thread_source: Option<ThreadSource>,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        prompt_profile_override: PromptProfileOverride,
+        persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_environments: Option<TurnEnvironmentSnapshot>,
         inherited_exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
@@ -1594,6 +1732,8 @@ impl ThreadManagerState {
             originator,
             agent_control,
             dynamic_tools,
+            prompt_profile_override,
+            persist_extended_history,
             metrics_service_name,
             inherited_environments,
             inherited_exec_policy,

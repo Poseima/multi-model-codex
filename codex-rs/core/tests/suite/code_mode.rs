@@ -3482,6 +3482,7 @@ async fn code_mode_can_call_hidden_dynamic_tools() -> Result<()> {
                     },
                 )],
             })],
+            /*persist_extended_history*/ false,
         )
         .await?;
     let mut test = base_test;
@@ -3648,6 +3649,7 @@ async fn code_mode_excludes_configured_nested_tool_namespaces() -> Result<()> {
                     },
                 )],
             })],
+            /*persist_extended_history*/ false,
         )
         .await?;
     let mut test = base_test;
