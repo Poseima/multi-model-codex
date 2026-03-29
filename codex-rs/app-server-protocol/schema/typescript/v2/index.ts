@@ -303,10 +303,10 @@ export type { ProcessOutputDeltaNotification } from "./ProcessOutputDeltaNotific
 export type { ProcessOutputStream } from "./ProcessOutputStream";
 export type { ProcessTerminalSize } from "./ProcessTerminalSize";
 export type { ProfileV2 } from "./ProfileV2";
-export type { RateLimitReachedType } from "./RateLimitReachedType";
 export type { ProviderInfo } from "./ProviderInfo";
 export type { ProviderListParams } from "./ProviderListParams";
 export type { ProviderListResponse } from "./ProviderListResponse";
+export type { RateLimitReachedType } from "./RateLimitReachedType";
 export type { RateLimitSnapshot } from "./RateLimitSnapshot";
 export type { RateLimitWindow } from "./RateLimitWindow";
 export type { RawResponseItemCompletedNotification } from "./RawResponseItemCompletedNotification";

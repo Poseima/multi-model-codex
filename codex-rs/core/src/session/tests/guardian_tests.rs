@@ -694,6 +694,7 @@ async fn guardian_subagent_does_not_inherit_parent_exec_policy_rules() {
         )),
         thread_source: None,
         agent_control: AgentControl::default(),
+        prompt_profile_override: crate::PromptProfileOverride::Inherit,
         dynamic_tools: Vec::new(),
         persist_extended_history: false,
         metrics_service_name: None,

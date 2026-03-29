@@ -1,6 +1,7 @@
 use anyhow::Result;
 use app_test_support::McpProcess;
 use app_test_support::create_fake_rollout;
+use app_test_support::create_fake_rollout_with_prompt_profile;
 use app_test_support::create_fake_rollout_with_source;
 use app_test_support::create_final_assistant_message_sse_response;
 use app_test_support::create_mock_responses_server_sequence;
@@ -28,6 +29,9 @@ use codex_app_server_protocol::UserInput;
 use codex_core::ARCHIVED_SESSIONS_SUBDIR;
 use codex_git_utils::GitSha;
 use codex_protocol::ThreadId;
+use codex_protocol::prompt_profile::PromptIdentity;
+use codex_protocol::prompt_profile::PromptSource;
+use codex_protocol::prompt_profile::PromptSourceOrigin;
 use codex_protocol::protocol::GitInfo as CoreGitInfo;
 use codex_protocol::protocol::RolloutItem;
 use codex_protocol::protocol::RolloutLine;
@@ -35,6 +39,7 @@ use codex_protocol::protocol::SessionSource as CoreSessionSource;
 use codex_protocol::protocol::SubAgentSource;
 use core_test_support::responses;
 use pretty_assertions::assert_eq;
+use serde_json::Value;
 use std::cmp::Reverse;
 use std::fs;
 use std::fs::FileTimes;
@@ -194,6 +199,90 @@ async fn thread_list_basic_empty() -> Result<()> {
     .await?;
     assert!(data.is_empty());
     assert_eq!(next_cursor, None);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn thread_list_surfaces_prompt_profile_metadata() -> Result<()> {
+    let codex_home = TempDir::new()?;
+    create_minimal_config(codex_home.path())?;
+    let prompt_profile_path = codex_home.path().join("rei.json");
+    let prompt_profile = PromptSource {
+        name: Some("Rei Kurose".to_string()),
+        origin: Some(PromptSourceOrigin {
+            format: Some("chara_card_v2".to_string()),
+            source_path: Some(prompt_profile_path.display().to_string()),
+            spec: Some("chara_card_v2".to_string()),
+            spec_version: Some("2.0".to_string()),
+        }),
+        identity: Some(PromptIdentity {
+            name: Some("Rei Kurose".to_string()),
+            description: Some("A quiet late-night engineering companion.".to_string()),
+            personality: Some("Restrained, observant, surgical.".to_string()),
+        }),
+        scenario: Some("Late-night pair debugging in quiet places.".to_string()),
+        ..Default::default()
+    };
+    let conversation_id = create_fake_rollout_with_prompt_profile(
+        codex_home.path(),
+        "2025-01-05T12-00-00",
+        "2025-01-05T12:00:00Z",
+        "Saved user message",
+        Some("mock_provider"),
+        None,
+        prompt_profile.clone(),
+    )?;
+
+    let mut mcp = init_mcp(codex_home.path()).await?;
+    let request_id = mcp
+        .send_thread_list_request(codex_app_server_protocol::ThreadListParams {
+            cursor: None,
+            limit: Some(50),
+            sort_key: None,
+            model_providers: Some(vec!["mock_provider".to_string()]),
+            source_kinds: None,
+            archived: None,
+            cwd: None,
+            search_term: None,
+        })
+        .await?;
+    let resp: JSONRPCResponse = timeout(
+        DEFAULT_READ_TIMEOUT,
+        mcp.read_stream_until_response_message(RequestId::Integer(request_id)),
+    )
+    .await??;
+    let resp_result = resp.result.clone();
+    let ThreadListResponse { data, .. } = to_response::<ThreadListResponse>(resp)?;
+    let listed = data
+        .iter()
+        .find(|thread| thread.id == conversation_id)
+        .expect("thread/list should include the prompt-profile thread");
+    assert_eq!(listed.prompt_profile, Some(prompt_profile));
+    assert_eq!(
+        listed.prompt_profile_path,
+        Some(prompt_profile_path.clone())
+    );
+    let listed_json = resp_result
+        .get("data")
+        .and_then(Value::as_array)
+        .expect("thread/list result.data must be an array")
+        .iter()
+        .find(|thread| thread.get("id").and_then(Value::as_str) == Some(&conversation_id))
+        .and_then(Value::as_object)
+        .expect("thread/list should include the prompt-profile thread as an object");
+    assert_eq!(
+        listed_json.get("promptProfilePath"),
+        Some(&Value::String(
+            prompt_profile_path.to_string_lossy().into_owned()
+        ))
+    );
+    assert!(
+        listed_json
+            .get("promptProfile")
+            .is_some_and(Value::is_object),
+        "thread/list must serialize `thread.promptProfile` on the wire"
+    );
 
     Ok(())
 }
