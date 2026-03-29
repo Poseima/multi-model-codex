@@ -27,6 +27,7 @@ use codex_protocol::models::ContentItem;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::AdditionalContextEntry;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::Event;
@@ -782,6 +783,14 @@ impl CodexThread {
             .mcp_runtime
             .latest_call_tool(server, tool, arguments, meta)
             .await
+    }
+
+    pub async fn prompt_profile(&self) -> Option<PromptSource> {
+        self.codex.session.get_prompt_profile().await
+    }
+
+    pub async fn prompt_profile_path(&self) -> Option<PathBuf> {
+        self.codex.session.get_prompt_profile_path().await
     }
 
     pub fn enabled(&self, feature: Feature) -> bool {

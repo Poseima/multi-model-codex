@@ -9,6 +9,8 @@ use crate::current_time::TimeProvider;
 use crate::environment_selection::TurnEnvironmentSnapshot;
 use crate::environment_selection::default_thread_environment_selections;
 use crate::mcp::McpManager;
+use crate::prompt_profile_loader::PromptProfileOverride;
+use crate::rollout::RolloutRecorder;
 use crate::rollout::truncation;
 use crate::session::ForkPersistence;
 use crate::session::GitEnrichmentPolicy;
@@ -207,6 +209,7 @@ pub struct StartThreadOptions {
     pub session_source: Option<SessionSource>,
     pub thread_source: Option<ThreadSource>,
     pub dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+    pub persist_extended_history: bool,
     pub metrics_service_name: Option<String>,
     pub parent_trace: Option<W3cTraceContext>,
     pub environments: Option<Vec<TurnEnvironmentSelection>>,
@@ -224,6 +227,7 @@ impl StartThreadOptions {
             session_source: None,
             thread_source: None,
             dynamic_tools: Vec::new(),
+            persist_extended_history: false,
             metrics_service_name: None,
             parent_trace: None,
             environments: None,
@@ -237,6 +241,7 @@ struct ThreadSpawnRequest {
     options: StartThreadOptions,
     auth_manager: Arc<AuthManager>,
     agent_control: AgentControl,
+    prompt_profile_override: PromptProfileOverride,
     parent_thread_id: Option<ThreadId>,
     forked_from_thread_id: Option<ThreadId>,
     fork_persistence: ForkPersistence,
@@ -255,6 +260,7 @@ impl ThreadSpawnRequest {
             options,
             auth_manager,
             agent_control,
+            prompt_profile_override: PromptProfileOverride::Inherit,
             parent_thread_id: None,
             forked_from_thread_id: None,
             fork_persistence: ForkPersistence::Copied,
@@ -293,6 +299,26 @@ fn effective_originator_value(
         .or(inherited_originator)
         .or(env_originator)
         .unwrap_or(default_originator)
+}
+
+pub struct ForkThreadHistoryOptions {
+    pub thread_source: Option<ThreadSource>,
+    pub prompt_profile_override: PromptProfileOverride,
+    pub persist_extended_history: bool,
+    pub parent_trace: Option<W3cTraceContext>,
+    pub client_mcp_extensions: ClientMcpExtensions,
+}
+
+impl Default for ForkThreadHistoryOptions {
+    fn default() -> Self {
+        Self {
+            thread_source: None,
+            prompt_profile_override: PromptProfileOverride::Inherit,
+            persist_extended_history: false,
+            parent_trace: None,
+            client_mcp_extensions: ClientMcpExtensions::default(),
+        }
+    }
 }
 
 pub(crate) struct ResumeThreadWithHistoryOptions {
@@ -808,6 +834,45 @@ impl ThreadManager {
         Box::pin(self.start_thread_inner(options, /*forked_from_thread_id*/ None)).await
     }
 
+    pub async fn start_thread_with_tools(
+        &self,
+        config: Config,
+        dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
+        persist_extended_history: bool,
+    ) -> CodexResult<NewThread> {
+        let environments = default_thread_environment_selections(
+            self.state.environment_manager.as_ref(),
+            &config.cwd,
+            &config.workspace_roots,
+        );
+        Box::pin(self.start_thread_inner(
+            StartThreadOptions {
+                config,
+                allow_provider_model_fallback: false,
+                initial_history: InitialHistory::New,
+                history_mode: None,
+                session_source: None,
+                thread_source: None,
+                dynamic_tools,
+                persist_extended_history,
+                metrics_service_name: None,
+                parent_trace: None,
+                environments: Some(environments),
+                thread_extension_init: ExtensionDataInit::default(),
+                client_mcp_extensions: ClientMcpExtensions::default(),
+            },
+            /*forked_from_thread_id*/ None,
+        ))
+        .await
+    }
+
+    pub async fn start_thread_with_options(
+        &self,
+        options: StartThreadOptions,
+    ) -> CodexResult<NewThread> {
+        Box::pin(self.start_thread_inner(options, /*forked_from_thread_id*/ None)).await
+    }
+
     async fn start_thread_inner(
         &self,
         mut options: StartThreadOptions,
@@ -881,6 +946,7 @@ impl ThreadManager {
             config,
             initial_history,
             auth_manager,
+            /*persist_extended_history*/ false,
             parent_trace,
             client_mcp_extensions,
         ))
@@ -893,6 +959,7 @@ impl ThreadManager {
         config: Config,
         initial_history: InitialHistory,
         auth_manager: Arc<AuthManager>,
+        persist_extended_history: bool,
         parent_trace: Option<W3cTraceContext>,
         client_mcp_extensions: ClientMcpExtensions,
     ) -> CodexResult<NewThread> {
@@ -912,6 +979,7 @@ impl ThreadManager {
             initial_history,
             session_source: Some(session_source),
             thread_source,
+            persist_extended_history,
             parent_trace,
             client_mcp_extensions,
             ..StartThreadOptions::new(config)
@@ -1046,6 +1114,7 @@ impl ThreadManager {
             config,
             history,
             thread_source,
+            /*persist_extended_history*/ false,
             parent_trace,
             ClientMcpExtensions::default(),
         )
@@ -1077,6 +1146,7 @@ impl ThreadManager {
         config: Config,
         history: InitialHistory,
         thread_source: Option<ThreadSource>,
+        persist_extended_history: bool,
         parent_trace: Option<W3cTraceContext>,
         client_mcp_extensions: ClientMcpExtensions,
     ) -> CodexResult<NewThread>
@@ -1090,9 +1160,35 @@ impl ThreadManager {
                 initial_history: history,
                 persistence: ForkPersistence::Copied,
             },
-            thread_source,
-            parent_trace,
-            client_mcp_extensions,
+            ForkThreadHistoryOptions {
+                thread_source,
+                persist_extended_history,
+                parent_trace,
+                client_mcp_extensions,
+                ..ForkThreadHistoryOptions::default()
+            },
+        )
+        .await
+    }
+
+    pub async fn fork_thread_from_history_with_prompt_profile<S>(
+        &self,
+        snapshot: S,
+        config: Config,
+        history: InitialHistory,
+        options: ForkThreadHistoryOptions,
+    ) -> CodexResult<NewThread>
+    where
+        S: Into<ForkSnapshot>,
+    {
+        self.fork_thread_with_initial_history(
+            config,
+            ForkHistory {
+                snapshot: snapshot.into(),
+                initial_history: history,
+                persistence: ForkPersistence::Copied,
+            },
+            options,
         )
         .await
     }
@@ -1102,9 +1198,7 @@ impl ThreadManager {
         &self,
         config: Config,
         prepared: PreparedFork,
-        thread_source: Option<ThreadSource>,
-        parent_trace: Option<W3cTraceContext>,
-        client_mcp_extensions: ClientMcpExtensions,
+        options: ForkThreadHistoryOptions,
     ) -> CodexResult<NewThread> {
         let history = InitialHistory::Resumed(ResumedHistory {
             conversation_id: prepared.source_thread_id,
@@ -1123,9 +1217,7 @@ impl ThreadManager {
                     initial_history: history,
                     persistence: fork_persistence,
                 },
-                thread_source,
-                parent_trace,
-                client_mcp_extensions,
+                options,
             )
             .await;
         drop(prepared);
@@ -1136,9 +1228,7 @@ impl ThreadManager {
         &self,
         config: Config,
         fork_history: ForkHistory,
-        thread_source: Option<ThreadSource>,
-        parent_trace: Option<W3cTraceContext>,
-        client_mcp_extensions: ClientMcpExtensions,
+        options: ForkThreadHistoryOptions,
     ) -> CodexResult<NewThread> {
         let ForkHistory {
             snapshot,
@@ -1166,18 +1256,53 @@ impl ThreadManager {
             InterruptedTurnHistoryMarker::from_config_and_version(&config, multi_agent_version);
         let history = fork_history_from_snapshot(snapshot, history, interrupted_marker);
         let agent_control = self.agent_control_for_config(&config);
-        let options = StartThreadOptions {
+        let start_options = StartThreadOptions {
             initial_history: history,
-            thread_source,
-            parent_trace,
-            client_mcp_extensions,
+            thread_source: options.thread_source,
+            persist_extended_history: options.persist_extended_history,
+            parent_trace: options.parent_trace,
+            client_mcp_extensions: options.client_mcp_extensions,
             ..StartThreadOptions::new(config)
         };
-        let mut request =
-            ThreadSpawnRequest::new(options, Arc::clone(&self.state.auth_manager), agent_control);
+        let mut request = ThreadSpawnRequest::new(
+            start_options,
+            Arc::clone(&self.state.auth_manager),
+            agent_control,
+        );
         request.forked_from_thread_id = source_thread_id;
         request.fork_persistence = fork_persistence;
+        request.prompt_profile_override = options.prompt_profile_override;
         Box::pin(self.state.spawn_thread(request)).await
+    }
+
+    pub async fn fork_thread_with_prompt_profile<S>(
+        &self,
+        snapshot: S,
+        config: Config,
+        path: PathBuf,
+        prompt_profile_override: PromptProfileOverride,
+        persist_extended_history: bool,
+        parent_trace: Option<W3cTraceContext>,
+    ) -> CodexResult<NewThread>
+    where
+        S: Into<ForkSnapshot>,
+    {
+        let history = self.initial_history_from_rollout_path(path).await?;
+        self.fork_thread_with_initial_history(
+            config,
+            ForkHistory {
+                snapshot: snapshot.into(),
+                initial_history: history,
+                persistence: ForkPersistence::Copied,
+            },
+            ForkThreadHistoryOptions {
+                prompt_profile_override,
+                persist_extended_history,
+                parent_trace,
+                ..ForkThreadHistoryOptions::default()
+            },
+        )
+        .await
     }
 
     pub(crate) fn agent_control(&self) -> AgentControl {
@@ -1482,6 +1607,7 @@ impl ThreadManagerState {
             /*parent_thread_id*/ None,
             /*forked_from_thread_id*/ None,
             /*thread_source*/ None,
+            /*persist_extended_history*/ false,
             /*metrics_service_name*/ None,
             /*inherited_environments*/ None,
             /*inherited_exec_policy*/ None,
@@ -1500,6 +1626,7 @@ impl ThreadManagerState {
         parent_thread_id: Option<ThreadId>,
         forked_from_thread_id: Option<ThreadId>,
         thread_source: Option<ThreadSource>,
+        persist_extended_history: bool,
         metrics_service_name: Option<String>,
         inherited_environments: Option<TurnEnvironmentSnapshot>,
         inherited_exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
@@ -1510,6 +1637,7 @@ impl ThreadManagerState {
             history_mode,
             session_source: Some(session_source),
             thread_source,
+            persist_extended_history,
             metrics_service_name,
             environments,
             client_mcp_extensions,
@@ -1565,6 +1693,7 @@ impl ThreadManagerState {
         thread_source: Option<ThreadSource>,
         parent_thread_id: Option<ThreadId>,
         forked_from_thread_id: Option<ThreadId>,
+        persist_extended_history: bool,
         inherited_environments: Option<TurnEnvironmentSnapshot>,
         inherited_exec_policy: Option<Arc<crate::exec_policy::ExecPolicyManager>>,
         environments: Option<Vec<TurnEnvironmentSelection>>,
@@ -1576,6 +1705,7 @@ impl ThreadManagerState {
             history_mode,
             session_source: Some(session_source),
             thread_source,
+            persist_extended_history,
             environments,
             thread_extension_init,
             client_mcp_extensions,
@@ -1609,6 +1739,7 @@ impl ThreadManagerState {
             options,
             auth_manager,
             agent_control,
+            prompt_profile_override,
             parent_thread_id,
             forked_from_thread_id,
             fork_persistence,
@@ -1624,6 +1755,7 @@ impl ThreadManagerState {
             session_source,
             thread_source,
             dynamic_tools,
+            persist_extended_history,
             metrics_service_name,
             parent_trace,
             environments,
@@ -1716,6 +1848,8 @@ impl ThreadManagerState {
             originator,
             agent_control,
             dynamic_tools,
+            prompt_profile_override,
+            persist_extended_history,
             metrics_service_name,
             inherited_environments,
             inherited_exec_policy,

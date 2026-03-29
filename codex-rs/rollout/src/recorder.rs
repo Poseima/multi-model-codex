@@ -102,6 +102,7 @@ pub enum RolloutRecorderParams {
         originator: String,
         base_instructions: BaseInstructions,
         prompt_profile: Option<PromptSource>,
+        prompt_profile_path: Option<PathBuf>,
         dynamic_tools: Vec<DynamicToolSpec>,
         selected_capability_roots: Vec<SelectedCapabilityRoot>,
         multi_agent_version: Option<MultiAgentVersion>,
@@ -187,6 +188,7 @@ impl RolloutRecorderParams {
         originator: String,
         base_instructions: BaseInstructions,
         prompt_profile: Option<PromptSource>,
+        prompt_profile_path: Option<PathBuf>,
         dynamic_tools: Vec<DynamicToolSpec>,
     ) -> Self {
         Self::Create {
@@ -199,6 +201,7 @@ impl RolloutRecorderParams {
             originator,
             base_instructions,
             prompt_profile,
+            prompt_profile_path,
             dynamic_tools,
             selected_capability_roots: Vec::new(),
             multi_agent_version: None,
@@ -811,6 +814,7 @@ impl RolloutRecorder {
                 originator,
                 base_instructions,
                 prompt_profile,
+                prompt_profile_path,
                 dynamic_tools,
                 selected_capability_roots,
                 multi_agent_version,
@@ -851,6 +855,7 @@ impl RolloutRecorder {
                     model_provider: Some(config.model_provider_id().to_string()),
                     base_instructions: Some(base_instructions),
                     prompt_profile,
+                    prompt_profile_path,
                     dynamic_tools: if dynamic_tools.is_empty() {
                         None
                     } else {
