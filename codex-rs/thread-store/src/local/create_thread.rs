@@ -35,6 +35,8 @@ pub(super) async fn create_thread(
             params.thread_source,
             params.originator,
             params.base_instructions,
+            params.prompt_profile,
+            params.prompt_profile_path,
             params.dynamic_tools,
         )
         .with_session_id(params.session_id)

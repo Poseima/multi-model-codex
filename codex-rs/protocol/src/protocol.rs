@@ -53,6 +53,7 @@ use crate::num_format::format_with_separators;
 use crate::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use crate::parse_command::ParsedCommand;
 use crate::plan_tool::UpdatePlanArgs;
+use crate::prompt_profile::PromptSource;
 use crate::request_permissions::RequestPermissionsEvent;
 use crate::request_permissions::RequestPermissionsResponse;
 use crate::request_user_input::RequestUserInputResponse;
@@ -182,7 +183,7 @@ impl GitSha {
 }
 
 /// Submission Queue Entry - requests from user
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Submission {
     /// Unique id for this Submission to correlate with Events
     pub id: String,
@@ -538,7 +539,7 @@ pub struct AdditionalContextEntry {
 }
 
 /// Submission operation
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::large_enum_variant)]
 #[non_exhaustive]
 pub enum Op {
@@ -2905,6 +2906,10 @@ pub struct SessionMeta {
     /// but may be missing for older sessions. If not present, fall back to rendering the base_instructions
     /// from ModelsManager.
     pub base_instructions: Option<BaseInstructions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_profile: Option<PromptSource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_profile_path: Option<PathBuf>,
     #[serde(
         default,
         deserialize_with = "crate::dynamic_tools::deserialize_dynamic_tool_specs",
@@ -2953,6 +2958,8 @@ impl Default for SessionMeta {
             agent_path: None,
             model_provider: None,
             base_instructions: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: None,
             selected_capability_roots: Vec::new(),
             memory_mode: None,
