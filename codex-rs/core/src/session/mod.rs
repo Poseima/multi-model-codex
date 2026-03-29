@@ -42,6 +42,7 @@ use crate::image_preparation::ImageResizeNoticeMode;
 use crate::image_preparation::prepare_response_items as prepare_image_response_items;
 use crate::image_preparation::unified_image_budget_enabled;
 use crate::parse_turn_item;
+use crate::prompt_profile_loader::PromptProfileOverride;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::realtime_history::RealtimeEventOrder;
 use crate::resolve_installation_id;
@@ -459,6 +460,8 @@ pub(crate) struct SessionSpawnArgs {
     pub(crate) originator: String,
     pub(crate) agent_control: AgentControl,
     pub(crate) dynamic_tools: Vec<DynamicToolSpec>,
+    pub(crate) prompt_profile_override: PromptProfileOverride,
+    pub(crate) persist_extended_history: bool,
     pub(crate) metrics_service_name: Option<String>,
     pub(crate) inherited_exec_policy: Option<Arc<ExecPolicyManager>>,
     pub(crate) inherited_environments: Option<TurnEnvironmentSnapshot>,
@@ -566,6 +569,8 @@ impl Session {
             originator,
             agent_control,
             dynamic_tools,
+            prompt_profile_override,
+            persist_extended_history: _,
             metrics_service_name,
             user_shell_override,
             inherited_exec_policy,
@@ -820,6 +825,17 @@ impl Session {
         );
         let service_tier =
             get_service_tier(config.service_tier.clone(), fast_mode_enabled, &model_info);
+        let (prompt_profile, prompt_profile_path) = match prompt_profile_override {
+            PromptProfileOverride::Inherit => (
+                conversation_history.get_prompt_profile(),
+                conversation_history.get_prompt_profile_path(),
+            ),
+            PromptProfileOverride::Clear => (None, None),
+            PromptProfileOverride::Set {
+                prompt_profile,
+                prompt_profile_path,
+            } => (Some(*prompt_profile), prompt_profile_path),
+        };
         let session_configuration = SessionConfiguration {
             provider: create_model_provider(
                 config.model_provider.clone(),
@@ -836,6 +852,8 @@ impl Session {
             model_info_overrides: config.to_models_manager_config().into(),
             developer_instructions: config.developer_instructions.clone(),
             base_instructions,
+            prompt_profile,
+            prompt_profile_path,
             permission_profile_state: session_permission_profile_state_from_config(&config)?,
             allow_login_shell: config.permissions.allow_login_shell,
             shell_environment_policy: config.permissions.shell_environment_policy.clone(),
@@ -1491,6 +1509,18 @@ impl Session {
         } else {
             instructions
         }
+    }
+
+    pub(crate) async fn get_prompt_profile(
+        &self,
+    ) -> Option<codex_protocol::prompt_profile::PromptSource> {
+        let state = self.state.lock().await;
+        state.session_configuration.prompt_profile.clone()
+    }
+
+    pub(crate) async fn get_prompt_profile_path(&self) -> Option<PathBuf> {
+        let state = self.state.lock().await;
+        state.session_configuration.prompt_profile_path.clone()
     }
 
     // Merges connector IDs into the session-level explicit connector selection.

@@ -1493,7 +1493,8 @@ impl ThreadRequestProcessor {
                 },
                 history_mode,
                 thread_source,
-                dynamic_tools,
+                dynamic_tools: core_dynamic_tools,
+                persist_extended_history: false,
                 metrics_service_name: service_name,
                 parent_trace: request_trace,
                 environments: Some(environments),
@@ -4830,6 +4831,9 @@ impl ThreadRequestProcessor {
             thread_source,
             exclude_turns,
             defer_goal_continuation,
+            prompt_profile,
+            prompt_profile_path,
+            clear_prompt_profile,
         } = params;
         let include_turns = !exclude_turns;
         if sandbox.is_some() && permissions.is_some() {
@@ -4951,6 +4955,20 @@ impl ThreadRequestProcessor {
             Some(cli_overrides)
         };
         let runtime_workspace_roots = runtime_workspace_roots.map(resolve_runtime_workspace_roots);
+        let prompt_profile_override = if clear_prompt_profile {
+            if prompt_profile.is_some() || prompt_profile_path.is_some() {
+                return Err(invalid_request(
+                    "clearPromptProfile cannot be combined with promptProfile or promptProfilePath",
+                ));
+            }
+            codex_core::PromptProfileOverride::Clear
+        } else {
+            super::prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            )
+            .map_err(invalid_request)?
+        };
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -5130,11 +5148,18 @@ impl ThreadRequestProcessor {
         };
         let new_thread = if let Some(prepared_fork) = prepared_fork {
             self.thread_manager
-                .fork_prepared_thread(fork_options, prepared_fork)
+                .fork_prepared_thread_with_prompt_profile(
+                    fork_options,
+                    prepared_fork,
+                    codex_core::ForkThreadHistoryOptions {
+                        prompt_profile_override,
+                        ..codex_core::ForkThreadHistoryOptions::default()
+                    },
+                )
                 .await
         } else {
             self.thread_manager
-                .fork_thread_from_history(
+                .fork_thread_from_history_with_prompt_profile(
                     ForkSnapshot::Interrupted,
                     fork_options,
                     InitialHistory::Resumed(ResumedHistory {
@@ -5142,6 +5167,10 @@ impl ThreadRequestProcessor {
                         history: history_items,
                         rollout_path: source_thread.rollout_path.clone(),
                     }),
+                    codex_core::ForkThreadHistoryOptions {
+                        prompt_profile_override,
+                        ..codex_core::ForkThreadHistoryOptions::default()
+                    },
                 )
                 .await
         };

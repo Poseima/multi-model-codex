@@ -480,6 +480,8 @@ impl ExternalAgentSessionImporter {
                     },
                 )),
             },
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             selected_capability_roots: Vec::new(),
             runtime_workspace_roots: None,

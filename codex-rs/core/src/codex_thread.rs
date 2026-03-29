@@ -32,6 +32,8 @@ use codex_protocol::models::PermissionProfile;
 use codex_protocol::models::ProfileWorkspaceRoot;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptSource;
+use codex_protocol::protocol::AdditionalContextEntry;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::EnvironmentConfig;
 use codex_protocol::protocol::EnvironmentConfigState;
@@ -1003,6 +1005,14 @@ impl CodexThread {
                 /*requested_timeout*/ None, /*wait_for_server*/ true,
             )
             .await
+    }
+
+    pub async fn prompt_profile(&self) -> Option<PromptSource> {
+        self.codex.session.get_prompt_profile().await
+    }
+
+    pub async fn prompt_profile_path(&self) -> Option<PathBuf> {
+        self.codex.session.get_prompt_profile_path().await
     }
 
     pub fn enabled(&self, feature: Feature) -> bool {
