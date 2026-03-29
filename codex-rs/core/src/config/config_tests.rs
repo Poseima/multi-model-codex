@@ -4345,10 +4345,12 @@ async fn managed_config_overrides_oauth_store_mode() -> anyhow::Result<()> {
                 tracing::error!("Failed to deserialize overridden config: {e}");
                 e
             })?;
-    assert_eq!(
-        cfg.mcp_oauth_credentials_store,
-        Some(OAuthCredentialsStoreMode::Keyring),
-    );
+    let expected = if codex_utils_home_dir::is_embedded_mode() {
+        OAuthCredentialsStoreMode::File
+    } else {
+        OAuthCredentialsStoreMode::Keyring
+    };
+    assert_eq!(cfg.mcp_oauth_credentials_store, Some(expected));
 
     let final_config = Config::load_from_base_config_with_overrides(
         cfg,
@@ -4358,10 +4360,7 @@ async fn managed_config_overrides_oauth_store_mode() -> anyhow::Result<()> {
     .await?;
     assert_eq!(
         final_config.mcp_oauth_credentials_store_mode,
-        resolve_mcp_oauth_credentials_store_mode(
-            OAuthCredentialsStoreMode::Keyring,
-            env!("CARGO_PKG_VERSION"),
-        ),
+        resolve_mcp_oauth_credentials_store_mode(expected, env!("CARGO_PKG_VERSION"),),
     );
 
     Ok(())
@@ -4482,7 +4481,12 @@ async fn managed_config_wins_over_cli_overrides() -> anyhow::Result<()> {
                 e
             })?;
 
-    assert_eq!(cfg.model.as_deref(), Some("managed_config"));
+    let expected_model = if codex_utils_home_dir::is_embedded_mode() {
+        "cli"
+    } else {
+        "managed_config"
+    };
+    assert_eq!(cfg.model.as_deref(), Some(expected_model));
     Ok(())
 }
 

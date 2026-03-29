@@ -1,7 +1,6 @@
 pub(crate) mod agent_resolver;
 pub(crate) mod control;
 pub(crate) mod fork_memory_role; // Fork: memory retriever role enrichment
-mod guards;
 pub(crate) mod mailbox;
 mod registry;
 pub(crate) mod role;
