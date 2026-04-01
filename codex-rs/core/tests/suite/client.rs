@@ -854,6 +854,7 @@ async fn send_provider_auth_request(server: &MockServer, auth: ModelProviderAuth
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
         supports_websockets: false,
+        system_role: None,
     };
 
     let codex_home = TempDir::new().unwrap();

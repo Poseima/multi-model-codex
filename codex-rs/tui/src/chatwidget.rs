@@ -2835,27 +2835,6 @@ impl ChatWidget {
         }
     }
 
-    fn apply_turn_started_context_window(&mut self, model_context_window: Option<i64>) {
-        let info = match self.token_info.take() {
-            Some(mut info) => {
-                info.model_context_window = model_context_window;
-                info
-            }
-            None => {
-                let Some(model_context_window) = model_context_window else {
-                    return;
-                };
-                TokenUsageInfo {
-                    total_token_usage: TokenUsage::default(),
-                    last_token_usage: TokenUsage::default(),
-                    model_context_window: Some(model_context_window),
-                }
-            }
-        };
-
-        self.apply_token_info(info);
-    }
-
     fn apply_token_info(&mut self, info: TokenUsageInfo) {
         let percent = self.context_remaining_percent(&info);
         let used_tokens = self.context_used_tokens(&info, percent.is_some());

@@ -3,11 +3,11 @@ source: tui/src/bottom_pane/chat_composer.rs
 expression: terminal.backend()
 ---
 "                                                                                                                        "
-"› Test                                                                                                                  "
+"› Ask Codex to do anything                                                                                              "
 "                                                                                                                        "
 "                                                                                                                        "
 "                                                                                                                        "
 "                                                                                                                        "
 "                                                                                                                        "
 "                                                                                                                        "
-"  98% context left · tab to queue message                                                                               "
+"  ? for shortcuts · Plan mode (shift+tab to cycle)                                                  12.3K / 256K (95%)  "

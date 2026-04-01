@@ -1123,40 +1123,6 @@ impl Session {
         BaseInstructions { text: composed }
     }
 
-    pub(crate) async fn merge_mcp_tool_selection(&self, tool_names: Vec<String>) -> Vec<String> {
-        let mut state = self.state.lock().await;
-        let mut merged = state
-            .merge_connector_selection(tool_names)
-            .into_iter()
-            .collect::<Vec<_>>();
-        merged.sort_unstable();
-        merged
-    }
-
-    pub(crate) async fn set_mcp_tool_selection(&self, tool_names: Vec<String>) {
-        let mut state = self.state.lock().await;
-        state.clear_connector_selection();
-        state.merge_connector_selection(tool_names);
-    }
-
-    pub(crate) async fn get_mcp_tool_selection(&self) -> Option<Vec<String>> {
-        let state = self.state.lock().await;
-        let mut tool_names = state
-            .get_connector_selection()
-            .into_iter()
-            .collect::<Vec<_>>();
-        if tool_names.is_empty() {
-            None
-        } else {
-            tool_names.sort_unstable();
-            Some(tool_names)
-        }
-    }
-
-    pub(crate) async fn clear_mcp_tool_selection(&self) {
-        let mut state = self.state.lock().await;
-        state.clear_connector_selection();
-    }
     // Merges connector IDs into the session-level explicit connector selection.
     pub(crate) async fn merge_connector_selection(
         &self,

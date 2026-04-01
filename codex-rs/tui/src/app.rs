@@ -2819,6 +2819,8 @@ impl App {
                 thread_name: None,
                 model: self.chat_widget.current_model().to_string(),
                 model_provider_id: self.config.model_provider_id.clone(),
+                prompt_profile: thread.prompt_profile.clone(),
+                prompt_profile_path: thread.prompt_profile_path.clone(),
                 service_tier: self.chat_widget.current_service_tier(),
                 approval_policy: self.config.permissions.approval_policy.value(),
                 approvals_reviewer: self.config.approvals_reviewer,
@@ -2834,6 +2836,8 @@ impl App {
         session.thread_id = thread_id;
         session.thread_name = thread.name.clone();
         session.model_provider_id = thread.model_provider.clone();
+        session.prompt_profile = thread.prompt_profile.clone();
+        session.prompt_profile_path = thread.prompt_profile_path.clone();
         session.cwd = thread.cwd.clone();
         session.instruction_source_paths = Vec::new();
         session.rollout_path = thread.path.clone();
