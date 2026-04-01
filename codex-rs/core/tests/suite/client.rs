@@ -1524,6 +1524,7 @@ async fn send_provider_auth_request(server: &MockServer, auth: ModelProviderAuth
         requires_openai_auth: false,
         supports_websockets: false,
         supports_standalone_web_search: false,
+        system_role: None,
     };
 
     send_request_with_provider(provider).await;

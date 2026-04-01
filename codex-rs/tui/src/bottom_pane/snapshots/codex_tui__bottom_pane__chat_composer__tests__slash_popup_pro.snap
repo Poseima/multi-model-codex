@@ -1,0 +1,10 @@
+---
+source: tui/src/bottom_pane/chat_composer.rs
+expression: terminal.backend()
+---
+"                                                            "
+"› /pro                                                      "
+"                                                            "
+"  /provider  switch between configured model providers      "
+"  /profile   load, show, or clear a prompt profile /        "
+"             character card                                 "
