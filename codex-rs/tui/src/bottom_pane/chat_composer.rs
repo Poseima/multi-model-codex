@@ -4282,8 +4282,8 @@ impl ChatComposer {
                                 footer_props.context_window_percent,
                                 footer_props.context_window_used_tokens,
                                 self.footer.context_window_total,
-                                left_mode_indicator,
-                                show_cycle_hint,
+                                /*mode_indicator*/ None,
+                                /*show_cycle_hint*/ false,
                             ))
                         };
                     let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
@@ -8238,9 +8238,6 @@ mod tests {
             ActivePopup::Command(popup) => match popup.selected_item() {
                 Some(CommandItem::Builtin(cmd)) => {
                     assert_eq!(cmd.command(), "profile")
-                }
-                Some(CommandItem::UserPrompt(_)) => {
-                    panic!("unexpected prompt selected for '/profile'")
                 }
                 None => panic!("no selected command for '/profile'"),
             },

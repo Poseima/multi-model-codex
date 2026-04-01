@@ -94,6 +94,8 @@ impl App {
                 thread_name: None,
                 model: self.chat_widget.current_model().to_string(),
                 model_provider_id: self.config.model_provider_id.clone(),
+                prompt_profile: thread.prompt_profile.clone(),
+                prompt_profile_path: thread.prompt_profile_path.clone(),
                 service_tier: self.chat_widget.current_service_tier().map(str::to_string),
                 approval_policy: AskForApproval::from(
                     self.config.permissions.approval_policy.value(),
@@ -115,6 +117,8 @@ impl App {
         session.thread_id = thread_id;
         session.thread_name = thread.name.clone();
         session.model_provider_id = thread.model_provider.clone();
+        session.prompt_profile = thread.prompt_profile.clone();
+        session.prompt_profile_path = thread.prompt_profile_path.clone();
         session.set_cwd_retargeting_implicit_runtime_workspace_root(thread.cwd.clone());
         session.permission_profile = permission_profile;
         session.active_permission_profile = active_permission_profile;
