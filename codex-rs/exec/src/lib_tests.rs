@@ -283,6 +283,7 @@ async fn resume_lookup_model_providers_filters_only_last_lookup() {
         session_id: None,
         last: true,
         all: false,
+        archive: false,
         images: vec![],
         prompt: None,
     };
@@ -290,6 +291,7 @@ async fn resume_lookup_model_providers_filters_only_last_lookup() {
         session_id: Some("named-session".to_string()),
         last: false,
         all: false,
+        archive: false,
         images: vec![],
         prompt: None,
     };
@@ -322,6 +324,8 @@ fn turn_items_for_thread_returns_matching_turn_items() {
         agent_role: None,
         git_info: None,
         name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: vec![
             codex_app_server_protocol::Turn {
                 id: "turn-1".to_string(),
@@ -569,6 +573,8 @@ fn sample_thread_start_response() -> ThreadStartResponse {
             agent_role: None,
             git_info: None,
             name: Some("thread".to_string()),
+            prompt_profile: None,
+            prompt_profile_path: None,
             turns: vec![],
         },
         model: "gpt-5.4".to_string(),
