@@ -19,15 +19,14 @@ use crate::tools::runtimes::apply_patch::ApplyPatchRequest;
 use crate::tools::runtimes::apply_patch::ApplyPatchRuntime;
 use crate::tools::sandboxing::ToolCtx;
 use crate::tools::spec::JsonSchema;
-use async_trait::async_trait;
 use codex_apply_patch::ApplyPatchFileChange;
 use codex_protocol::models::FileSystemPermissions;
 use codex_protocol::models::PermissionProfile;
-use codex_tools::ResponsesApiTool;
-use codex_tools::ToolSpec;
 use codex_sandboxing::policy_transforms::effective_file_system_sandbox_policy;
 use codex_sandboxing::policy_transforms::merge_permission_profiles;
 use codex_sandboxing::policy_transforms::normalize_additional_permissions;
+use codex_tools::ResponsesApiTool;
+use codex_tools::ToolSpec;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -125,7 +124,6 @@ struct StructuredEditArgs {
 /// Number of context lines to include before and after a change in generated patches.
 const CONTEXT_LINES: usize = 3;
 
-#[async_trait]
 impl ToolHandler for StructuredEditHandler {
     type Output = FunctionToolOutput;
 

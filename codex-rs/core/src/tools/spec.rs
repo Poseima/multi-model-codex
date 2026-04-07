@@ -1,10 +1,10 @@
 use crate::shell::Shell;
 use crate::shell::ShellType;
 use crate::tools::handlers::agent_jobs::BatchJobHandler;
-use crate::tools::handlers::structured_edit::create_text_editor_tool;
 use crate::tools::handlers::multi_agents_common::DEFAULT_WAIT_TIMEOUT_MS;
 use crate::tools::handlers::multi_agents_common::MAX_WAIT_TIMEOUT_MS;
 use crate::tools::handlers::multi_agents_common::MIN_WAIT_TIMEOUT_MS;
+use crate::tools::handlers::structured_edit::create_text_editor_tool;
 use crate::tools::registry::ToolRegistryBuilder;
 use codex_mcp::ToolInfo;
 use codex_protocol::dynamic_tools::DynamicToolSpec;
@@ -228,7 +228,10 @@ pub(crate) fn build_specs_with_discoverable_tools(
             create_text_editor_tool()
         };
         builder.push_spec(text_editor_tool);
-        builder.register_handler("text_editor", Arc::new(crate::tools::handlers::StructuredEditHandler));
+        builder.register_handler(
+            "text_editor",
+            Arc::new(crate::tools::handlers::StructuredEditHandler),
+        );
     }
 
     for handler in plan.handlers {

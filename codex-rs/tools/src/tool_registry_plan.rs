@@ -319,6 +319,7 @@ pub fn build_tool_registry_plan(
                     /*supports_parallel_tool_calls*/ false,
                     config.code_mode_enabled,
                 );
+                plan.register_handler("apply_patch", ToolHandlerKind::ApplyPatch);
             }
             ApplyPatchToolType::Function => {
                 plan.push_spec(
@@ -326,9 +327,12 @@ pub fn build_tool_registry_plan(
                     /*supports_parallel_tool_calls*/ false,
                     config.code_mode_enabled,
                 );
+                plan.register_handler("apply_patch", ToolHandlerKind::ApplyPatch);
             }
+            // The structured edit fork exposes `text_editor` from codex-core after the shared
+            // plan is built, so the shared tools crate should not emit `apply_patch` here.
+            ApplyPatchToolType::Structured => {}
         }
-        plan.register_handler("apply_patch", ToolHandlerKind::ApplyPatch);
     }
 
     if config.has_environment

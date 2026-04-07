@@ -1122,6 +1122,24 @@ fn create_config_toml_without_approval_policy(
     )
 }
 
+fn create_config_toml(codex_home: &Path, server_uri: &str) -> std::io::Result<()> {
+    create_config_toml_with_optional_approval_policy(codex_home, server_uri, Some("never"))
+}
+
+fn persisted_trust_path(project_path: &Path) -> String {
+    let project_path =
+        std::fs::canonicalize(project_path).unwrap_or_else(|_| project_path.to_path_buf());
+    let project_path = project_path.display().to_string();
+
+    if let Some(project_path) = project_path.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{project_path}");
+    }
+
+    project_path
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&project_path)
+        .to_string()
+}
 fn create_config_toml_with_optional_approval_policy(
     codex_home: &Path,
     server_uri: &str,

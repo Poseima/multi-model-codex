@@ -6937,7 +6937,7 @@ impl CodexMessageProcessor {
                 .map(|cm| &cm.settings.model)
                 .or(params.model.as_ref());
             model_slug.and_then(|slug| {
-                codex_core::models_manager::fork_provider_mapping::provider_for_model_slug(slug)
+                codex_models_manager::fork_provider_mapping::provider_for_model_slug(slug)
             })
         });
 

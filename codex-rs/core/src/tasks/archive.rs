@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use codex_features::Feature;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::SandboxPolicy;
+use codex_protocol::protocol::SubAgentSource;
 use codex_protocol::user_input::UserInput;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
@@ -15,7 +15,6 @@ use crate::codex::TurnContext;
 use crate::codex_delegate::run_codex_thread_one_shot;
 use crate::config::Constrained;
 use crate::memory_experiment;
-use crate::protocol::SubAgentSource;
 use crate::state::TaskKind;
 use codex_utils_absolute_path::AbsolutePathBuf;
 
@@ -34,7 +33,6 @@ impl ArchiveTask {
     }
 }
 
-#[async_trait]
 impl SessionTask for ArchiveTask {
     fn kind(&self) -> TaskKind {
         TaskKind::Archive
@@ -51,7 +49,7 @@ impl SessionTask for ArchiveTask {
         input: Vec<UserInput>,
         cancellation_token: CancellationToken,
     ) -> Option<String> {
-        let _ = session
+        session
             .session
             .services
             .session_telemetry

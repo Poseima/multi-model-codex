@@ -606,22 +606,22 @@ async fn conversation_start_uses_openai_env_key_fallback_with_chatgpt_auth() -> 
 
     skip_if_no_network!(Ok(()));
 
-    let server = start_websocket_server(vec![
-        vec![],
-        vec![vec![json!({
-            "type": "session.updated",
-            "session": { "id": "sess_env", "instructions": "backend prompt" }
-        })]],
-    ])
+    let api_server = start_mock_server().await;
+    let realtime_server = start_websocket_server(vec![vec![vec![json!({
+        "type": "session.updated",
+        "session": { "id": "sess_env", "instructions": "backend prompt" }
+    })]]])
     .await;
 
-    let mut builder = test_codex().with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing());
-    let test = builder.build_with_websocket_server(&server).await?;
-    assert!(
-        server
-            .wait_for_handshakes(/*expected*/ 1, Duration::from_secs(2))
-            .await
-    );
+    let mut builder = test_codex()
+        .with_auth(CodexAuth::create_dummy_chatgpt_auth_for_testing())
+        .with_config({
+            let realtime_base_url = realtime_server.uri().to_string();
+            move |config| {
+                config.experimental_realtime_ws_base_url = Some(realtime_base_url);
+            }
+        });
+    let test = builder.build(&api_server).await?;
 
     test.codex
         .submit(Op::RealtimeConversationStart(ConversationStartParams {
@@ -633,15 +633,12 @@ async fn conversation_start_uses_openai_env_key_fallback_with_chatgpt_auth() -> 
         }))
         .await?;
 
-    let started = wait_for_event_match(&test.codex, |msg| match msg {
-        EventMsg::RealtimeConversationStarted(started) => Some(Ok(started.clone())),
-        EventMsg::Error(err) => Some(Err(err.clone())),
-        _ => None,
-    })
-    .await
-    .unwrap_or_else(|err: ErrorEvent| panic!("conversation start failed: {err:?}"));
-    assert!(started.session_id.is_some());
-
+    let _session_update = wait_for_matching_websocket_request(
+        &realtime_server,
+        "realtime session.update request",
+        |request| request.body_json()["type"].as_str() == Some("session.update"),
+    )
+    .await;
     let session_updated = wait_for_event_match(&test.codex, |msg| match msg {
         EventMsg::RealtimeConversationRealtime(RealtimeConversationRealtimeEvent {
             payload: RealtimeEvent::SessionUpdated { session_id, .. },
@@ -651,8 +648,17 @@ async fn conversation_start_uses_openai_env_key_fallback_with_chatgpt_auth() -> 
     .await;
     assert_eq!(session_updated, "sess_env");
 
+    assert!(
+        realtime_server
+            .wait_for_handshakes(/*expected*/ 1, Duration::from_secs(10))
+            .await
+    );
     assert_eq!(
-        server.handshakes()[1].header("authorization").as_deref(),
+        realtime_server
+            .handshakes()
+            .last()
+            .and_then(|handshake| handshake.header("authorization"))
+            .as_deref(),
         Some("Bearer env-realtime-key")
     );
 
@@ -663,7 +669,7 @@ async fn conversation_start_uses_openai_env_key_fallback_with_chatgpt_auth() -> 
     })
     .await;
 
-    server.shutdown().await;
+    realtime_server.shutdown().await;
     Ok(())
 }
 

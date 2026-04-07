@@ -5,21 +5,19 @@
 /// before awaiting so the lock is never held across an `.await` point.
 use std::sync::Arc;
 use std::sync::RwLock;
-
+use crate::client::ModelClient;
+use crate::client::ModelClientSession;
+use crate::client_common::Prompt;
 use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
 use codex_login::AuthManager;
 use codex_otel::SessionTelemetry;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
+use codex_protocol::error::Result;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_rollout_trace::CompactionTraceContext;
-
-use crate::client::ModelClient;
-use crate::client::ModelClientSession;
-use crate::client_common::Prompt;
-use crate::error::Result;
 
 pub(crate) struct SwappableModelClient {
     inner: RwLock<ModelClient>,
@@ -53,6 +51,13 @@ impl SwappableModelClient {
             .read()
             .expect("lock poisoned")
             .set_window_generation(window_generation);
+    }
+
+    pub(crate) fn advance_window_generation(&self) {
+        self.inner
+            .read()
+            .expect("lock poisoned")
+            .advance_window_generation();
     }
 
     pub(crate) async fn compact_conversation_history(
@@ -101,12 +106,6 @@ impl SwappableModelClient {
             .responses_websocket_enabled()
     }
 
-    pub(crate) fn advance_window_generation(&self) {
-        self.inner
-            .read()
-            .expect("lock poisoned")
-            .advance_window_generation();
-    }
     pub(crate) fn replace(&self, new_client: ModelClient) {
         *self.inner.write().expect("lock poisoned") = new_client;
     }

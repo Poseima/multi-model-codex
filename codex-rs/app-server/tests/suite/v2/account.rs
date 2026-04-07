@@ -88,6 +88,9 @@ sandbox_mode = "danger-full-access"
 model_provider = "mock_provider"
 
 [features]
+apps = false
+plugins = false
+tool_suggest = false
 shell_snapshot = false
 
 [model_providers.mock_provider]
