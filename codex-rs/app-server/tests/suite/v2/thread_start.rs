@@ -2064,10 +2064,34 @@ fn create_config_toml_without_approval_policy(
     codex_home: &Path,
     server_uri: &str,
 ) -> std::io::Result<()> {
-    create_config_toml(codex_home, server_uri, "sandbox_mode = \"read-only\"", "")
+    create_config_toml_with_extra(codex_home, server_uri, "sandbox_mode = \"read-only\"", "")
 }
 
-fn create_config_toml(
+fn create_config_toml(codex_home: &Path, server_uri: &str) -> std::io::Result<()> {
+    create_config_toml_with_extra(
+        codex_home,
+        server_uri,
+        "approval_policy = \"never\"\nsandbox_mode = \"read-only\"",
+        "",
+    )
+}
+
+fn persisted_trust_path(project_path: &Path) -> String {
+    let project_path =
+        std::fs::canonicalize(project_path).unwrap_or_else(|_| project_path.to_path_buf());
+    let project_path = project_path.display().to_string();
+
+    if let Some(project_path) = project_path.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{project_path}");
+    }
+
+    project_path
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&project_path)
+        .to_string()
+}
+
+fn create_config_toml_with_extra(
     codex_home: &Path,
     server_uri: &str,
     top_level_config: &str,
@@ -2104,7 +2128,7 @@ fn create_config_toml_with_profile_workspace_root(
         .to_string()
         .replace('\\', "\\\\")
         .replace('"', "\\\"");
-    create_config_toml(
+    create_config_toml_with_extra(
         codex_home,
         server_uri,
         "default_permissions = \"dev\"",
@@ -2154,7 +2178,7 @@ fn create_config_toml_with_chatgpt_base_url(
     server_uri: &str,
     chatgpt_base_url: &str,
 ) -> std::io::Result<()> {
-    create_config_toml(
+    create_config_toml_with_extra(
         codex_home,
         server_uri,
         &format!(
@@ -2168,7 +2192,7 @@ fn create_config_toml_with_required_broken_mcp(
     codex_home: &Path,
     server_uri: &str,
 ) -> std::io::Result<()> {
-    create_config_toml(
+    create_config_toml_with_extra(
         codex_home,
         server_uri,
         "approval_policy = \"never\"\nsandbox_mode = \"read-only\"",
@@ -2187,7 +2211,7 @@ fn create_config_toml_with_optional_broken_mcp(
     codex_home: &Path,
     server_uri: &str,
 ) -> std::io::Result<()> {
-    create_config_toml(
+    create_config_toml_with_extra(
         codex_home,
         server_uri,
         "approval_policy = \"never\"\nsandbox_mode = \"read-only\"",
@@ -2206,7 +2230,7 @@ fn create_config_toml_with_optional_http_mcp(
     server_uri: &str,
     mcp_uri: &str,
 ) -> std::io::Result<()> {
-    create_config_toml(
+    create_config_toml_with_extra(
         codex_home,
         server_uri,
         "approval_policy = \"never\"\nsandbox_mode = \"read-only\"",
