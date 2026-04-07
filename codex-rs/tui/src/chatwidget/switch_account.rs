@@ -1,5 +1,5 @@
 use codex_app_server_protocol::AuthMode;
-use codex_core::auth::AuthDotJson;
+use codex_login::AuthDotJson;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::OpenOptions;
