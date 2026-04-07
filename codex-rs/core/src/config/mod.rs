@@ -2210,7 +2210,7 @@ impl Config {
         }
 
         // Merge built-in profiles with user-defined profiles.
-        let mut all_profiles = crate::config::profile::built_in_profiles();
+        let mut all_profiles = codex_config::profile_toml::built_in_profiles();
         for (key, profile) in cfg.profiles.iter() {
             all_profiles.insert(key.clone(), profile.clone());
         }
