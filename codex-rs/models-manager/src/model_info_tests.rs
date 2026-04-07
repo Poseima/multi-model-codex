@@ -80,7 +80,10 @@ fn model_context_window_uses_model_value_without_override() {
 #[test]
 fn per_model_auto_compact_limit_overrides_global_default() {
     let model = model_info_from_slug("gpt-5.3-codex");
-    let mut config = test_config();
+    let mut config = ModelsManagerConfig {
+        personality_enabled: true,
+        ..Default::default()
+    };
     config.model_auto_compact_token_limit = Some(111);
     config
         .model_auto_compact_token_limits
@@ -96,7 +99,10 @@ fn per_model_auto_compact_limit_overrides_global_default() {
 #[test]
 fn global_auto_compact_limit_used_when_per_model_is_missing() {
     let model = model_info_from_slug("gpt-5.3-codex");
-    let mut config = test_config();
+    let mut config = ModelsManagerConfig {
+        personality_enabled: true,
+        ..Default::default()
+    };
     config.model_auto_compact_token_limit = Some(111);
     config
         .model_auto_compact_token_limits
@@ -113,7 +119,10 @@ fn global_auto_compact_limit_used_when_per_model_is_missing() {
 fn model_auto_compact_limit_is_preserved_when_no_config_override_exists() {
     let mut model = model_info_from_slug("gpt-5.3-codex");
     model.auto_compact_token_limit = Some(333);
-    let config = test_config();
+    let config = ModelsManagerConfig {
+        personality_enabled: true,
+        ..Default::default()
+    };
 
     let updated = with_config_overrides(model.clone(), &config);
 
@@ -123,7 +132,10 @@ fn model_auto_compact_limit_is_preserved_when_no_config_override_exists() {
 #[test]
 fn per_model_auto_compact_limit_requires_exact_slug_match() {
     let model = model_info_from_slug("gpt-5.3-codex");
-    let mut config = test_config();
+    let mut config = ModelsManagerConfig {
+        personality_enabled: true,
+        ..Default::default()
+    };
     config.model_auto_compact_token_limit = Some(111);
     config
         .model_auto_compact_token_limits
