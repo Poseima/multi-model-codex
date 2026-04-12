@@ -2,6 +2,9 @@ use super::sanitize_user_agent;
 use super::*;
 use core_test_support::skip_if_no_network;
 use pretty_assertions::assert_eq;
+use serial_test::serial;
+use std::env;
+use std::ffi::OsString;
 
 #[test]
 fn test_get_codex_user_agent() {
@@ -109,6 +112,114 @@ fn test_invalid_suffix_is_sanitized2() {
         sanitize_user_agent(format!("{prefix} ({suffix})"), prefix),
         "codex_cli_rs/0.0.0 (bad_suffix)"
     );
+}
+
+#[test]
+fn loopback_no_proxy_entries_appends_defaults() {
+    assert_eq!(
+        loopback_no_proxy_entries(Some("example.com")),
+        "example.com,localhost,127.0.0.1,::1"
+    );
+    assert_eq!(
+        loopback_no_proxy_entries(/*existing*/ None),
+        "localhost,127.0.0.1,::1"
+    );
+}
+
+#[tokio::test]
+#[serial(proxy_env)]
+async fn create_client_bypasses_proxy_for_loopback_requests() {
+    use wiremock::Mock;
+    use wiremock::MockServer;
+    use wiremock::ResponseTemplate;
+    use wiremock::matchers::method;
+    use wiremock::matchers::path;
+
+    let _http_proxy = EnvVarGuard::set("HTTP_PROXY", "http://127.0.0.1:1");
+    let _https_proxy = EnvVarGuard::set("HTTPS_PROXY", "http://127.0.0.1:1");
+    let _no_proxy = EnvVarGuard::unset("NO_PROXY");
+    let _no_proxy_lower = EnvVarGuard::unset("no_proxy");
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/health"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let response = create_client()
+        .get(format!("{}/health", server.uri()))
+        .send()
+        .await
+        .expect("loopback request should bypass proxy");
+
+    assert!(response.status().is_success());
+}
+
+#[tokio::test]
+#[serial(proxy_env)]
+async fn create_client_for_url_bypasses_proxy_for_loopback_requests() {
+    use wiremock::Mock;
+    use wiremock::MockServer;
+    use wiremock::ResponseTemplate;
+    use wiremock::matchers::method;
+    use wiremock::matchers::path;
+
+    let _http_proxy = EnvVarGuard::set("HTTP_PROXY", "http://127.0.0.1:1");
+    let _https_proxy = EnvVarGuard::set("HTTPS_PROXY", "http://127.0.0.1:1");
+    let _no_proxy = EnvVarGuard::unset("NO_PROXY");
+    let _no_proxy_lower = EnvVarGuard::unset("no_proxy");
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/health"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let response = create_client_for_url(&server.uri())
+        .get(format!("{}/health", server.uri()))
+        .send()
+        .await
+        .expect("loopback request should bypass proxy");
+
+    assert!(response.status().is_success());
+}
+
+struct EnvVarGuard {
+    key: &'static str,
+    original: Option<OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let original = env::var_os(key);
+        unsafe {
+            env::set_var(key, value);
+        }
+        Self { key, original }
+    }
+
+    fn unset(key: &'static str) -> Self {
+        let original = env::var_os(key);
+        unsafe {
+            env::remove_var(key);
+        }
+        Self { key, original }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        unsafe {
+            match &self.original {
+                Some(value) => env::set_var(self.key, value),
+                None => env::remove_var(self.key),
+            }
+        }
+    }
 }
 
 #[test]

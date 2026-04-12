@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::future::Future;
 use std::io;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -12,7 +13,7 @@ use std::time::Instant;
 use anyhow::Result;
 use anyhow::anyhow;
 use codex_api::SharedAuthProvider;
-use codex_client::maybe_build_rustls_client_config_with_custom_ca;
+use codex_client::build_reqwest_client_with_custom_ca;
 use codex_config::types::AuthKeyringBackendKind;
 use codex_config::types::McpServerEnvVar;
 use codex_exec_server::HttpClient;
@@ -177,6 +178,27 @@ impl Drop for ElicitationPauseGuard {
             self.pause_state.paused.send_replace(false);
         }
     }
+}
+
+fn build_http_client(url: &str, default_headers: &HeaderMap) -> Result<reqwest::Client> {
+    let mut builder = apply_default_headers(reqwest::Client::builder(), default_headers);
+    if streamable_http_url_uses_loopback_host(url) {
+        builder = builder.no_proxy();
+    }
+    Ok(build_reqwest_client_with_custom_ca(builder)?)
+}
+
+fn streamable_http_url_uses_loopback_host(url: &str) -> bool {
+    reqwest::Url::parse(url)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(is_loopback_host))
+        .unwrap_or(false)
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }
 
 async fn active_time_timeout<T, Fut>(
@@ -1158,11 +1180,7 @@ async fn create_oauth_transport_and_runtime(
     StreamableHttpClientTransport<AuthClient<StreamableHttpClientAdapter>>,
     OAuthPersistor,
 )> {
-    let mut builder = apply_default_headers(reqwest::Client::builder(), &default_headers);
-    if let Some(tls_config) = maybe_build_rustls_client_config_with_custom_ca()? {
-        builder = builder.tls_backend_preconfigured(tls_config.as_ref().clone());
-    }
-    let oauth_metadata_client = builder.build()?;
+    let oauth_metadata_client = build_http_client(url, &default_headers)?;
     // TODO(aibrahim): teach OAuth bootstrap and refresh to use the same
     // shared HTTP client abstraction instead of always creating the local
     // reqwest metadata client here.
