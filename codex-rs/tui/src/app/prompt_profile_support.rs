@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use codex_core::load_prompt_profile_from_path;
 use codex_protocol::prompt_profile::PromptSource;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use color_eyre::eyre::Result;
@@ -10,6 +9,7 @@ use ratatui::text::Line;
 use super::App;
 use super::AppRunControl;
 use super::session_summary;
+use crate::legacy_core::load_prompt_profile_from_path;
 
 fn prompt_profile_display_name(prompt_profile: &PromptSource) -> String {
     prompt_profile
@@ -116,15 +116,8 @@ impl App {
         app_server: &mut crate::app_server_session::AppServerSession,
         path: PathBuf,
     ) -> Result<AppRunControl> {
-        let resolved_path = match AbsolutePathBuf::resolve_path_against_base(path, &self.config.cwd)
-        {
-            Ok(path) => path.into_path_buf(),
-            Err(err) => {
-                self.chat_widget
-                    .add_error_message(format!("Failed to resolve prompt profile path: {err}"));
-                return Ok(AppRunControl::Continue);
-            }
-        };
+        let resolved_path =
+            AbsolutePathBuf::resolve_path_against_base(path, &self.config.cwd).into_path_buf();
         let prompt_profile = match load_prompt_profile_from_path(resolved_path.as_path()) {
             Ok(prompt_profile) => prompt_profile,
             Err(err) => {
@@ -175,8 +168,10 @@ impl App {
                         ));
                     } else {
                         if let Some(summary) = summary {
-                            let mut lines: Vec<Line<'static>> =
-                                vec![summary.usage_line.clone().into()];
+                            let mut lines: Vec<Line<'static>> = Vec::new();
+                            if let Some(usage_line) = summary.usage_line.clone() {
+                                lines.push(usage_line.into());
+                            }
                             if let Some(command) = summary.resume_command {
                                 let spans =
                                     vec!["To continue this session, run ".into(), command.cyan()];
@@ -230,7 +225,10 @@ impl App {
                     ));
                 } else {
                     if let Some(summary) = summary {
-                        let mut lines: Vec<Line<'static>> = vec![summary.usage_line.clone().into()];
+                        let mut lines: Vec<Line<'static>> = Vec::new();
+                        if let Some(usage_line) = summary.usage_line.clone() {
+                            lines.push(usage_line.into());
+                        }
                         if let Some(command) = summary.resume_command {
                             let spans =
                                 vec!["To continue this session, run ".into(), command.cyan()];
@@ -329,8 +327,10 @@ impl App {
                                 ));
                             } else {
                                 if let Some(summary) = summary {
-                                    let mut lines: Vec<Line<'static>> =
-                                        vec![summary.usage_line.clone().into()];
+                                    let mut lines: Vec<Line<'static>> = Vec::new();
+                                    if let Some(usage_line) = summary.usage_line.clone() {
+                                        lines.push(usage_line.into());
+                                    }
                                     if let Some(command) = summary.resume_command {
                                         let spans = vec![
                                             "To continue this session, run ".into(),
@@ -384,8 +384,10 @@ impl App {
                                 ));
                             } else {
                                 if let Some(summary) = summary {
-                                    let mut lines: Vec<Line<'static>> =
-                                        vec![summary.usage_line.clone().into()];
+                                    let mut lines: Vec<Line<'static>> = Vec::new();
+                                    if let Some(usage_line) = summary.usage_line.clone() {
+                                        lines.push(usage_line.into());
+                                    }
                                     if let Some(command) = summary.resume_command {
                                         let spans = vec![
                                             "To continue this session, run ".into(),
