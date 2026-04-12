@@ -18,6 +18,7 @@
 
 mod path;
 mod remote;
+mod websocket_connect;
 
 use std::error::Error;
 use std::fmt;
@@ -73,6 +74,12 @@ pub use crate::remote::RemoteAppServerEndpoint;
 /// module exists so clients can remove a direct `codex-core` dependency
 /// while legacy startup/config paths are migrated to RPCs.
 pub mod legacy_core {
+    pub use codex_core::check_execpolicy_for_warnings;
+    pub use codex_core::format_exec_policy_error_with_source;
+    pub use codex_core::grant_read_root_non_elevated;
+    pub use codex_core::load_prompt_profile_from_path;
+    pub use codex_core::web_search_detail;
+
     pub mod config {
         pub use codex_core::config::*;
 
