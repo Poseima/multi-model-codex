@@ -20,6 +20,8 @@ use crate::RequestResult;
 use crate::SHUTDOWN_TIMEOUT;
 use crate::TypedRequestError;
 use crate::request_method_name;
+use crate::server_notification_requires_delivery;
+use crate::websocket_connect::connect_websocket_request;
 use codex_app_server_protocol::ClientInfo;
 use codex_app_server_protocol::ClientNotification;
 use codex_app_server_protocol::ClientRequest;
@@ -45,7 +47,6 @@ use tokio::sync::oneshot;
 use tokio::time::timeout;
 use tokio_tungstenite::MaybeTlsStream;
 use tokio_tungstenite::WebSocketStream;
-use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
@@ -170,7 +171,7 @@ impl RemoteAppServerClient {
             request.headers_mut().insert(AUTHORIZATION, header_value);
         }
         ensure_rustls_crypto_provider();
-        let stream = timeout(CONNECT_TIMEOUT, connect_async(request))
+        let stream = timeout(CONNECT_TIMEOUT, connect_websocket_request(request, &url))
             .await
             .map_err(|_| {
                 IoError::new(
@@ -178,7 +179,6 @@ impl RemoteAppServerClient {
                     format!("timed out connecting to remote app server at `{websocket_url}`"),
                 )
             })?
-            .map(|(stream, _response)| stream)
             .map_err(|err| {
                 IoError::other(format!(
                     "failed to connect to remote app server at `{websocket_url}`: {err}"

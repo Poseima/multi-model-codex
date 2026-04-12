@@ -27,6 +27,7 @@ use std::time::Duration;
 use crate::auth::AuthDotJson;
 use crate::auth::save_auth;
 use crate::default_client::originator;
+use crate::default_client::try_build_reqwest_client;
 use crate::pkce::PkceCodes;
 use crate::pkce::generate_pkce;
 use crate::token_data::TokenData;
@@ -34,7 +35,6 @@ use crate::token_data::parse_chatgpt_jwt_claims;
 use base64::Engine;
 use chrono::Utc;
 use codex_app_server_protocol::AuthMode;
-use codex_client::build_reqwest_client_with_custom_ca;
 use codex_config::types::AuthCredentialsStoreMode;
 use codex_utils_template::Template;
 use rand::RngCore;
@@ -695,7 +695,7 @@ pub(crate) async fn exchange_code_for_tokens(
         refresh_token: String,
     }
 
-    let client = build_reqwest_client_with_custom_ca(reqwest::Client::builder())?;
+    let client = try_build_reqwest_client().map_err(io::Error::other)?;
     info!(
         issuer = %sanitize_url_for_logging(issuer),
         redirect_uri = %redirect_uri,
@@ -1067,7 +1067,7 @@ pub(crate) async fn obtain_api_key(
     struct ExchangeResp {
         access_token: String,
     }
-    let client = build_reqwest_client_with_custom_ca(reqwest::Client::builder())?;
+    let client = try_build_reqwest_client().map_err(io::Error::other)?;
     let resp = client
         .post(format!("{issuer}/oauth/token"))
         .header("Content-Type", "application/x-www-form-urlencoded")

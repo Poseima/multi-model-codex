@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use crate::AuthProvider;
 use codex_client::build_reqwest_client_with_custom_ca;
+use reqwest::NoProxy;
+use reqwest::Proxy;
 use reqwest::StatusCode;
 use reqwest::header::CONTENT_LENGTH;
 use serde::Deserialize;
@@ -18,6 +20,7 @@ const OPENAI_FILE_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const OPENAI_FILE_FINALIZE_TIMEOUT: Duration = Duration::from_secs(30);
 const OPENAI_FILE_FINALIZE_RETRY_DELAY: Duration = Duration::from_millis(250);
 const OPENAI_FILE_USE_CASE: &str = "codex";
+const LOOPBACK_NO_PROXY_HOSTS: &str = "localhost,127.0.0.1,::1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UploadedOpenAiFile {
@@ -267,10 +270,103 @@ fn authorized_request(
 }
 
 fn build_reqwest_client() -> reqwest::Client {
-    build_reqwest_client_with_custom_ca(reqwest::Client::builder()).unwrap_or_else(|error| {
+    let builder = apply_env_proxy_overrides(reqwest::Client::builder());
+    build_reqwest_client_with_custom_ca(builder).unwrap_or_else(|error| {
         tracing::warn!(error = %error, "failed to build OpenAI file upload client");
         reqwest::Client::new()
     })
+}
+
+fn apply_env_proxy_overrides(mut builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+    let no_proxy = loopback_no_proxy();
+
+    if let Some(proxy) = env_proxy(
+        &["ALL_PROXY", "all_proxy"],
+        ProxyKind::All,
+        no_proxy.clone(),
+    ) {
+        return builder.proxy(proxy);
+    }
+
+    if let Some(proxy) = env_proxy(
+        &["HTTP_PROXY", "http_proxy"],
+        ProxyKind::Http,
+        no_proxy.clone(),
+    ) {
+        builder = builder.proxy(proxy);
+    }
+
+    if let Some(proxy) = env_proxy(&["HTTPS_PROXY", "https_proxy"], ProxyKind::Https, no_proxy) {
+        builder = builder.proxy(proxy);
+    }
+
+    builder
+}
+
+#[derive(Clone, Copy)]
+enum ProxyKind {
+    All,
+    Http,
+    Https,
+}
+
+impl ProxyKind {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all-protocol",
+            Self::Http => "HTTP",
+            Self::Https => "HTTPS",
+        }
+    }
+}
+
+fn env_proxy(keys: &[&'static str], kind: ProxyKind, no_proxy: Option<NoProxy>) -> Option<Proxy> {
+    let (env_var, proxy_url) = read_non_empty_env_var(keys)?;
+    let proxy = match kind {
+        ProxyKind::All => Proxy::all(proxy_url.as_str()),
+        ProxyKind::Http => Proxy::http(proxy_url.as_str()),
+        ProxyKind::Https => Proxy::https(proxy_url.as_str()),
+    };
+    match proxy {
+        Ok(proxy) => Some(proxy.no_proxy(no_proxy)),
+        Err(error) => {
+            tracing::warn!(
+                env_var = env_var,
+                protocol = kind.as_str(),
+                proxy_url = proxy_url,
+                error = %error,
+                "ignoring invalid proxy environment override"
+            );
+            None
+        }
+    }
+}
+
+fn read_non_empty_env_var(keys: &[&'static str]) -> Option<(&'static str, String)> {
+    for key in keys {
+        if let Ok(value) = std::env::var(key) {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some((key, value.to_string()));
+            }
+        }
+    }
+
+    None
+}
+
+fn loopback_no_proxy() -> Option<NoProxy> {
+    let existing = read_non_empty_env_var(&["NO_PROXY", "no_proxy"]);
+    let existing = existing.as_ref().map(|(_, value)| value.as_str());
+    NoProxy::from_string(&loopback_no_proxy_entries(existing))
+}
+
+fn loopback_no_proxy_entries(existing: Option<&str>) -> String {
+    let existing = existing.map(str::trim).filter(|value| !value.is_empty());
+    match existing {
+        Some(existing) => format!("{existing},{LOOPBACK_NO_PROXY_HOSTS}"),
+        None => LOOPBACK_NO_PROXY_HOSTS.to_string(),
+    }
 }
 
 #[cfg(test)]

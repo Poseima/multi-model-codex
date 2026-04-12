@@ -533,6 +533,7 @@ impl ThreadManager {
     pub async fn start_thread_with_tools_service_name_and_prompt_profile(
         &self,
         config: Config,
+        initial_history: InitialHistory,
         dynamic_tools: Vec<codex_protocol::dynamic_tools::DynamicToolSpec>,
         prompt_profile_override: PromptProfileOverride,
         persist_extended_history: bool,
@@ -541,7 +542,7 @@ impl ThreadManager {
     ) -> CodexResult<NewThread> {
         Box::pin(self.state.spawn_thread(
             config,
-            InitialHistory::New,
+            initial_history,
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
             dynamic_tools,
@@ -769,6 +770,7 @@ impl ThreadManager {
             ForkSnapshot::Interrupted => {
                 let history = match history {
                     InitialHistory::New => InitialHistory::New,
+                    InitialHistory::Cleared => InitialHistory::Cleared,
                     InitialHistory::Forked(history) => InitialHistory::Forked(history),
                     InitialHistory::Resumed(resumed) => InitialHistory::Forked(resumed.history),
                 };

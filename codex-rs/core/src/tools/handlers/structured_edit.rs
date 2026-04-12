@@ -37,44 +37,34 @@ pub(crate) fn create_text_editor_tool() -> ToolSpec {
     let mut properties = BTreeMap::new();
     properties.insert(
         "command".to_string(),
-        JsonSchema::String {
-            description: Some(
-                "The editing command to execute. One of: 'create', 'str_replace', 'delete'."
-                    .to_string(),
-            ),
-        },
+        JsonSchema::string(Some(
+            "The editing command to execute. One of: 'create', 'str_replace', 'delete'."
+                .to_string(),
+        )),
     );
     properties.insert(
         "path".to_string(),
-        JsonSchema::String {
-            description: Some("Relative path to the file to operate on.".to_string()),
-        },
+        JsonSchema::string(Some("Relative path to the file to operate on.".to_string())),
     );
     properties.insert(
         "file_text".to_string(),
-        JsonSchema::String {
-            description: Some(
-                "Required for 'create' command. The full content of the new file.".to_string(),
-            ),
-        },
+        JsonSchema::string(Some(
+            "Required for 'create' command. The full content of the new file.".to_string(),
+        )),
     );
     properties.insert(
         "old_str".to_string(),
-        JsonSchema::String {
-            description: Some(
-                "Required for 'str_replace' command. The exact text to find in the file. Must match exactly once."
-                    .to_string(),
-            ),
-        },
+        JsonSchema::string(Some(
+            "Required for 'str_replace' command. The exact text to find in the file. Must match exactly once."
+                .to_string(),
+        )),
     );
     properties.insert(
         "new_str".to_string(),
-        JsonSchema::String {
-            description: Some(
-                "Required for 'str_replace' command. The replacement text. Omit or set empty to delete old_str."
-                    .to_string(),
-            ),
-        },
+        JsonSchema::string(Some(
+            "Required for 'str_replace' command. The replacement text. Omit or set empty to delete old_str."
+                .to_string(),
+        )),
     );
 
     ToolSpec::Function(ResponsesApiTool {
@@ -100,11 +90,11 @@ Delete a file:
         .to_string(),
         strict: false,
         defer_loading: None,
-        parameters: JsonSchema::Object {
+        parameters: JsonSchema::object(
             properties,
-            required: Some(vec!["command".to_string(), "path".to_string()]),
-            additional_properties: Some(false.into()),
-        },
+            Some(vec!["command".to_string(), "path".to_string()]),
+            Some(false.into()),
+        ),
         output_schema: None,
     })
 }
@@ -172,12 +162,7 @@ impl ToolHandler for StructuredEditHandler {
                     )
                 })?;
                 let new_str = args.new_str.unwrap_or_default();
-                let file_path = cwd.join(&args.path).map_err(|e| {
-                    FunctionCallError::RespondToModel(format!(
-                        "failed to resolve file '{}': {e}",
-                        args.path
-                    ))
-                })?;
+                let file_path = cwd.join(&args.path);
                 let file_content = std::fs::read_to_string(&file_path).map_err(|e| {
                     FunctionCallError::RespondToModel(format!(
                         "failed to read file '{}': {e}",
@@ -196,7 +181,14 @@ impl ToolHandler for StructuredEditHandler {
 
         // Delegate to the existing apply_patch pipeline.
         let command = vec!["apply_patch".to_string(), patch_string];
-        match codex_apply_patch::maybe_parse_apply_patch_verified(&command, &cwd) {
+        let Some(environment) = turn.environment.as_ref() else {
+            return Err(FunctionCallError::RespondToModel(
+                "text_editor is unavailable in this session".to_string(),
+            ));
+        };
+        let fs = environment.get_filesystem();
+        match codex_apply_patch::maybe_parse_apply_patch_verified(&command, &cwd, fs.as_ref()).await
+        {
             codex_apply_patch::MaybeApplyPatchVerified::Body(action) => {
                 let file_paths = file_paths_for_action(&action);
                 let write_paths = file_paths
@@ -322,14 +314,11 @@ fn file_paths_for_action(action: &codex_apply_patch::ApplyPatchAction) -> Vec<Ab
     let cwd = action.cwd.as_path();
     let mut keys = Vec::new();
     for (path, change) in action.changes() {
-        if let Ok(key) = AbsolutePathBuf::resolve_path_against_base(path, cwd) {
-            keys.push(key);
-        }
+        keys.push(AbsolutePathBuf::resolve_path_against_base(path, cwd));
         if let ApplyPatchFileChange::Update { move_path, .. } = change
             && let Some(dest) = move_path
-            && let Some(key) = AbsolutePathBuf::resolve_path_against_base(dest, cwd).ok()
         {
-            keys.push(key);
+            keys.push(AbsolutePathBuf::resolve_path_against_base(dest, cwd));
         }
     }
     keys
@@ -455,11 +444,22 @@ mod tests {
 
     use super::*;
     use codex_apply_patch::MaybeApplyPatchVerified;
+    use codex_exec_server::LOCAL_FS;
+    use codex_utils_absolute_path::AbsolutePathBuf;
     use tempfile::TempDir;
 
     fn parse_patch(patch: &str, cwd: &Path) -> MaybeApplyPatchVerified {
         let argv = vec!["apply_patch".to_string(), patch.to_string()];
-        codex_apply_patch::maybe_parse_apply_patch_verified(&argv, cwd)
+        let cwd = AbsolutePathBuf::try_from(cwd.to_path_buf()).expect("cwd should be absolute");
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build runtime")
+            .block_on(codex_apply_patch::maybe_parse_apply_patch_verified(
+                &argv,
+                &cwd,
+                LOCAL_FS.as_ref(),
+            ))
     }
 
     #[test]

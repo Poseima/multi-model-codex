@@ -5,6 +5,7 @@
 //! - in a remote environment, that means the remote runtime after the
 //!   orchestrator has forwarded `http/request` over JSON-RPC
 
+use std::net::IpAddr;
 use std::time::Duration;
 
 use codex_app_server_protocol::JSONRPCErrorError;
@@ -45,17 +46,20 @@ pub(crate) struct PendingReqwestHttpBodyStream {
 /// Validates `http/request` parameters and runs the actual `reqwest` call used
 /// by the exec-server route and the local [`HttpClient`] backend.
 pub(crate) struct ReqwestHttpRequestRunner {
-    client: reqwest::Client,
+    timeout_ms: Option<u64>,
 }
 
 impl ReqwestHttpClient {
-    fn build_client(timeout_ms: Option<u64>) -> Result<reqwest::Client, ExecServerError> {
-        let builder = match timeout_ms {
+    fn build_client(timeout_ms: Option<u64>, url: &Url) -> Result<reqwest::Client, ExecServerError> {
+        let mut builder = match timeout_ms {
             None => reqwest::Client::builder(),
             Some(timeout_ms) => {
                 reqwest::Client::builder().timeout(Duration::from_millis(timeout_ms))
             }
         };
+        if url_uses_loopback_host(url) {
+            builder = builder.no_proxy();
+        }
         build_reqwest_client_with_custom_ca(builder)
             .map_err(|error| ExecServerError::HttpRequest(error.to_string()))
     }
@@ -111,9 +115,7 @@ impl HttpClient for ReqwestHttpClient {
 
 impl ReqwestHttpRequestRunner {
     pub(crate) fn new(timeout_ms: Option<u64>) -> Result<Self, JSONRPCErrorError> {
-        let client = ReqwestHttpClient::build_client(timeout_ms)
-            .map_err(|error| internal_error(error.to_string()))?;
-        Ok(Self { client })
+        Ok(Self { timeout_ms })
     }
 
     pub(crate) async fn run(
@@ -134,8 +136,10 @@ impl ReqwestHttpRequestRunner {
             }
         }
 
+        let client = ReqwestHttpClient::build_client(self.timeout_ms, &url)
+            .map_err(|error| internal_error(error.to_string()))?;
         let headers = Self::build_headers(params.headers)?;
-        let mut request = self.client.request(method, url).headers(headers);
+        let mut request = client.request(method, url).headers(headers);
         if let Some(body) = params.body {
             request = request.body(body.into_inner());
         }
@@ -264,4 +268,14 @@ impl ReqwestHttpRequestRunner {
             })
             .collect()
     }
+}
+
+fn url_uses_loopback_host(url: &Url) -> bool {
+    url.host_str().is_some_and(is_loopback_host)
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }

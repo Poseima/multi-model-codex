@@ -1164,7 +1164,7 @@ fn scenarios() -> Vec<ScenarioSpec> {
             name: "read_only_on_request_network_escalates_when_approved",
             approval_policy: OnRequest,
             sandbox_policy: SandboxPolicy::new_read_only_policy(),
-            action: ActionKind::FetchUrl {
+            action: ActionKind::FetchUrlNoProxy {
                 endpoint: "/ro/network-approved",
                 response_body: "read-only-network-ok",
             },
@@ -1183,7 +1183,7 @@ fn scenarios() -> Vec<ScenarioSpec> {
             name: "read_only_on_request_network_escalates_when_approved_gpt_5_1_no_exit",
             approval_policy: OnRequest,
             sandbox_policy: SandboxPolicy::new_read_only_policy(),
-            action: ActionKind::FetchUrl {
+            action: ActionKind::FetchUrlNoProxy {
                 endpoint: "/ro/network-approved",
                 response_body: "read-only-network-ok",
             },
@@ -1485,7 +1485,7 @@ fn scenarios() -> Vec<ScenarioSpec> {
             name: "workspace_write_network_enabled_allows_network",
             approval_policy: OnRequest,
             sandbox_policy: workspace_write(true),
-            action: ActionKind::FetchUrl {
+            action: ActionKind::FetchUrlNoProxy {
                 endpoint: "/ww/network-ok",
                 response_body: "workspace-network-ok",
             },

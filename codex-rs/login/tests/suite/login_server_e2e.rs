@@ -78,6 +78,18 @@ fn start_mock_issuer(chatgpt_account_id: &str) -> (SocketAddr, thread::JoinHandl
     (addr, handle)
 }
 
+fn local_client() -> reqwest::Client {
+    reqwest::Client::builder().no_proxy().build().unwrap()
+}
+
+fn local_client_with_redirect() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+        .unwrap()
+}
+
 #[tokio::test]
 async fn end_to_end_login_flow_persists_auth_json() -> Result<()> {
     skip_if_no_network!(Ok(()));
@@ -129,9 +141,7 @@ async fn end_to_end_login_flow_persists_auth_json() -> Result<()> {
     let login_port = server.actual_port;
 
     // Simulate browser callback, and follow redirect to /success
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .build()?;
+    let client = local_client_with_redirect();
     let url = format!("http://127.0.0.1:{login_port}/auth/callback?code=abc&state=test_state_123");
     let resp = client.get(&url).send().await?;
     assert!(resp.status().is_success());
@@ -183,7 +193,7 @@ async fn creates_missing_codex_home_dir() -> Result<()> {
     let server = run_login_server(opts)?;
     let login_port = server.actual_port;
 
-    let client = reqwest::Client::new();
+    let client = local_client();
     let url = format!("http://127.0.0.1:{login_port}/auth/callback?code=abc&state=state2");
     let resp = client.get(&url).send().await?;
     assert!(resp.status().is_success());
@@ -228,7 +238,7 @@ async fn forced_chatgpt_workspace_id_mismatch_blocks_login() -> Result<()> {
     );
     let login_port = server.actual_port;
 
-    let client = reqwest::Client::new();
+    let client = local_client();
     let url = format!("http://127.0.0.1:{login_port}/auth/callback?code=abc&state={state}");
     let resp = client.get(&url).send().await?;
     assert!(resp.status().is_success());
@@ -279,7 +289,7 @@ async fn oauth_access_denied_missing_entitlement_blocks_login_with_clear_error()
     let server = run_login_server(opts)?;
     let login_port = server.actual_port;
 
-    let client = reqwest::Client::new();
+    let client = local_client();
     let url = format!(
         "http://127.0.0.1:{login_port}/auth/callback?state={state}&error=access_denied&error_description=missing_codex_entitlement"
     );
@@ -346,7 +356,7 @@ async fn oauth_access_denied_unknown_reason_uses_generic_error_page() -> Result<
     let server = run_login_server(opts)?;
     let login_port = server.actual_port;
 
-    let client = reqwest::Client::new();
+    let client = local_client();
     let url = format!(
         "http://127.0.0.1:{login_port}/auth/callback?state={state}&error=access_denied&error_description=some_other_reason"
     );
@@ -451,7 +461,7 @@ async fn cancels_previous_login_server_when_port_is_in_use() -> Result<()> {
         .expect_err("login server should report cancellation");
     assert_eq!(cancel_result.kind(), io::ErrorKind::Interrupted);
 
-    let client = reqwest::Client::new();
+    let client = local_client();
     let cancel_url = format!("http://127.0.0.1:{login_port}/cancel");
     let resp = client.get(cancel_url).send().await?;
     assert!(resp.status().is_success());

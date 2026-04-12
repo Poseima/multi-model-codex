@@ -10,8 +10,11 @@ pub use codex_client::CodexRequestBuilder;
 use codex_client::build_reqwest_client_with_custom_ca;
 use codex_client::with_chatgpt_cloudflare_cookie_store;
 use codex_terminal_detection::user_agent;
+use reqwest::NoProxy;
+use reqwest::Proxy;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderValue;
+use std::net::IpAddr;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -193,6 +196,14 @@ pub fn create_client() -> CodexHttpClient {
     CodexHttpClient::new(inner)
 }
 
+/// Create an HTTP client tuned for the provided target URL.
+///
+/// Loopback targets bypass proxies entirely instead of relying on env-driven `NO_PROXY` matching.
+pub fn create_client_for_url(url: &str) -> CodexHttpClient {
+    let inner = build_reqwest_client_for_url(url);
+    CodexHttpClient::new(inner)
+}
+
 /// Builds the default reqwest client used for ordinary Codex HTTP traffic.
 ///
 /// This starts from the standard Codex user agent, default headers, and sandbox-specific proxy
@@ -214,23 +225,167 @@ pub fn build_reqwest_client() -> reqwest::Client {
     })
 }
 
+/// Builds the default reqwest client used for ordinary Codex HTTP traffic to a specific target.
+///
+/// Loopback targets always bypass proxies, which keeps local mock servers and local deployments
+/// direct even when the ambient shell config exports HTTP(S)_PROXY.
+pub fn build_reqwest_client_for_url(url: &str) -> reqwest::Client {
+    try_build_reqwest_client_for_url(url).unwrap_or_else(|error| {
+        tracing::warn!(error = %error, target_url = url, "failed to build reqwest client");
+        reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap_or_else(|fallback_error| {
+                tracing::warn!(
+                    error = %fallback_error,
+                    target_url = url,
+                    "failed to build loopback fallback reqwest client"
+                );
+                reqwest::Client::new()
+            })
+    })
+}
+
 /// Tries to build the default reqwest client used for ordinary Codex HTTP traffic.
 ///
 /// Callers that need a structured CA-loading failure instead of the legacy logged fallback can use
 /// this method directly.
 pub fn try_build_reqwest_client() -> Result<reqwest::Client, BuildCustomCaTransportError> {
+    try_build_reqwest_client_with_url(/*url*/ None)
+}
+
+/// Tries to build the default reqwest client used for ordinary Codex HTTP traffic to a specific
+/// target URL.
+pub fn try_build_reqwest_client_for_url(
+    url: &str,
+) -> Result<reqwest::Client, BuildCustomCaTransportError> {
+    try_build_reqwest_client_with_url(Some(url))
+}
+
+fn try_build_reqwest_client_with_url(
+    url: Option<&str>,
+) -> Result<reqwest::Client, BuildCustomCaTransportError> {
     let ua = get_codex_user_agent();
 
     let mut builder = reqwest::Client::builder()
         // Set UA via dedicated helper to avoid header validation pitfalls
         .user_agent(ua)
         .default_headers(default_headers());
-    if is_sandboxed() {
+    if is_sandboxed() || url.is_some_and(url_uses_loopback_host) {
         builder = builder.no_proxy();
+    } else {
+        builder = apply_env_proxy_overrides(builder);
     }
     builder = with_chatgpt_cloudflare_cookie_store(builder);
 
     build_reqwest_client_with_custom_ca(builder)
+}
+
+const LOOPBACK_NO_PROXY_HOSTS: &str = "localhost,127.0.0.1,::1";
+
+fn apply_env_proxy_overrides(mut builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+    let no_proxy = loopback_no_proxy();
+
+    if let Some(proxy) = env_proxy(
+        &["ALL_PROXY", "all_proxy"],
+        ProxyKind::All,
+        no_proxy.clone(),
+    ) {
+        return builder.proxy(proxy);
+    }
+
+    if let Some(proxy) = env_proxy(
+        &["HTTP_PROXY", "http_proxy"],
+        ProxyKind::Http,
+        no_proxy.clone(),
+    ) {
+        builder = builder.proxy(proxy);
+    }
+
+    if let Some(proxy) = env_proxy(&["HTTPS_PROXY", "https_proxy"], ProxyKind::Https, no_proxy) {
+        builder = builder.proxy(proxy);
+    }
+
+    builder
+}
+
+#[derive(Clone, Copy)]
+enum ProxyKind {
+    All,
+    Http,
+    Https,
+}
+
+impl ProxyKind {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all-protocol",
+            Self::Http => "HTTP",
+            Self::Https => "HTTPS",
+        }
+    }
+}
+
+fn env_proxy(keys: &[&'static str], kind: ProxyKind, no_proxy: Option<NoProxy>) -> Option<Proxy> {
+    let (env_var, proxy_url) = read_non_empty_env_var(keys)?;
+    let proxy = match kind {
+        ProxyKind::All => Proxy::all(proxy_url.as_str()),
+        ProxyKind::Http => Proxy::http(proxy_url.as_str()),
+        ProxyKind::Https => Proxy::https(proxy_url.as_str()),
+    };
+    match proxy {
+        Ok(proxy) => Some(proxy.no_proxy(no_proxy)),
+        Err(error) => {
+            tracing::warn!(
+                env_var = env_var,
+                protocol = kind.as_str(),
+                proxy_url = proxy_url,
+                error = %error,
+                "ignoring invalid proxy environment override"
+            );
+            None
+        }
+    }
+}
+
+fn read_non_empty_env_var(keys: &[&'static str]) -> Option<(&'static str, String)> {
+    for key in keys {
+        if let Ok(value) = std::env::var(key) {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some((key, value.to_string()));
+            }
+        }
+    }
+
+    None
+}
+
+fn url_uses_loopback_host(url: &str) -> bool {
+    reqwest::Url::parse(url)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(is_loopback_host))
+        .unwrap_or(false)
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
+fn loopback_no_proxy() -> Option<NoProxy> {
+    let existing = read_non_empty_env_var(&["NO_PROXY", "no_proxy"]);
+    let existing = existing.as_ref().map(|(_, value)| value.as_str());
+    NoProxy::from_string(&loopback_no_proxy_entries(existing))
+}
+
+fn loopback_no_proxy_entries(existing: Option<&str>) -> String {
+    let existing = existing.map(str::trim).filter(|value| !value.is_empty());
+    match existing {
+        Some(existing) => format!("{existing},{LOOPBACK_NO_PROXY_HOSTS}"),
+        None => LOOPBACK_NO_PROXY_HOSTS.to_string(),
+    }
 }
 
 pub fn default_headers() -> HeaderMap {

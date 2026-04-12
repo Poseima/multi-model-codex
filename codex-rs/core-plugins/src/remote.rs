@@ -3,7 +3,7 @@ use codex_app_server_protocol::PluginInstallPolicy;
 use codex_app_server_protocol::PluginInterface;
 use codex_app_server_protocol::SkillInterface;
 use codex_login::CodexAuth;
-use codex_login::default_client::build_reqwest_client;
+use codex_login::default_client::build_reqwest_client_for_url;
 use reqwest::RequestBuilder;
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -564,7 +564,7 @@ async fn get_remote_plugin_list_page(
 ) -> Result<RemotePluginListResponse, RemotePluginCatalogError> {
     let base_url = config.chatgpt_base_url.trim_end_matches('/');
     let url = format!("{base_url}/ps/plugins/list");
-    let client = build_reqwest_client();
+    let client = build_reqwest_client_for_url(&url);
     let mut request = authenticated_request(client.get(&url), auth)?;
     request = request.query(&[("scope", scope.api_value())]);
     if let Some(page_token) = page_token {
@@ -581,7 +581,7 @@ async fn get_remote_plugin_installed_page(
 ) -> Result<RemotePluginInstalledResponse, RemotePluginCatalogError> {
     let base_url = config.chatgpt_base_url.trim_end_matches('/');
     let url = format!("{base_url}/ps/plugins/installed");
-    let client = build_reqwest_client();
+    let client = build_reqwest_client_for_url(&url);
     let mut request = authenticated_request(client.get(&url), auth)?;
     request = request.query(&[("scope", scope.api_value())]);
     if let Some(page_token) = page_token {
@@ -597,7 +597,7 @@ async fn fetch_plugin_detail(
 ) -> Result<RemotePluginDirectoryItem, RemotePluginCatalogError> {
     let base_url = config.chatgpt_base_url.trim_end_matches('/');
     let url = format!("{base_url}/ps/plugins/{plugin_id}");
-    let client = build_reqwest_client();
+    let client = build_reqwest_client_for_url(&url);
     let request = authenticated_request(client.get(&url), auth)?;
     send_and_decode(request, &url).await
 }

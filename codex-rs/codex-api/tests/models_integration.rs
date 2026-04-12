@@ -110,7 +110,12 @@ async fn models_client_hits_models_endpoint() {
         .mount(&server)
         .await;
 
-    let transport = ReqwestTransport::new(reqwest::Client::new());
+    let transport = ReqwestTransport::new(
+        reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .expect("loopback test client"),
+    );
     let client = ModelsClient::new(transport, provider(&base_url), Arc::new(DummyAuth));
 
     let (models, _) = client

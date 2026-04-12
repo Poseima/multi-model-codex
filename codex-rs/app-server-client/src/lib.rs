@@ -16,6 +16,7 @@
 //! surfaces as channel-full errors rather than unbounded memory growth.
 
 mod remote;
+mod websocket_connect;
 
 use std::error::Error;
 use std::fmt;
@@ -73,6 +74,7 @@ pub mod legacy_core {
     pub use codex_core::check_execpolicy_for_warnings;
     pub use codex_core::format_exec_policy_error_with_source;
     pub use codex_core::grant_read_root_non_elevated;
+    pub use codex_core::load_prompt_profile_from_path;
     pub use codex_core::lookup_message_history_entry;
     pub use codex_core::message_history_metadata;
     pub use codex_core::web_search_detail;

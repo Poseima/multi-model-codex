@@ -10,7 +10,7 @@ use crate::event_mapping::is_contextual_user_message_content;
 use crate::session::session::Session;
 use crate::session::turn_context::TurnContext;
 use codex_login::CodexAuth;
-use codex_login::default_client::build_reqwest_client;
+use codex_login::default_client::build_reqwest_client_for_url;
 use codex_protocol::models::MessagePhase;
 use codex_protocol::models::ResponseItem;
 
@@ -142,7 +142,7 @@ pub(crate) async fn monitor_action(
     };
     let body =
         build_arc_monitor_request(sess, turn_context, action, protection_client_callsite).await;
-    let client = build_reqwest_client();
+    let client = build_reqwest_client_for_url(&url);
     let mut request = client
         .post(&url)
         .timeout(ARC_MONITOR_TIMEOUT)

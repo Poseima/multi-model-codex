@@ -36,7 +36,7 @@ use codex_config::types::ToolSuggestDiscoverableType;
 use codex_features::Feature;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
-use codex_login::default_client::create_client;
+use codex_login::default_client::create_client_for_url;
 use codex_login::default_client::originator;
 use codex_mcp::CODEX_APPS_MCP_SERVER_NAME;
 use codex_mcp::McpConnectionManager;
@@ -486,8 +486,8 @@ async fn chatgpt_get_request_with_token<T: DeserializeOwned>(
     access_token: &str,
     account_id: &str,
 ) -> anyhow::Result<T> {
-    let client = create_client();
     let url = format!("{}{}", config.chatgpt_base_url, path);
+    let client = create_client_for_url(&url);
     let response = client
         .get(&url)
         .bearer_auth(access_token)

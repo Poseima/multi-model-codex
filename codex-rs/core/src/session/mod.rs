@@ -1389,6 +1389,13 @@ impl Session {
                 Arc::clone(&state.session_configuration.original_config_do_not_use),
             )
         };
+        let installation_id = match resolve_installation_id(&config.codex_home).await {
+            Ok(installation_id) => installation_id,
+            Err(err) => {
+                warn!("failed to resolve installation_id while rebuilding model client: {err}");
+                return;
+            }
+        };
 
         let installation_id = match resolve_installation_id(&config.codex_home).await {
             Ok(installation_id) => installation_id,
