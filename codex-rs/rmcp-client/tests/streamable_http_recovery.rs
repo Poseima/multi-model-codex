@@ -1,5 +1,7 @@
 mod streamable_http_test_support;
 
+use std::env;
+use std::ffi::OsString;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -14,6 +16,7 @@ use codex_exec_server::HttpResponseBodyStream;
 use futures::FutureExt as _;
 use futures::future::BoxFuture;
 use pretty_assertions::assert_eq;
+use serial_test::serial;
 use serde_json::Value;
 
 use streamable_http_test_support::arm_initialize_post_failure;
@@ -101,6 +104,58 @@ fn is_initialize_post(params: &HttpRequestParams) -> bool {
                     .map(|method| method == "initialize")
             })
             .unwrap_or(false)
+}
+
+struct EnvVarGuard {
+    key: &'static str,
+    original: Option<OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &str) -> Self {
+        let original = env::var_os(key);
+        unsafe {
+            env::set_var(key, value);
+        }
+        Self { key, original }
+    }
+
+    fn unset(key: &'static str) -> Self {
+        let original = env::var_os(key);
+        unsafe {
+            env::remove_var(key);
+        }
+        Self { key, original }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        unsafe {
+            match &self.original {
+                Some(value) => env::set_var(self.key, value),
+                None => env::remove_var(self.key),
+            }
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(proxy_env)]
+async fn streamable_http_loopback_bypasses_proxy_env() -> anyhow::Result<()> {
+    let _http_proxy = EnvVarGuard::set("HTTP_PROXY", "http://127.0.0.1:1");
+    let _https_proxy = EnvVarGuard::set("HTTPS_PROXY", "http://127.0.0.1:1");
+    let _all_proxy = EnvVarGuard::set("ALL_PROXY", "http://127.0.0.1:1");
+    let _no_proxy = EnvVarGuard::unset("NO_PROXY");
+    let _no_proxy_lower = EnvVarGuard::unset("no_proxy");
+
+    let (_server, base_url) = spawn_streamable_http_server().await?;
+    let client = create_client(&base_url).await?;
+
+    let result = call_echo_tool(&client, "loopback").await?;
+    assert_eq!(result, expected_echo_result("loopback"));
+
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

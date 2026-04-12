@@ -6,6 +6,7 @@
 //!   orchestrator has forwarded `http/request` over JSON-RPC
 
 use std::error::Error as StdError;
+use std::net::IpAddr;
 use std::time::Duration;
 
 use codex_client::build_reqwest_client_with_custom_ca;
@@ -49,24 +50,29 @@ pub(crate) struct PendingReqwestHttpBodyStream {
 /// Validates `http/request` parameters and runs the actual `reqwest` call used
 /// by the exec-server route and the local [`HttpClient`] backend.
 pub(crate) struct ReqwestHttpRequestRunner {
-    client: reqwest::Client,
+    timeout_ms: Option<u64>,
+    redirect_policy: HttpRedirectPolicy,
 }
 
 impl ReqwestHttpClient {
     fn build_client(
         timeout_ms: Option<u64>,
         redirect_policy: HttpRedirectPolicy,
+        url: &Url,
     ) -> Result<reqwest::Client, ExecServerError> {
-        let builder = match timeout_ms {
+        let mut builder = match timeout_ms {
             None => reqwest::Client::builder(),
             Some(timeout_ms) => {
                 reqwest::Client::builder().timeout(Duration::from_millis(timeout_ms))
             }
         };
-        let builder = match redirect_policy {
+        builder = match redirect_policy {
             HttpRedirectPolicy::Follow => builder,
             HttpRedirectPolicy::Stop => builder.redirect(reqwest::redirect::Policy::none()),
         };
+        if url_uses_loopback_host(url) {
+            builder = builder.no_proxy();
+        }
         build_reqwest_client_with_custom_ca(with_chatgpt_cloudflare_cookie_store(builder))
             .map_err(|error| ExecServerError::HttpRequest(error.to_string()))
     }
@@ -125,9 +131,10 @@ impl ReqwestHttpRequestRunner {
         timeout_ms: Option<u64>,
         redirect_policy: HttpRedirectPolicy,
     ) -> Result<Self, JSONRPCErrorError> {
-        let client = ReqwestHttpClient::build_client(timeout_ms, redirect_policy)
-            .map_err(|error| internal_error(error.to_string()))?;
-        Ok(Self { client })
+        Ok(Self {
+            timeout_ms,
+            redirect_policy,
+        })
     }
 
     pub(crate) async fn run(
@@ -159,7 +166,9 @@ impl ReqwestHttpRequestRunner {
         );
         let mut headers = Self::build_headers(params.headers)?;
         codex_otel::inject_span_w3c_trace_headers(&request_span, &mut headers);
-        let mut request = self.client.request(method.clone(), url).headers(headers);
+        let client = ReqwestHttpClient::build_client(self.timeout_ms, self.redirect_policy, &url)
+            .map_err(|error| internal_error(error.to_string()))?;
+        let mut request = client.request(method.clone(), url).headers(headers);
         if let Some(body) = params.body {
             request = request.body(body.into_inner());
         }
@@ -319,4 +328,14 @@ fn error_source_chain(error: &reqwest::Error) -> Option<String> {
         source = error.source();
     }
     (!sources.is_empty()).then(|| sources.join(": "))
+}
+
+fn url_uses_loopback_host(url: &Url) -> bool {
+    url.host_str().is_some_and(is_loopback_host)
+}
+
+fn is_loopback_host(host: &str) -> bool {
+    let host = host.trim_start_matches("[").trim_end_matches("]");
+    host.eq_ignore_ascii_case("localhost")
+        || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback())
 }

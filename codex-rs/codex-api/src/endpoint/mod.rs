@@ -9,6 +9,7 @@ pub(crate) mod responses;
 pub(crate) mod responses_websocket;
 pub(crate) mod search;
 mod session;
+mod websocket_connect;
 
 pub use chat_compat::ChatCompatClient; // Fork: chat-api
 pub use compact::CompactClient;

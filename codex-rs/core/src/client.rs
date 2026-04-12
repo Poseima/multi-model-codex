@@ -534,7 +534,9 @@ impl ModelClient {
             return Ok(Vec::new());
         }
         let client_setup = self.current_client_setup().await?;
-        let transport = ReqwestTransport::new(build_reqwest_client());
+        let transport = ReqwestTransport::new(build_reqwest_client_for_url(
+            &client_setup.api_provider.base_url,
+        ));
         let request_telemetry = Self::build_request_telemetry(
             session_telemetry,
             AuthRequestTelemetryContext::new(
@@ -636,8 +638,8 @@ impl ModelClient {
         sideband_headers.extend(sideband_websocket_auth_headers(
             client_setup.api_auth.as_ref(),
         ));
-        let transport = ReqwestTransport::new(build_reqwest_client());
         let api_provider = api_provider_override.unwrap_or(client_setup.api_provider);
+        let transport = ReqwestTransport::new(build_reqwest_client_for_url(&api_provider.base_url));
         let response = ApiRealtimeCallClient::new(transport, api_provider, client_setup.api_auth)
             .create_with_session_and_headers(sdp, session_config, extra_headers)
             .await
@@ -667,7 +669,9 @@ impl ModelClient {
         }
 
         let client_setup = self.current_client_setup().await?;
-        let transport = ReqwestTransport::new(build_reqwest_client());
+        let transport = ReqwestTransport::new(build_reqwest_client_for_url(
+            &client_setup.api_provider.base_url,
+        ));
         let request_telemetry = Self::build_request_telemetry(
             session_telemetry,
             AuthRequestTelemetryContext::new(
@@ -1368,7 +1372,9 @@ impl ModelClientSession {
         let mut pending_retry = PendingUnauthorizedRetry::default();
         loop {
             let client_setup = self.client.current_client_setup().await?;
-            let transport = ReqwestTransport::new(build_reqwest_client());
+            let transport = ReqwestTransport::new(build_reqwest_client_for_url(
+                &client_setup.api_provider.base_url,
+            ));
             let request_auth_context = AuthRequestTelemetryContext::new(
                 client_setup.auth.as_ref().map(CodexAuth::auth_mode),
                 client_setup.api_auth.as_ref(),
@@ -1507,7 +1513,9 @@ impl ModelClientSession {
         let mut pending_retry = PendingUnauthorizedRetry::default();
         loop {
             let client_setup = self.client.current_client_setup().await?;
-            let transport = ReqwestTransport::new(build_reqwest_client());
+            let transport = ReqwestTransport::new(build_reqwest_client_for_url(
+                &client_setup.api_provider.base_url,
+            ));
             let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(
                 session_telemetry,
                 AuthRequestTelemetryContext::new(
