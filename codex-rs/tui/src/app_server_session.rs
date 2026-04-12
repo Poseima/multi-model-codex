@@ -333,9 +333,7 @@ impl AppServerSession {
 
     pub(crate) async fn start_thread(&mut self, config: &Config) -> Result<AppServerStartedThread> {
         self.start_thread_with_overrides(
-            config,
-            /*session_start_source*/ None,
-            /*prompt_profile*/ None,
+            config, /*session_start_source*/ None, /*prompt_profile*/ None,
         )
         .await
     }

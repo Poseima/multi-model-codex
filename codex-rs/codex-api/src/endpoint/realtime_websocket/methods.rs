@@ -13,6 +13,7 @@ use crate::endpoint::realtime_websocket::protocol::RealtimeSessionMode;
 use crate::endpoint::realtime_websocket::protocol::RealtimeTranscriptEntry;
 use crate::endpoint::realtime_websocket::protocol::RealtimeVoice;
 use crate::endpoint::realtime_websocket::protocol::parse_realtime_event;
+use crate::endpoint::websocket_connect::connect_websocket_request;
 use crate::error::ApiError;
 use crate::provider::Provider;
 use codex_client::backoff;
@@ -657,17 +658,21 @@ impl RealtimeWebsocketClient {
         info!("connecting realtime websocket: {ws_url}");
         // Realtime websocket TLS should honor the same custom-CA env vars as the rest of Codex's
         // outbound HTTPS and websocket traffic.
-        let connector = maybe_build_rustls_client_config_with_custom_ca()
-            .map_err(|err| ApiError::Stream(format!("failed to configure websocket TLS: {err}")))?
-            .map(tokio_tungstenite::Connector::Rustls);
-        let (stream, response) = tokio_tungstenite::connect_async_tls_with_config(
-            request,
-            Some(websocket_config()),
-            false,
-            connector,
-        )
-        .await
-        .map_err(|err| ApiError::Stream(format!("failed to connect realtime websocket: {err}")))?;
+        let connector = if ws_url.scheme() == "wss" {
+            maybe_build_rustls_client_config_with_custom_ca()
+                .map_err(|err| {
+                    ApiError::Stream(format!("failed to configure websocket TLS: {err}"))
+                })?
+                .map(tokio_tungstenite::Connector::Rustls)
+        } else {
+            None
+        };
+        let (stream, response) =
+            connect_websocket_request(request, &ws_url, websocket_config(), connector)
+                .await
+                .map_err(|err| {
+                    ApiError::Stream(format!("failed to connect realtime websocket: {err}"))
+                })?;
         info!(
             ws_url = %ws_url,
             status = %response.status(),
@@ -1512,7 +1517,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn e2e_connect_and_exchange_events_against_mock_ws_server() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("local addr");
@@ -1806,7 +1811,7 @@ mod tests {
         server.await.expect("server task");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn realtime_v2_session_update_includes_background_agent_tool_and_handoff_output_item() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("local addr");
@@ -2015,7 +2020,7 @@ mod tests {
         server.await.expect("server task");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn transcription_mode_session_update_omits_output_audio_and_instructions() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("local addr");
@@ -2130,7 +2135,7 @@ mod tests {
         server.await.expect("server task");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn v1_transcription_mode_is_treated_as_conversational() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("local addr");
@@ -2224,7 +2229,7 @@ mod tests {
         server.await.expect("server task");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn send_does_not_block_while_next_event_waits_for_inbound_data() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let addr = listener.local_addr().expect("local addr");

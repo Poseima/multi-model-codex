@@ -321,6 +321,8 @@ async fn exit_archive_mode(
                 Arc::clone(&session),
                 Arc::clone(&ctx),
                 crate::compact::InitialContextInjection::DoNotInject,
+                codex_analytics::CompactionReason::UserRequested,
+                codex_analytics::CompactionPhase::StandaloneTurn,
             )
             .await
             {
