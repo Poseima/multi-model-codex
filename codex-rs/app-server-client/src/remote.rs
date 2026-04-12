@@ -22,6 +22,8 @@ use crate::RequestResult;
 use crate::SHUTDOWN_TIMEOUT;
 use crate::TypedRequestError;
 use crate::request_method_name;
+use crate::server_notification_requires_delivery;
+use crate::websocket_connect::connect_websocket_request;
 use codex_app_server_protocol::ClientInfo;
 use codex_app_server_protocol::ClientNotification;
 use codex_app_server_protocol::ClientRequest;
@@ -52,7 +54,6 @@ use tokio::time::timeout;
 use tokio_tungstenite::MaybeTlsStream;
 use tokio_tungstenite::WebSocketStream;
 use tokio_tungstenite::client_async_with_config;
-use tokio_tungstenite::connect_async_with_config;
 use tokio_tungstenite::tungstenite::Error as TungsteniteError;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -712,11 +713,7 @@ async fn connect_websocket_endpoint(
     let websocket_config = remote_websocket_config();
     let stream = timeout(
         CONNECT_TIMEOUT,
-        connect_async_with_config(
-            request,
-            Some(websocket_config),
-            /*disable_nagle*/ false,
-        ),
+        connect_websocket_request(request, &url, websocket_config),
     )
     .await
     .map_err(|_| {
@@ -725,7 +722,6 @@ async fn connect_websocket_endpoint(
             format!("timed out connecting to remote app server at `{websocket_url}`"),
         )
     })?
-    .map(|(stream, _response)| stream)
     .map_err(|err| {
         IoError::other(format!(
             "failed to connect to remote app server at `{websocket_url}`: {err}"
