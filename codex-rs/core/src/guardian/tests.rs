@@ -1885,7 +1885,9 @@ async fn guardian_parallel_reviews_fork_from_last_committed_trunk_history_inner(
     );
     let third_user_message = last_user_message_text_from_body(&third_request_body);
     assert!(third_user_message.contains(">>> TRANSCRIPT DELTA START\n"));
-    assert!(third_user_message.contains("[5] user: Please inspect pending changes before pushing."));
+    assert!(
+        third_user_message.contains("[5] user: Please inspect pending changes before pushing.")
+    );
     assert!(third_user_message.contains("[7] user: Now inspect whether pushing is safe."));
     assert!(!third_user_message.contains("[1] user: Please check the repo visibility"));
     assert!(

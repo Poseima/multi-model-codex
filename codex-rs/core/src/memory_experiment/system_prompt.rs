@@ -9,6 +9,7 @@ use crate::memories::prompts::build_memory_tool_developer_instructions;
 use crate::memory_experiment;
 use codex_features::Feature;
 use codex_features::Features;
+use codex_utils_absolute_path::AbsolutePathBuf;
 use std::path::Path;
 
 /// Append memory content to base instructions when the memory experiment is active.
@@ -40,7 +41,8 @@ pub(crate) async fn compose_base_instructions_with_memory(
     // Append upstream memory tool summary when the MemoryTool feature is also
     // enabled alongside the experiment.
     if features.enabled(Feature::MemoryTool)
-        && let Some(memory_prompt) = build_memory_tool_developer_instructions(codex_home).await
+        && let Ok(codex_home) = AbsolutePathBuf::try_from(codex_home)
+        && let Some(memory_prompt) = build_memory_tool_developer_instructions(&codex_home).await
     {
         composed.push_str("\n\n");
         composed.push_str(&memory_prompt);

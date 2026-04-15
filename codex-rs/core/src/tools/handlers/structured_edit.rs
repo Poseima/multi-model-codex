@@ -187,7 +187,16 @@ impl ToolHandler for StructuredEditHandler {
             ));
         };
         let fs = environment.get_filesystem();
-        match codex_apply_patch::maybe_parse_apply_patch_verified(&command, &cwd, fs.as_ref()).await
+        let sandbox = environment
+            .is_remote()
+            .then(|| turn.file_system_sandbox_context(/*additional_permissions*/ None));
+        match codex_apply_patch::maybe_parse_apply_patch_verified(
+            &command,
+            &cwd,
+            fs.as_ref(),
+            sandbox.as_ref(),
+        )
+        .await
         {
             codex_apply_patch::MaybeApplyPatchVerified::Body(action) => {
                 let file_paths = file_paths_for_action(&action);
@@ -237,7 +246,7 @@ impl ToolHandler for StructuredEditHandler {
                         let content = item?;
                         Ok(FunctionToolOutput::from_text(content, Some(true)))
                     }
-                    InternalApplyPatchInvocation::DelegateToExec(apply) => {
+                    InternalApplyPatchInvocation::DelegateToRuntime(apply) => {
                         let changes = convert_apply_patch_to_protocol(&apply.action);
                         let emitter =
                             ToolEmitter::apply_patch(changes.clone(), apply.auto_approved);
@@ -258,7 +267,6 @@ impl ToolHandler for StructuredEditHandler {
                                 .additional_permissions,
                             permissions_preapproved: effective_additional_permissions
                                 .permissions_preapproved,
-                            timeout_ms: None,
                         };
 
                         let mut orchestrator = ToolOrchestrator::new();
@@ -267,7 +275,7 @@ impl ToolHandler for StructuredEditHandler {
                             session: session.clone(),
                             turn: turn.clone(),
                             call_id: call_id.clone(),
-                            tool_name: tool_name.to_string(),
+                            tool_name: tool_name.display(),
                         };
                         let out = orchestrator
                             .run(
@@ -459,6 +467,7 @@ mod tests {
                 &argv,
                 &cwd,
                 LOCAL_FS.as_ref(),
+                None,
             ))
     }
 

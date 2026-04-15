@@ -121,6 +121,7 @@ fn fork_catalog_expected_models() -> Vec<Model> {
             codex_protocol::openai_models::InputModality::Image,
         ],
         supports_personality: false,
+        additional_speed_tiers: Vec::new(),
         is_default: false,
     })
     .collect()
