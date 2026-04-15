@@ -439,6 +439,7 @@ mod tests {
                 &argv,
                 &cwd,
                 LOCAL_FS.as_ref(),
+                None,
             ))
     }
 
