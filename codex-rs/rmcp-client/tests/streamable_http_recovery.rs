@@ -163,6 +163,7 @@ async fn streamable_http_loopback_bypasses_proxy_env() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_initialize_retries_remote_no_response_error() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let http_client = FailFirstInitializeHttpClient::new(
@@ -180,6 +181,7 @@ async fn streamable_http_initialize_retries_remote_no_response_error() -> anyhow
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_initialize_retries_transient_http_status() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
 
@@ -194,6 +196,7 @@ async fn streamable_http_initialize_retries_transient_http_status() -> anyhow::R
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_initialize_retries_json_rpc_transient_status() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
 
@@ -208,6 +211,7 @@ async fn streamable_http_initialize_retries_json_rpc_transient_status() -> anyho
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_retries_initialized_notification_status() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
 
@@ -228,6 +232,7 @@ async fn streamable_http_retries_initialized_notification_status() -> anyhow::Re
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_tools_list_retries_transient_http_status() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -259,6 +264,7 @@ async fn streamable_http_tools_list_retries_transient_http_status() -> anyhow::R
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_tools_list_retries_json_rpc_transient_status() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -284,6 +290,7 @@ async fn streamable_http_tools_list_retries_json_rpc_transient_status() -> anyho
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_404_session_expiry_recovers_and_retries_once() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -306,6 +313,7 @@ async fn streamable_http_404_session_expiry_recovers_and_retries_once() -> anyho
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_session_recovery_retries_initialize_failure() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let http_client = FailFirstInitializeHttpClient::new(
@@ -334,6 +342,7 @@ async fn streamable_http_session_recovery_retries_initialize_failure() -> anyhow
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_401_does_not_trigger_recovery() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -361,6 +370,7 @@ async fn streamable_http_401_does_not_trigger_recovery() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_401_challenge_is_a_tool_error_without_replay() -> anyhow::Result<()> {
     let challenge = r#"Bearer error="invalid_token", resource_metadata="https://example.com/.well-known/oauth-protected-resource""#;
     for challenges in [
@@ -397,6 +407,7 @@ async fn streamable_http_401_challenge_is_a_tool_error_without_replay() -> anyho
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_403_scope_challenge_returns_insufficient_scope() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -423,6 +434,7 @@ async fn streamable_http_403_scope_challenge_returns_insufficient_scope() -> any
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_403_finds_bearer_challenge_in_later_header_value() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -452,6 +464,7 @@ async fn streamable_http_403_finds_bearer_challenge_in_later_header_value() -> a
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_404_recovery_only_retries_once() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -481,6 +494,7 @@ async fn streamable_http_404_recovery_only_retries_once() -> anyhow::Result<()> 
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_non_session_failure_does_not_trigger_recovery() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
