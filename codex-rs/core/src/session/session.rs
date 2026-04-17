@@ -5,7 +5,9 @@ use codex_protocol::config_types::ServiceTier;
 use codex_protocol::permissions::FileSystemPath;
 use codex_protocol::permissions::FileSystemSpecialPath;
 use codex_protocol::protocol::ThreadSource;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::TurnEnvironmentSelection;
+use std::sync::atomic::AtomicBool;
 use tokio::sync::Semaphore;
 
 /// Context for an initialized model agent
@@ -57,6 +59,8 @@ pub(crate) struct SessionConfiguration {
 
     /// Base instructions for the session.
     pub(super) base_instructions: String,
+    pub(super) prompt_profile: Option<PromptSource>,
+    pub(super) prompt_profile_path: Option<PathBuf>,
 
     /// Compact prompt override.
     pub(super) compact_prompt: Option<String>,
