@@ -826,7 +826,6 @@ mod tests {
 
         assert!(!ModeKind::PairProgramming.is_tui_visible());
         assert!(!ModeKind::Execute.is_tui_visible());
-        assert!(!ModeKind::Dawn.is_tui_visible());
     }
 
     #[test]

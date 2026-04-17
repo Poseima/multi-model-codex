@@ -524,6 +524,8 @@ async fn persist_reports_filesystem_error_and_retries_buffered_items() -> std::i
             /*thread_source*/ None,
             "test_originator".to_string(),
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         ),
     )
