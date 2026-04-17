@@ -3,6 +3,10 @@ use std::time::Duration;
 
 use codex_async_utils::CancelErr;
 use codex_async_utils::OrCancelExt;
+use codex_network_proxy::ALL_PROXY_ENV_KEYS;
+use codex_network_proxy::ALLOW_LOCAL_BINDING_ENV_KEY;
+use codex_network_proxy::NO_PROXY_ENV_KEYS;
+use codex_network_proxy::PROXY_URL_ENV_KEYS;
 use codex_protocol::user_input::UserInput;
 use tokio_util::sync::CancellationToken;
 use tracing::error;
@@ -124,10 +128,23 @@ pub(crate) async fn execute_user_shell_command(
     let use_login_shell = true;
     let session_shell = session.user_shell();
     let display_command = session_shell.derive_exec_args(&command, use_login_shell);
-    let exec_env_map = create_env(
+    let mut exec_env_map = create_env(
         &turn_context.shell_environment_policy,
         Some(session.conversation_id),
     );
+    for key in PROXY_URL_ENV_KEYS {
+        exec_env_map.remove(*key);
+        let lowercase = key.to_ascii_lowercase();
+        exec_env_map.remove(lowercase.as_str());
+    }
+    for key in ALL_PROXY_ENV_KEYS {
+        exec_env_map.remove(*key);
+    }
+    for key in NO_PROXY_ENV_KEYS {
+        exec_env_map.remove(*key);
+    }
+    exec_env_map.remove(ALLOW_LOCAL_BINDING_ENV_KEY);
+    exec_env_map.remove("ELECTRON_GET_USE_PROXY");
     let exec_command = maybe_wrap_shell_lc_with_snapshot(
         &display_command,
         session_shell.as_ref(),

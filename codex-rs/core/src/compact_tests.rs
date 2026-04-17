@@ -207,6 +207,7 @@ fn should_use_remote_compact_task_for_azure_provider() {
         stream_max_retries: None,
         stream_idle_timeout_ms: None,
         websocket_connect_timeout_ms: None,
+        system_role: None,
         requires_openai_auth: false,
         supports_websockets: false,
     };

@@ -59,6 +59,11 @@ pub(super) fn proto_session_source(source: &SessionSource) -> proto::SessionSour
         SessionSource::SubAgent(SubAgentSource::Compact) => {
             proto_source(proto::SessionSourceKind::SubAgentCompact)
         }
+        SessionSource::SubAgent(SubAgentSource::Archive) => proto::SessionSource {
+            kind: proto::SessionSourceKind::SubAgentOther.into(),
+            sub_agent_other: Some("archive".to_string()),
+            ..Default::default()
+        },
         SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
             parent_thread_id,
             depth,
@@ -77,6 +82,11 @@ pub(super) fn proto_session_source(source: &SessionSource) -> proto::SessionSour
         SessionSource::SubAgent(SubAgentSource::MemoryConsolidation) => {
             proto_source(proto::SessionSourceKind::SubAgentMemoryConsolidation)
         }
+        SessionSource::SubAgent(SubAgentSource::MemoryRetrieval) => proto::SessionSource {
+            kind: proto::SessionSourceKind::SubAgentOther.into(),
+            sub_agent_other: Some("memory_retrieval".to_string()),
+            ..Default::default()
+        },
         SessionSource::SubAgent(SubAgentSource::Other(other)) => proto::SessionSource {
             kind: proto::SessionSourceKind::SubAgentOther.into(),
             sub_agent_other: Some(other.clone()),

@@ -3296,6 +3296,8 @@ async fn make_session_with_config_and_rx(
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
+        prompt_profile_path: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -5471,6 +5473,8 @@ async fn record_context_updates_and_set_reference_context_item_persists_split_fi
             /*forked_from_id*/ None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),

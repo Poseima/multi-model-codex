@@ -11,7 +11,6 @@ use codex_protocol::dynamic_tools::DynamicToolSpec;
 use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_tools::AdditionalProperties;
 use codex_tools::DiscoverableTool;
-use codex_tools::JsonSchema;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolHandlerKind;
 use codex_tools::ToolName;

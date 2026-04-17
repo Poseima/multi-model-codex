@@ -1,7 +1,7 @@
 use anyhow::Result;
 use codex_protocol::ThreadId;
-use codex_protocol::protocol::EventMsg;
 use codex_protocol::prompt_profile::PromptSource;
+use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::GitInfo;
 use codex_protocol::protocol::SessionMeta;
 use codex_protocol::protocol::SessionMetaLine;

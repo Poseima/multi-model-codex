@@ -316,7 +316,7 @@ async fn exit_archive_mode(
             text: ctx.compact_prompt().to_string(),
             text_elements: Vec::new(),
         }];
-        if crate::compact::should_use_remote_compact_task(&ctx.provider) {
+        if crate::compact::should_use_remote_compact_task(ctx.provider.info()) {
             if let Err(e) = crate::compact_remote::run_inline_remote_auto_compact_task(
                 Arc::clone(&session),
                 Arc::clone(&ctx),

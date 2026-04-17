@@ -177,24 +177,6 @@ async fn wait_for_turn_aborted(
     .expect("expected child turn to be interrupted");
 }
 
-async fn wait_for_active_turn_id(thread: &Arc<CodexThread>) -> String {
-    timeout(Duration::from_secs(5), async {
-        loop {
-            if let Some(turn_id) = {
-                let active_turn = thread.codex.session.active_turn.lock().await;
-                active_turn
-                    .as_ref()
-                    .and_then(|turn| turn.tasks.first().map(|(turn_id, _)| turn_id.clone()))
-            } {
-                break turn_id;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("expected agent to start a turn")
-}
-
 async fn wait_for_redirected_envelope_in_history(
     thread: &Arc<CodexThread>,
     expected: &InterAgentCommunication,
@@ -1535,12 +1517,6 @@ async fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_messa
         .get_thread(agent_id)
         .await
         .expect("worker thread should exist");
-    let boot_turn_id = wait_for_active_turn_id(&thread).await;
-    let _ = thread
-        .submit(Op::Interrupt)
-        .await
-        .expect("interrupting the boot task should submit");
-    wait_for_turn_aborted(&thread, &boot_turn_id, TurnAbortReason::Interrupted).await;
 
     let active_turn = thread.codex.session.new_default_turn().await;
     let interrupted_turn_id = active_turn.sub_id.clone();

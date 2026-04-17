@@ -1,5 +1,7 @@
 use super::*;
 use crate::config::ConstraintError;
+use codex_protocol::prompt_profile::PromptSource;
+use std::sync::atomic::AtomicBool;
 use tokio::sync::Semaphore;
 
 /// Context for an initialized model agent
@@ -51,6 +53,8 @@ pub(crate) struct SessionConfiguration {
 
     /// Base instructions for the session.
     pub(super) base_instructions: String,
+    pub(super) prompt_profile: Option<PromptSource>,
+    pub(super) prompt_profile_path: Option<PathBuf>,
 
     /// Compact prompt override.
     pub(super) compact_prompt: Option<String>,
@@ -304,6 +308,8 @@ impl Session {
                         BaseInstructions {
                             text: session_configuration.base_instructions.clone(),
                         },
+                        session_configuration.prompt_profile.clone(),
+                        session_configuration.prompt_profile_path.clone(),
                         session_configuration.dynamic_tools.clone(),
                         if session_configuration.persist_extended_history {
                             EventPersistenceMode::Extended
@@ -752,17 +758,19 @@ impl Session {
             network_approval: Arc::clone(&network_approval),
             state_db: state_db_ctx.clone(),
             thread_store: LocalThreadStore::new(RolloutConfig::from_view(config.as_ref())),
-            model_client: crate::swappable_model_client::SwappableModelClient::new(ModelClient::new(
-                Some(Arc::clone(&auth_manager)),
-                conversation_id,
-                installation_id,
-                session_configuration.provider.clone(),
-                session_configuration.session_source.clone(),
-                config.model_verbosity,
-                config.features.enabled(Feature::EnableRequestCompression),
-                config.features.enabled(Feature::RuntimeMetrics),
-                Self::build_model_client_beta_features_header(config.as_ref()),
-            )),
+            model_client: crate::swappable_model_client::SwappableModelClient::new(
+                ModelClient::new(
+                    Some(Arc::clone(&auth_manager)),
+                    conversation_id,
+                    installation_id,
+                    session_configuration.provider.clone(),
+                    session_configuration.session_source.clone(),
+                    config.model_verbosity,
+                    config.features.enabled(Feature::EnableRequestCompression),
+                    config.features.enabled(Feature::RuntimeMetrics),
+                    Self::build_model_client_beta_features_header(config.as_ref()),
+                ),
+            ),
             code_mode_service: crate::tools::code_mode::CodeModeService::new(
                 config.js_repl_node_path.clone(),
             ),

@@ -1035,7 +1035,13 @@ async fn run_sampling_request(
     )
     .await?;
 
-    let base_instructions = sess.get_base_instructions().await;
+    let base_instructions = sess
+        .get_composed_base_instructions(
+            &turn_context.config.codex_home,
+            &turn_context.cwd,
+            &turn_context.features,
+        )
+        .await;
 
     let tool_runtime = ToolCallRuntime::new(
         Arc::clone(&router),
@@ -1561,7 +1567,9 @@ pub(super) fn realtime_text_for_event(msg: &EventMsg) -> Option<String> {
         | EventMsg::CollabCloseBegin(_)
         | EventMsg::CollabCloseEnd(_)
         | EventMsg::CollabResumeBegin(_)
-        | EventMsg::CollabResumeEnd(_) => None,
+        | EventMsg::CollabResumeEnd(_)
+        | EventMsg::EnteredArchiveMode
+        | EventMsg::ExitedArchiveMode => None,
     }
 }
 

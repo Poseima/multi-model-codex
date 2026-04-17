@@ -4022,8 +4022,12 @@ impl CodexMessageProcessor {
             )));
         };
 
-        if let Some(rollout_path) = thread.path.as_deref() {
-            attach_thread_prompt_profile_from_rollout(&mut thread, rollout_path).await;
+        if let Some(rollout_path) = thread.path.clone() {
+            if !attach_thread_prompt_profile_from_rollout(&mut thread, rollout_path.as_path()).await
+                && let Some(loaded_thread) = loaded_thread.as_ref()
+            {
+                attach_thread_prompt_profile_from_loaded_thread(&mut thread, loaded_thread).await;
+            }
         } else if let Some(loaded_thread) = loaded_thread.as_ref() {
             attach_thread_prompt_profile_from_loaded_thread(&mut thread, loaded_thread).await;
         }
@@ -5241,8 +5245,11 @@ impl CodexMessageProcessor {
         }
 
         if let Some(fork_rollout_path) = session_configured.rollout_path.as_ref() {
-            attach_thread_prompt_profile_from_rollout(&mut thread, fork_rollout_path.as_path())
-                .await;
+            if !attach_thread_prompt_profile_from_rollout(&mut thread, fork_rollout_path.as_path())
+                .await
+            {
+                attach_thread_prompt_profile_from_loaded_thread(&mut thread, &forked_thread).await;
+            }
         } else {
             attach_thread_prompt_profile_from_loaded_thread(&mut thread, &forked_thread).await;
         }
@@ -9850,7 +9857,10 @@ async fn attach_thread_prompt_profile_from_loaded_thread(
     );
 }
 
-async fn attach_thread_prompt_profile_from_rollout(thread: &mut Thread, rollout_path: &Path) {
+async fn attach_thread_prompt_profile_from_rollout(
+    thread: &mut Thread,
+    rollout_path: &Path,
+) -> bool {
     match read_session_meta_line(rollout_path).await {
         Ok(meta_line) => {
             set_thread_prompt_profile(
@@ -9858,10 +9868,12 @@ async fn attach_thread_prompt_profile_from_rollout(thread: &mut Thread, rollout_
                 meta_line.meta.prompt_profile,
                 meta_line.meta.prompt_profile_path,
             );
+            true
         }
         Err(err) => {
             let rollout_path = rollout_path.display();
             warn!("failed to read session metadata from rollout {rollout_path}: {err}");
+            false
         }
     }
 }

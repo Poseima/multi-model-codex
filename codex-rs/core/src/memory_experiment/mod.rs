@@ -342,16 +342,16 @@ mod tests {
         assert!(is_memory_empty(&root).await);
     }
 
-    #[test]
-    fn apply_model_override_sets_model() {
-        let mut config = crate::config::test_config();
+    #[tokio::test]
+    async fn apply_model_override_sets_model() {
+        let mut config = crate::config::test_config().await;
         apply_model_override(&mut config, "gpt-5.3-codex-spark", None, None);
         assert_eq!(config.model, Some("gpt-5.3-codex-spark".to_string()));
     }
 
-    #[test]
-    fn apply_model_override_sets_provider_when_found() {
-        let mut config = crate::config::test_config();
+    #[tokio::test]
+    async fn apply_model_override_sets_provider_when_found() {
+        let mut config = crate::config::test_config().await;
         // "openai" is a built-in provider that should exist in model_providers.
         let has_openai = config.model_providers.contains_key("openai");
         apply_model_override(&mut config, "gpt-5.3-codex", Some("openai"), None);
@@ -361,9 +361,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn apply_model_override_ignores_unknown_provider() {
-        let mut config = crate::config::test_config();
+    #[tokio::test]
+    async fn apply_model_override_ignores_unknown_provider() {
+        let mut config = crate::config::test_config().await;
         let original_provider_id = config.model_provider_id.clone();
         apply_model_override(
             &mut config,
@@ -375,9 +375,9 @@ mod tests {
         assert_eq!(config.model_provider_id, original_provider_id);
     }
 
-    #[test]
-    fn apply_model_override_sets_reasoning_effort() {
-        let mut config = crate::config::test_config();
+    #[tokio::test]
+    async fn apply_model_override_sets_reasoning_effort() {
+        let mut config = crate::config::test_config().await;
         apply_model_override(
             &mut config,
             "gpt-5.3-codex",
