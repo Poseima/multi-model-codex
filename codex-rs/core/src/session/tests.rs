@@ -5576,6 +5576,8 @@ async fn make_session_with_config_and_rx(
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
+        prompt_profile_path: None,
         compact_prompt: config.compact_prompt.clone(),
         approval_policy: config.permissions.approval_policy.clone(),
         approvals_reviewer: config.approvals_reviewer,
@@ -10021,7 +10023,6 @@ async fn steer_input_rejects_non_regular_turns() {
     for (task_kind, turn_kind) in [
         (TaskKind::Review, NonSteerableTurnKind::Review),
         (TaskKind::Compact, NonSteerableTurnKind::Compact),
-        (TaskKind::Archive, NonSteerableTurnKind::Compact),
     ] {
         let (sess, _tc, _rx) = make_session_and_context_with_rx().await;
         let input = vec![TurnInput::UserInput {
