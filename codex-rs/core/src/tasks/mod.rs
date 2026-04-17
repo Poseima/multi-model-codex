@@ -50,10 +50,9 @@ use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::protocol::TurnAbortedEvent;
 use codex_protocol::protocol::TurnCompleteEvent;
 use codex_protocol::protocol::WarningEvent;
-use codex_protocol::user_input::UserInput;
-
 use codex_features::Feature;
 use codex_protocol::models::ContentItem;
+use codex_protocol::user_input::UserInput;
 pub(crate) use archive::ArchiveTask;
 pub(crate) use archive::spawn_inline_archive;
 pub(crate) use compact::CompactTask;

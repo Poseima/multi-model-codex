@@ -4,7 +4,6 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
@@ -35,6 +34,7 @@ use crate::environment_selection::ResolvedTurnEnvironments;
 use crate::exec_policy::ExecPolicyManager;
 use crate::parse_turn_item;
 use crate::path_utils::normalize_for_native_workdir;
+use crate::prompt_profile_loader::PromptProfileOverride;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::resolve_installation_id;
 use crate::session_prefix::format_subagent_notification_message;
@@ -400,6 +400,7 @@ pub(crate) struct CodexSpawnArgs {
     pub(crate) thread_source: Option<ThreadSource>,
     pub(crate) agent_control: AgentControl,
     pub(crate) dynamic_tools: Vec<DynamicToolSpec>,
+    pub(crate) prompt_profile_override: PromptProfileOverride,
     pub(crate) persist_extended_history: bool,
     pub(crate) metrics_service_name: Option<String>,
     pub(crate) inherited_shell_snapshot: Option<Arc<ShellSnapshot>>,
@@ -464,6 +465,7 @@ impl Codex {
             thread_source,
             agent_control,
             dynamic_tools,
+            prompt_profile_override,
             persist_extended_history,
             metrics_service_name,
             inherited_shell_snapshot,
@@ -605,6 +607,17 @@ impl Codex {
             account_plan_type,
             config.features.enabled(Feature::FastMode),
         );
+        let (prompt_profile, prompt_profile_path) = match prompt_profile_override {
+            PromptProfileOverride::Inherit => (
+                conversation_history.get_prompt_profile(),
+                conversation_history.get_prompt_profile_path(),
+            ),
+            PromptProfileOverride::Clear => (None, None),
+            PromptProfileOverride::Set {
+                prompt_profile,
+                prompt_profile_path,
+            } => (Some(prompt_profile), prompt_profile_path),
+        };
         let session_configuration = SessionConfiguration {
             provider: config.model_provider.clone(),
             collaboration_mode,
@@ -614,6 +627,8 @@ impl Codex {
             user_instructions,
             personality: config.personality,
             base_instructions,
+            prompt_profile,
+            prompt_profile_path,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
             approvals_reviewer: config.approvals_reviewer,
@@ -1149,6 +1164,18 @@ impl Session {
         BaseInstructions {
             text: state.session_configuration.base_instructions.clone(),
         }
+    }
+
+    pub(crate) async fn get_prompt_profile(
+        &self,
+    ) -> Option<codex_protocol::prompt_profile::PromptSource> {
+        let state = self.state.lock().await;
+        state.session_configuration.prompt_profile.clone()
+    }
+
+    pub(crate) async fn get_prompt_profile_path(&self) -> Option<PathBuf> {
+        let state = self.state.lock().await;
+        state.session_configuration.prompt_profile_path.clone()
     }
 
     /// Fork: returns base instructions with memory content appended when the
@@ -2925,7 +2952,6 @@ impl Session {
         turn_context: &TurnContext,
         token_usage: Option<&TokenUsage>,
     ) {
-        tracing::debug!(?token_usage, "update_token_usage_info called");
         self.record_token_usage_info(turn_context, token_usage)
             .await;
         self.send_token_count_event(turn_context).await;
@@ -2944,7 +2970,13 @@ impl Session {
 
     pub(crate) async fn recompute_token_usage(&self, turn_context: &TurnContext) {
         let history = self.clone_history().await;
-        let base_instructions = self.get_base_instructions().await;
+        let base_instructions = self
+            .get_composed_base_instructions(
+                &turn_context.config.codex_home,
+                &turn_context.cwd,
+                &turn_context.features,
+            )
+            .await;
         let Some(estimated_total_tokens) =
             history.estimate_token_count_with_base_instructions(&base_instructions)
         else {
@@ -3024,7 +3056,6 @@ impl Session {
             let state = self.state.lock().await;
             state.token_info_and_rate_limits()
         };
-        tracing::debug!(?info, "Sending TokenCount event to TUI");
         let event = EventMsg::TokenCount(TokenCountEvent { info, rate_limits });
         self.send_event(turn_context, event).await;
     }
@@ -3131,6 +3162,11 @@ impl Session {
                 });
             }
             Some(crate::state::TaskKind::Compact) => {
+                return Err(SteerInputError::ActiveTurnNotSteerable {
+                    turn_kind: NonSteerableTurnKind::Compact,
+                });
+            }
+            Some(crate::state::TaskKind::Archive) => {
                 return Err(SteerInputError::ActiveTurnNotSteerable {
                     turn_kind: NonSteerableTurnKind::Compact,
                 });
