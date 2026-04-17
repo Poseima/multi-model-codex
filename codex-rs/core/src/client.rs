@@ -1395,7 +1395,7 @@ impl ModelClientSession {
             ));
         }
 
-        let auth_manager = self.client.state.auth_manager.clone();
+        let auth_manager = self.client.state.provider.auth_manager();
         let instructions = prompt.base_instructions.text.clone();
         let input = prompt.get_formatted_input();
         let tools_json = create_tools_json_for_responses_api(&prompt.tools)?
@@ -1434,7 +1434,7 @@ impl ModelClientSession {
                 session_telemetry,
                 AuthRequestTelemetryContext::new(
                     client_setup.auth.as_ref().map(CodexAuth::auth_mode),
-                    &client_setup.api_auth,
+                    client_setup.api_auth.as_ref(),
                     pending_retry,
                 ),
                 RequestRouteTelemetry::for_endpoint(CHAT_COMPLETIONS_ENDPOINT),
