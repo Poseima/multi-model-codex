@@ -650,11 +650,8 @@ impl ThreadManager {
         &self,
         options: StartThreadOptions,
     ) -> CodexResult<NewThread> {
-        self.start_thread_with_options_and_prompt_profile(
-            options,
-            PromptProfileOverride::Inherit,
-        )
-        .await
+        self.start_thread_with_options_and_prompt_profile(options, PromptProfileOverride::Inherit)
+            .await
     }
 
     pub async fn start_thread_with_options_and_prompt_profile(
