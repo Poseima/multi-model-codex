@@ -1,4 +1,4 @@
-use crate::auth::AuthProvider;
+use crate::auth::SharedAuthProvider;
 use crate::common::ResponseStream;
 use crate::endpoint::session::EndpointSession;
 use crate::error::ApiError;
@@ -17,13 +17,13 @@ use http::Method;
 use serde_json::Value;
 use std::sync::Arc;
 
-pub struct ChatCompatClient<T: HttpTransport, A: AuthProvider> {
-    session: EndpointSession<T, A>,
+pub struct ChatCompatClient<T: HttpTransport> {
+    session: EndpointSession<T>,
     sse_telemetry: Option<Arc<dyn SseTelemetry>>,
 }
 
-impl<T: HttpTransport, A: AuthProvider> ChatCompatClient<T, A> {
-    pub fn new(transport: T, provider: Provider, auth: A) -> Self {
+impl<T: HttpTransport> ChatCompatClient<T> {
+    pub fn new(transport: T, provider: Provider, auth: SharedAuthProvider) -> Self {
         Self {
             session: EndpointSession::new(transport, provider, auth),
             sse_telemetry: None,
