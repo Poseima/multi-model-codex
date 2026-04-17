@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
@@ -787,7 +786,7 @@ impl Session {
             PromptProfileOverride::Set {
                 prompt_profile,
                 prompt_profile_path,
-            } => (Some(*prompt_profile), prompt_profile_path),
+            } => (Some(prompt_profile), prompt_profile_path),
         };
         let session_configuration = SessionConfiguration {
             provider: create_model_provider(
@@ -4787,7 +4786,6 @@ impl Session {
             let state = self.state.lock().await;
             state.token_info_and_rate_limits()
         };
-        tracing::debug!(?info, "Sending TokenCount event to TUI");
         let event = EventMsg::TokenCount(TokenCountEvent { info, rate_limits });
         self.send_event(turn_context, event).await;
     }
