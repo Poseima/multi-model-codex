@@ -47,7 +47,7 @@ impl Drop for EnvVarGuard {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[serial(proxy_env)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_loopback_bypasses_proxy_env() -> anyhow::Result<()> {
     let _http_proxy = EnvVarGuard::set("HTTP_PROXY", "http://127.0.0.1:1");
     let _https_proxy = EnvVarGuard::set("HTTPS_PROXY", "http://127.0.0.1:1");
@@ -65,6 +65,7 @@ async fn streamable_http_loopback_bypasses_proxy_env() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_404_session_expiry_recovers_and_retries_once() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -81,6 +82,7 @@ async fn streamable_http_404_session_expiry_recovers_and_retries_once() -> anyho
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_401_does_not_trigger_recovery() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -102,6 +104,7 @@ async fn streamable_http_401_does_not_trigger_recovery() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_404_recovery_only_retries_once() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;
@@ -126,6 +129,7 @@ async fn streamable_http_404_recovery_only_retries_once() -> anyhow::Result<()> 
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[serial(streamable_http_recovery)]
 async fn streamable_http_non_session_failure_does_not_trigger_recovery() -> anyhow::Result<()> {
     let (_server, base_url) = spawn_streamable_http_server().await?;
     let client = create_client(&base_url).await?;

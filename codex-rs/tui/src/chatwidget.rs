@@ -1098,6 +1098,21 @@ impl ChatWidget {
         self.token_info = Some(info);
     }
 
+    fn apply_turn_started_context_window(&mut self, model_context_window: Option<i64>) {
+        let Some(model_context_window) = model_context_window else {
+            return;
+        };
+
+        let info =
+            TokenUsageInfo::new_or_append(&self.token_info, &None, Some(model_context_window))
+                .unwrap_or(TokenUsageInfo {
+                    total_token_usage: TokenUsage::default(),
+                    last_token_usage: TokenUsage::default(),
+                    model_context_window: Some(model_context_window),
+                });
+        self.apply_token_info(info);
+    }
+
     fn context_remaining_percent(&self, info: &TokenUsageInfo) -> Option<i64> {
         info.model_context_window.map(|window| {
             info.last_token_usage
