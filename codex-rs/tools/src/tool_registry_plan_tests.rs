@@ -495,7 +495,7 @@ fn structured_apply_patch_mode_omits_apply_patch_tool_and_handler() {
 
     assert_lacks_tool_name(&tools, "apply_patch");
     assert!(!handlers.iter().any(|handler| {
-        handler.name == "apply_patch" && handler.kind == ToolHandlerKind::ApplyPatch
+        handler.name == "apply_patch".into() && handler.kind == ToolHandlerKind::ApplyPatch
     }));
 }
 

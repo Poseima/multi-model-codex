@@ -37,6 +37,8 @@ fn write_rollout_with_metadata(path: &Path, thread_id: ThreadId) -> std::io::Res
                 agent_role: None,
                 model_provider: Some("test-provider".into()),
                 base_instructions: None,
+                prompt_profile: None,
+                prompt_profile_path: None,
                 dynamic_tools: None,
                 memory_mode: None,
             },

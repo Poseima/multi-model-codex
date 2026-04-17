@@ -1753,7 +1753,7 @@ async fn hides_system_skill_when_user_skill_has_same_name() {
         write_system_skill(&codex_home, "system", "skill-creator", "from system");
 
     let cfg = make_config_for_cwd(&codex_home, work_dir.path().to_path_buf()).await;
-    let outcome = load_skills_for_test(&cfg);
+    let outcome = load_skills_for_test(&cfg).await;
 
     assert!(
         outcome.errors.is_empty(),

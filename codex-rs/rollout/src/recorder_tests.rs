@@ -156,6 +156,8 @@ async fn persist_reports_filesystem_error_and_retries_buffered_items() -> std::i
             /*forked_from_id*/ None,
             SessionSource::Exec,
             BaseInstructions::default(),
+            None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
             EventPersistenceMode::Limited,
         ),
