@@ -168,7 +168,7 @@ impl<'a> ChatRequestBuilder<'a> {
                                 text.push_str(t);
                                 items.push(json!({"type":"text","text": t}));
                             }
-                            ContentItem::InputImage { image_url } => {
+                            ContentItem::InputImage { image_url, .. } => {
                                 saw_image = true;
                                 items.push(
                                     json!({"type":"image_url","image_url": {"url": image_url}}),
