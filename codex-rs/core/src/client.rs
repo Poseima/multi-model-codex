@@ -1289,7 +1289,10 @@ impl ModelClientSession {
             .map(AuthManager::unauthorized_recovery);
         let mut pending_retry = PendingUnauthorizedRetry::default();
         loop {
-            let client_setup = self.client.current_client_setup().await?;
+            let client_setup = self
+                .client
+                .current_client_setup(self.agent_task.as_ref())
+                .await?;
             let transport = ReqwestTransport::new(build_reqwest_client_for_url(
                 &client_setup.api_provider.base_url,
             ));

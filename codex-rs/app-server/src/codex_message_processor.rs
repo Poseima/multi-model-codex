@@ -9475,6 +9475,8 @@ fn thread_from_stored_thread(
         } else {
             thread.model_provider
         },
+        prompt_profile: None,
+        prompt_profile_path: None,
         created_at: thread.created_at.timestamp(),
         updated_at: thread.updated_at.timestamp(),
         status: ThreadStatus::NotLoaded,

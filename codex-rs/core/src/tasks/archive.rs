@@ -13,8 +13,8 @@ use tracing::warn;
 use crate::codex_delegate::run_codex_thread_one_shot;
 use crate::config::Constrained;
 use crate::memory_experiment;
-use crate::session::Session;
-use crate::session::TurnContext;
+use crate::session::session::Session;
+use crate::session::turn_context::TurnContext;
 use crate::state::TaskKind;
 use codex_utils_absolute_path::AbsolutePathBuf;
 
