@@ -10,11 +10,11 @@ use codex_protocol::user_input::UserInput;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
-use crate::codex::Session;
-use crate::codex::TurnContext;
 use crate::codex_delegate::run_codex_thread_one_shot;
 use crate::config::Constrained;
 use crate::memory_experiment;
+use crate::session::Session;
+use crate::session::TurnContext;
 use crate::state::TaskKind;
 use codex_utils_absolute_path::AbsolutePathBuf;
 
