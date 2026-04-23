@@ -6,23 +6,23 @@ use crate::apply_patch::convert_apply_patch_to_protocol;
 use crate::function_tool::FunctionCallError;
 use crate::tools::context::FunctionToolOutput;
 use crate::tools::context::ToolInvocation;
+use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
+use crate::tools::context::boxed_tool_output;
 use crate::tools::events::ToolEmitter;
 use crate::tools::events::ToolEventCtx;
 use crate::tools::handlers::apply_patch::effective_patch_permissions;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::orchestrator::ToolOrchestrator;
-use crate::tools::registry::ToolHandler;
-use crate::tools::registry::ToolKind;
+use crate::tools::registry::CoreToolRuntime;
+use crate::tools::registry::ToolExecutor;
 use crate::tools::runtimes::apply_patch::ApplyPatchRequest;
 use crate::tools::runtimes::apply_patch::ApplyPatchRuntime;
 use crate::tools::sandboxing::ToolCtx;
-use codex_apply_patch::ApplyPatchFileChange;
 use codex_tools::JsonSchema;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolName;
 use codex_tools::ToolSpec;
-use codex_utils_absolute_path::AbsolutePathBuf;
 use serde::Deserialize;
 
 pub struct StructuredEditHandler;
@@ -108,29 +108,21 @@ struct StructuredEditArgs {
 /// Number of context lines to include before and after a change in generated patches.
 const CONTEXT_LINES: usize = 3;
 
-impl ToolHandler for StructuredEditHandler {
-    type Output = FunctionToolOutput;
+#[async_trait::async_trait]
+impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
 
     fn tool_name(&self) -> ToolName {
         ToolName::plain("text_editor")
     }
 
-    fn spec(&self) -> Option<ToolSpec> {
-        Some(create_text_editor_tool())
-    }
-
-    fn kind(&self) -> ToolKind {
-        ToolKind::Function
-    }
-
-    async fn is_mutating(&self, _invocation: &ToolInvocation) -> bool {
-        true
+    fn spec(&self) -> ToolSpec {
+        create_text_editor_tool()
     }
 
     async fn handle(
         &self,
         invocation: ToolInvocation,
-    ) -> Result<FunctionToolOutput, FunctionCallError> {
+    ) -> Result<Box<dyn ToolOutput>, FunctionCallError> {
         let ToolInvocation {
             session,
             turn,
@@ -150,7 +142,15 @@ impl ToolHandler for StructuredEditHandler {
             }
         };
 
-        let cwd = turn.cwd.clone();
+        let Some(turn_environment) = turn.environments.primary() else {
+            return Err(FunctionCallError::RespondToModel(
+                "text_editor is unavailable in this session".to_string(),
+            ));
+        };
+        let cwd = turn_environment.cwd.clone();
+        let fs = turn_environment.environment.get_filesystem();
+        let sandbox = turn.file_system_sandbox_context(/*additional_permissions*/ None, &cwd);
+
         let patch_string = match args.command.as_str() {
             "create" => {
                 let file_text = args.file_text.ok_or_else(|| {
@@ -168,12 +168,15 @@ impl ToolHandler for StructuredEditHandler {
                 })?;
                 let new_str = args.new_str.unwrap_or_default();
                 let file_path = cwd.join(&args.path);
-                let file_content = std::fs::read_to_string(&file_path).map_err(|e| {
-                    FunctionCallError::RespondToModel(format!(
-                        "failed to read file '{}': {e}",
-                        args.path
-                    ))
-                })?;
+                let file_content = fs
+                    .read_file_text(&file_path, Some(&sandbox))
+                    .await
+                    .map_err(|e| {
+                        FunctionCallError::RespondToModel(format!(
+                            "failed to read file '{}': {e}",
+                            args.path
+                        ))
+                    })?;
                 generate_str_replace_patch(&args.path, &old_str, &new_str, &file_content)?
             }
             "delete" => generate_delete_patch(&args.path),
@@ -186,38 +189,41 @@ impl ToolHandler for StructuredEditHandler {
 
         // Delegate to the existing apply_patch pipeline.
         let command = vec!["apply_patch".to_string(), patch_string];
-        let Some(turn_environment) = turn.environments.primary() else {
-            return Err(FunctionCallError::RespondToModel(
-                "text_editor is unavailable in this session".to_string(),
-            ));
-        };
-        let fs = turn_environment.environment.get_filesystem();
-        let sandbox = turn_environment
-            .environment
-            .is_remote()
-            .then(|| turn.file_system_sandbox_context(/*additional_permissions*/ None));
         match codex_apply_patch::maybe_parse_apply_patch_verified(
             &command,
             &cwd,
             fs.as_ref(),
-            sandbox.as_ref(),
+            Some(&sandbox),
         )
         .await
         {
             codex_apply_patch::MaybeApplyPatchVerified::Body(action) => {
                 let (file_paths, effective_additional_permissions, file_system_sandbox_policy) =
-                    effective_patch_permissions(session.as_ref(), turn.as_ref(), &action).await;
+                    effective_patch_permissions(
+                        session.as_ref(),
+                        turn.as_ref(),
+                        &turn_environment.environment_id,
+                        &action,
+                        &cwd,
+                    )
+                    .await;
                 match apply_patch::apply_patch(turn.as_ref(), &file_system_sandbox_policy, action)
                     .await
                 {
                     InternalApplyPatchInvocation::Output(item) => {
                         let content = item?;
-                        Ok(FunctionToolOutput::from_text(content, Some(true)))
+                        Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                            content,
+                            Some(true),
+                        )))
                     }
                     InternalApplyPatchInvocation::DelegateToRuntime(apply) => {
                         let changes = convert_apply_patch_to_protocol(&apply.action);
-                        let emitter =
-                            ToolEmitter::apply_patch(changes.clone(), apply.auto_approved);
+                        let emitter = ToolEmitter::apply_patch_for_environment(
+                            changes.clone(),
+                            apply.auto_approved,
+                            turn_environment.environment_id.clone(),
+                        );
                         let event_ctx = ToolEventCtx::new(
                             session.as_ref(),
                             turn.as_ref(),
@@ -227,6 +233,7 @@ impl ToolHandler for StructuredEditHandler {
                         emitter.begin(event_ctx).await;
 
                         let req = ApplyPatchRequest {
+                            turn_environment: turn_environment.clone(),
                             action: apply.action,
                             file_paths,
                             changes,
@@ -266,7 +273,10 @@ impl ToolHandler for StructuredEditHandler {
                             Some(&tracker),
                         );
                         let content = emitter.finish(event_ctx, out, delta.as_ref()).await?;
-                        Ok(FunctionToolOutput::from_text(content, Some(true)))
+                        Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                            content,
+                            Some(true),
+                        )))
                     }
                 }
             }
@@ -290,23 +300,11 @@ impl ToolHandler for StructuredEditHandler {
     }
 }
 
-fn file_paths_for_action(action: &codex_apply_patch::ApplyPatchAction) -> Vec<AbsolutePathBuf> {
-    let cwd = action.cwd.as_path();
-    let mut keys = Vec::new();
-    for (path, change) in action.changes() {
-        keys.push(AbsolutePathBuf::resolve_path_against_base(path, cwd));
-        if let ApplyPatchFileChange::Update { move_path, .. } = change
-            && let Some(dest) = move_path
-        {
-            keys.push(AbsolutePathBuf::resolve_path_against_base(dest, cwd));
-        }
-    }
-    keys
-}
-
 // ---------------------------------------------------------------------------
 // Patch string generation
 // ---------------------------------------------------------------------------
+
+impl CoreToolRuntime for StructuredEditHandler {}
 
 fn generate_create_patch(path: &str, file_text: &str) -> String {
     let mut patch = String::from("*** Begin Patch\n");
@@ -425,8 +423,7 @@ mod tests {
     use super::*;
     use codex_apply_patch::MaybeApplyPatchVerified;
     use codex_exec_server::LOCAL_FS;
-    use codex_utils_absolute_path::AbsolutePathBuf;
-    use tempfile::TempDir;
+        use tempfile::TempDir;
 
     fn parse_patch(patch: &str, cwd: &Path) -> MaybeApplyPatchVerified {
         let argv = vec!["apply_patch".to_string(), patch.to_string()];
