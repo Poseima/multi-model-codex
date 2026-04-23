@@ -938,10 +938,38 @@ impl FileSystemSandboxPolicy {
         path: &Path,
         cwd: &Path,
     ) -> FileSystemAccessMode {
-        with_local_policy_context(path, cwd, |path, context| {
-            self.resolve_access(path, context)
-        })
-        .unwrap_or(FileSystemAccessMode::Deny)
+        match self.kind {
+            FileSystemSandboxKind::Unrestricted | FileSystemSandboxKind::ExternalSandbox => {
+                return FileSystemAccessMode::Write;
+            }
+            FileSystemSandboxKind::Restricted => {}
+        }
+
+        let Some(path) = resolve_candidate_path(path, cwd) else {
+            return FileSystemAccessMode::Deny;
+        };
+        let path_candidates = normalized_and_canonical_candidates(path.as_path());
+
+        self.resolved_entries_with_cwd(cwd)
+            .into_iter()
+            .filter_map(|entry| {
+                let raw_match = path.as_path().starts_with(entry.path.as_path());
+                normalized_and_canonical_candidates(entry.path.as_path())
+                    .into_iter()
+                    .filter_map(|entry_candidate| {
+                        path_candidates
+                            .iter()
+                            .any(|path_candidate| {
+                                path_candidate.starts_with(entry_candidate.as_path())
+                            })
+                            .then_some(entry_candidate.components().count())
+                    })
+                    .max()
+                    .map(|specificity| (specificity, raw_match, entry.access))
+            })
+            .max_by_key(|(specificity, raw_match, access)| (*specificity, *raw_match, *access))
+            .map(|(_, _, access)| access)
+            .unwrap_or(FileSystemAccessMode::Deny)
     }
 
     /// Native-path compatibility adapter for local executor boundaries.
@@ -952,8 +980,14 @@ impl FileSystemSandboxPolicy {
 
     /// Native-path compatibility adapter for local executor boundaries.
     pub fn can_write_local_path_with_cwd(&self, path: &Path, cwd: &Path) -> bool {
+        if !self
+            .resolve_access_for_local_path_with_cwd(path, cwd)
+            .can_write()
+        {
+            return false;
+        }
         with_local_policy_context(path, cwd, |path, context| {
-            self.can_write_path(path, context)
+            self.has_full_disk_write_access() || self.metadata_write_denial(path, context).is_none()
         })
         .unwrap_or(false)
     }
@@ -2089,6 +2123,52 @@ fn absolute_root_path_for_cwd(cwd: &AbsolutePathBuf) -> AbsolutePathBuf {
         .unwrap_or_else(|| panic!("cwd must have a filesystem root"));
     AbsolutePathBuf::from_absolute_path(root)
         .unwrap_or_else(|err| panic!("cwd root must be an absolute path: {err}"))
+}
+
+fn normalized_and_canonical_candidates(path: &Path) -> Vec<PathBuf> {
+    // Compare the lexical absolute form plus canonical target spellings we can
+    // derive from the nearest existing ancestor. Missing paths still need the
+    // lexical candidate so future-created denied paths remain blocked by
+    // direct tool checks.
+    let mut candidates = Vec::new();
+
+    if let Ok(normalized) = AbsolutePathBuf::from_absolute_path(path) {
+        push_unique(&mut candidates, normalized.to_path_buf());
+
+        for ancestor in normalized.as_path().ancestors() {
+            let Ok(canonical_ancestor) = ancestor.canonicalize() else {
+                continue;
+            };
+            let Ok(canonical_ancestor) = AbsolutePathBuf::from_absolute_path(canonical_ancestor)
+            else {
+                continue;
+            };
+            let Ok(suffix) = normalized.as_path().strip_prefix(ancestor) else {
+                continue;
+            };
+            push_unique(
+                &mut candidates,
+                canonical_ancestor.join(suffix).to_path_buf(),
+            );
+            break;
+        }
+    } else {
+        push_unique(&mut candidates, path.to_path_buf());
+    }
+
+    if let Ok(canonical) = path.canonicalize()
+        && let Ok(canonical_absolute) = AbsolutePathBuf::from_absolute_path(canonical)
+    {
+        push_unique(&mut candidates, canonical_absolute.to_path_buf());
+    }
+
+    candidates
+}
+
+fn push_unique(candidates: &mut Vec<PathBuf>, candidate: PathBuf) {
+    if !candidates.iter().any(|existing| existing == &candidate) {
+        candidates.push(candidate);
+    }
 }
 
 fn build_glob_matcher(pattern: &str, convention: PathConvention) -> Result<GlobMatcher, String> {
@@ -3815,6 +3895,34 @@ mod tests {
                 .resolve_access_for_local_path_with_cwd(docs_private_public.as_path(), cwd.path()),
             FileSystemAccessMode::Write
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_access_for_local_path_with_cwd_matches_missing_child_under_alias_path() {
+        let cwd = TempDir::new().expect("tempdir");
+        let real_root = cwd.path().join("real");
+        let alias_root = cwd.path().join("alias");
+        fs::create_dir_all(&real_root).expect("create real root");
+        symlink_dir(&real_root, &alias_root).expect("create alias symlink");
+
+        let canonical_root = AbsolutePathBuf::from_absolute_path(
+            real_root.canonicalize().expect("canonicalize real root"),
+        )
+        .expect("absolute canonical root");
+        let alias_missing = alias_root.join("missing.txt");
+        let policy = FileSystemSandboxPolicy::restricted(vec![FileSystemSandboxEntry {
+            path: FileSystemPath::Path {
+                path: canonical_root,
+            },
+            access: FileSystemAccessMode::Write,
+        }]);
+
+        assert_eq!(
+            policy.resolve_access_for_local_path_with_cwd(&alias_missing, cwd.path()),
+            FileSystemAccessMode::Write
+        );
+        assert!(policy.can_write_local_path_with_cwd(&alias_missing, cwd.path()));
     }
 
     #[test]

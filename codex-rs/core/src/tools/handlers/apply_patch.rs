@@ -289,6 +289,7 @@ fn apply_patch_payload_command(payload: &ToolPayload) -> Option<String> {
 
 pub(crate) async fn effective_patch_permissions(
     session: &Session,
+    turn_id: &str,
     environment: &TurnEnvironment,
     action: &ApplyPatchAction,
     context: &FileSystemSandboxPolicyContext<'_>,
@@ -300,15 +301,15 @@ pub(crate) async fn effective_patch_permissions(
 ) {
     let environment_id = environment.selection.environment_id.as_str();
     let file_paths = file_paths_for_action(action);
+    let granted_turn_permissions = session
+        .granted_turn_permissions_for_sub_id(turn_id)
+        .await;
     let granted_permissions = merge_permission_profiles(
         session
             .granted_session_permissions(environment_id)
             .await
             .as_ref(),
-        session
-            .granted_turn_permissions(environment_id)
-            .await
-            .as_ref(),
+        granted_turn_permissions.as_ref(),
     );
     let base_file_system_sandbox_policy = environment
         .permission_profile()
@@ -566,6 +567,7 @@ async fn execute_verified_patch(
     let (file_paths, effective_additional_permissions, file_system_sandbox_policy) =
         effective_patch_permissions(
             tool_ctx.session.as_ref(),
+            tool_ctx.step_context.turn.sub_id.as_str(),
             &turn_environment,
             &action,
             &policy_context,

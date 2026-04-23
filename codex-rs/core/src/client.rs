@@ -1815,7 +1815,11 @@ impl ModelClientSession {
 
             match stream_result {
                 Ok(stream) => {
-                    let (stream, _) = map_response_stream(stream, session_telemetry.clone());
+                    let (stream, _) = map_response_stream(
+                        stream,
+                        session_telemetry.clone(),
+                        InferenceTraceAttempt::disabled(),
+                    );
                     return Ok(stream);
                 }
                 Err(ApiError::Transport(
