@@ -272,9 +272,12 @@ pub(crate) async fn effective_patch_permissions(
     codex_protocol::permissions::FileSystemSandboxPolicy,
 ) {
     let file_paths = file_paths_for_action(action);
+    let granted_turn_permissions = session
+        .granted_turn_permissions_for_sub_id(&turn.sub_id)
+        .await;
     let granted_permissions = merge_permission_profiles(
         session.granted_session_permissions().await.as_ref(),
-        session.granted_turn_permissions().await.as_ref(),
+        granted_turn_permissions.as_ref(),
     );
     let base_file_system_sandbox_policy = turn.file_system_sandbox_policy();
     let file_system_sandbox_policy = effective_file_system_sandbox_policy(
@@ -283,6 +286,7 @@ pub(crate) async fn effective_patch_permissions(
     );
     let effective_additional_permissions = apply_granted_turn_permissions(
         session,
+        &turn.sub_id,
         cwd.as_path(),
         crate::sandboxing::SandboxPermissions::UseDefault,
         write_permissions_for_paths(&file_paths, &file_system_sandbox_policy, cwd),

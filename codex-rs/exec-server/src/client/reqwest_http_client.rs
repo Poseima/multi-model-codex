@@ -50,7 +50,10 @@ pub(crate) struct ReqwestHttpRequestRunner {
 }
 
 impl ReqwestHttpClient {
-    fn build_client(timeout_ms: Option<u64>, url: &Url) -> Result<reqwest::Client, ExecServerError> {
+    fn build_client(
+        timeout_ms: Option<u64>,
+        url: &Url,
+    ) -> Result<reqwest::Client, ExecServerError> {
         let mut builder = match timeout_ms {
             None => reqwest::Client::builder(),
             Some(timeout_ms) => {

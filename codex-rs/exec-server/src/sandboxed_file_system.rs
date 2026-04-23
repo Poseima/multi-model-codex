@@ -14,6 +14,7 @@ use crate::FileSystemResult;
 use crate::FileSystemSandboxContext;
 use crate::ReadDirectoryEntry;
 use crate::RemoveOptions;
+use crate::file_system::normalize_top_level_alias;
 use crate::fs_helper::FsHelperPayload;
 use crate::fs_helper::FsHelperRequest;
 use crate::fs_sandbox::FileSystemSandboxRunner;
@@ -57,11 +58,12 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<Vec<u8>> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let path = normalize_top_level_alias(path.clone());
         let response = self
             .run_sandboxed(
                 sandbox,
                 FsHelperRequest::ReadFile(FsReadFileParams {
-                    path: path.clone(),
+                    path,
                     sandbox: None,
                 }),
             )
@@ -83,10 +85,11 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<()> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let path = normalize_top_level_alias(path.clone());
         self.run_sandboxed(
             sandbox,
             FsHelperRequest::WriteFile(FsWriteFileParams {
-                path: path.clone(),
+                path,
                 data_base64: STANDARD.encode(contents),
                 sandbox: None,
             }),
@@ -104,10 +107,11 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<()> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let path = normalize_top_level_alias(path.clone());
         self.run_sandboxed(
             sandbox,
             FsHelperRequest::CreateDirectory(FsCreateDirectoryParams {
-                path: path.clone(),
+                path,
                 recursive: Some(options.recursive),
                 sandbox: None,
             }),
@@ -124,11 +128,12 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<FileMetadata> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let path = normalize_top_level_alias(path.clone());
         let response = self
             .run_sandboxed(
                 sandbox,
                 FsHelperRequest::GetMetadata(FsGetMetadataParams {
-                    path: path.clone(),
+                    path,
                     sandbox: None,
                 }),
             )
@@ -150,11 +155,12 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<Vec<ReadDirectoryEntry>> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let path = normalize_top_level_alias(path.clone());
         let response = self
             .run_sandboxed(
                 sandbox,
                 FsHelperRequest::ReadDirectory(FsReadDirectoryParams {
-                    path: path.clone(),
+                    path,
                     sandbox: None,
                 }),
             )
@@ -179,10 +185,11 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<()> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let path = normalize_top_level_alias(path.clone());
         self.run_sandboxed(
             sandbox,
             FsHelperRequest::Remove(FsRemoveParams {
-                path: path.clone(),
+                path,
                 recursive: Some(remove_options.recursive),
                 force: Some(remove_options.force),
                 sandbox: None,
@@ -202,11 +209,13 @@ impl ExecutorFileSystem for SandboxedFileSystem {
         sandbox: Option<&FileSystemSandboxContext>,
     ) -> FileSystemResult<()> {
         let sandbox = require_platform_sandbox(sandbox)?;
+        let source_path = normalize_top_level_alias(source_path.clone());
+        let destination_path = normalize_top_level_alias(destination_path.clone());
         self.run_sandboxed(
             sandbox,
             FsHelperRequest::Copy(FsCopyParams {
-                source_path: source_path.clone(),
-                destination_path: destination_path.clone(),
+                source_path,
+                destination_path,
                 recursive: options.recursive,
                 sandbox: None,
             }),
