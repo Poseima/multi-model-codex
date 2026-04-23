@@ -139,7 +139,10 @@ impl ToolOrchestrator {
         let otel = turn_ctx.session_telemetry.clone();
         let otel_tn = flat_tool_name(&tool_ctx.tool_name).into_owned();
         let otel_ci = &tool_ctx.call_id;
-        let strict_auto_review = tool_ctx.session.strict_auto_review_enabled_for_turn().await;
+        let strict_auto_review = tool_ctx
+            .session
+            .strict_auto_review_enabled_for_sub_id(&turn_ctx.sub_id)
+            .await;
         let use_guardian = routes_approval_to_guardian(turn_ctx) || strict_auto_review;
 
         // 1) Approval
