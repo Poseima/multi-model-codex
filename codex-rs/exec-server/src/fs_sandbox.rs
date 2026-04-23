@@ -15,13 +15,13 @@ use codex_sandboxing::SandboxManager;
 use codex_sandboxing::SandboxTransformRequest;
 use codex_sandboxing::SandboxablePreference;
 use codex_utils_absolute_path::AbsolutePathBuf;
-use codex_utils_absolute_path::canonicalize_preserving_symlinks;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 use crate::ExecServerRuntimePaths;
 use crate::FileSystemSandboxContext;
 use crate::file_system::file_system_policy_has_cwd_dependent_entries;
+use crate::file_system::normalize_top_level_alias;
 use crate::fs_helper::CODEX_FS_HELPER_ARG1;
 use crate::fs_helper::FsHelperPayload;
 use crate::fs_helper::FsHelperRequest;
@@ -119,7 +119,7 @@ impl FileSystemSandboxRunner {
 
 fn sandbox_cwd(sandbox: &FileSystemSandboxContext) -> Result<AbsolutePathBuf, JSONRPCErrorError> {
     if let Some(cwd) = &sandbox.cwd {
-        return Ok(cwd.clone());
+        return Ok(normalize_top_level_alias(cwd.clone()));
     }
 
     let file_system_policy = sandbox.permissions.file_system_sandbox_policy();
@@ -131,6 +131,7 @@ fn sandbox_cwd(sandbox: &FileSystemSandboxContext) -> Result<AbsolutePathBuf, JS
 
     let cwd = current_sandbox_cwd().map_err(io_error)?;
     AbsolutePathBuf::from_absolute_path(cwd.as_path())
+        .map(normalize_top_level_alias)
         .map_err(|err| invalid_request(format!("current directory is not absolute: {err}")))
 }
 
@@ -225,30 +226,6 @@ fn normalize_file_system_policy_root_aliases(file_system_policy: &mut FileSystem
             *path = normalize_top_level_alias(path.clone());
         }
     }
-}
-
-fn normalize_top_level_alias(path: AbsolutePathBuf) -> AbsolutePathBuf {
-    let raw_path = path.to_path_buf();
-    for ancestor in raw_path.ancestors() {
-        if std::fs::symlink_metadata(ancestor).is_err() {
-            continue;
-        }
-        let Ok(normalized_ancestor) = canonicalize_preserving_symlinks(ancestor) else {
-            continue;
-        };
-        if normalized_ancestor == ancestor {
-            continue;
-        }
-        let Ok(suffix) = raw_path.strip_prefix(ancestor) else {
-            continue;
-        };
-        if let Ok(normalized_path) =
-            AbsolutePathBuf::from_absolute_path(normalized_ancestor.join(suffix))
-        {
-            return normalized_path;
-        }
-    }
-    path
 }
 
 fn helper_env() -> HashMap<String, String> {
@@ -362,6 +339,7 @@ mod tests {
     use super::helper_env_from_vars;
     use super::helper_env_key_is_allowed;
     use super::helper_read_roots;
+    use super::normalize_top_level_alias;
     use super::sandbox_cwd;
 
     #[test]
@@ -525,7 +503,10 @@ mod tests {
         )]);
         let sandbox_context = sandbox_context_with_cwd(&policy, cwd.clone());
 
-        assert_eq!(sandbox_cwd(&sandbox_context).expect("sandbox cwd"), cwd);
+        assert_eq!(
+            sandbox_cwd(&sandbox_context).expect("sandbox cwd"),
+            normalize_top_level_alias(cwd)
+        );
     }
 
     #[test]

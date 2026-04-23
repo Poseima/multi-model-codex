@@ -216,20 +216,25 @@ impl ToolHandler for StructuredEditHandler {
                     .filter(|write_paths| !write_paths.is_empty())
                     .and_then(|write_paths| {
                         normalize_additional_permissions(PermissionProfile {
-                            file_system: Some(FileSystemPermissions {
-                                read: Some(vec![]),
-                                write: Some(write_paths),
-                            }),
+                            file_system: Some(FileSystemPermissions::from_read_write_roots(
+                                Some(vec![]),
+                                Some(write_paths),
+                            )),
                             ..Default::default()
                         })
                         .ok()
                     });
                 let granted_permissions = merge_permission_profiles(
                     session.granted_session_permissions().await.as_ref(),
-                    session.granted_turn_permissions().await.as_ref(),
+                    session
+                        .granted_turn_permissions_for_sub_id(&turn.sub_id)
+                        .await
+                        .as_ref(),
                 );
                 let effective_additional_permissions = apply_granted_turn_permissions(
                     session.as_ref(),
+                    &turn.sub_id,
+                    turn.cwd.as_path(),
                     SandboxPermissions::UseDefault,
                     additional_permissions,
                 )

@@ -3444,6 +3444,38 @@ async fn enable_strict_auto_review_for_turn_uses_originating_turn() {
     );
 }
 
+#[tokio::test]
+async fn turn_state_lookup_falls_back_to_active_turn_without_registered_tasks() {
+    let (session, turn_context) = make_session_and_context().await;
+    let active_turn = ActiveTurn::default();
+    let turn_state = Arc::clone(&active_turn.turn_state);
+    *session.active_turn.lock().await = Some(active_turn);
+
+    let requested_permissions = RequestPermissionProfile {
+        network: Some(codex_protocol::models::NetworkPermissions {
+            enabled: Some(true),
+        }),
+        ..RequestPermissionProfile::default()
+    };
+    {
+        let mut turn_state = turn_state.lock().await;
+        turn_state.record_granted_permissions(requested_permissions.clone().into());
+        turn_state.enable_strict_auto_review();
+    }
+
+    assert_eq!(
+        session
+            .granted_turn_permissions_for_sub_id(&turn_context.sub_id)
+            .await,
+        Some(requested_permissions.into())
+    );
+    assert!(
+        session
+            .strict_auto_review_enabled_for_sub_id(&turn_context.sub_id)
+            .await
+    );
+}
+
 #[test]
 fn strict_auto_review_session_scope_grants_no_permissions() {
     let requested_permissions = RequestPermissionProfile {

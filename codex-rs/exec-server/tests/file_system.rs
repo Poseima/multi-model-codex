@@ -634,6 +634,55 @@ async fn file_system_sandboxed_write_allows_additional_write_root(use_remote: bo
 #[test_case(false ; "local")]
 #[test_case(true ; "remote")]
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn file_system_sandboxed_write_allows_additional_write_alias_root(
+    use_remote: bool,
+) -> Result<()> {
+    let Some(alias_root) = alias_root_candidate()? else {
+        return Ok(());
+    };
+
+    let context = create_file_system_context(use_remote).await?;
+    let file_system = context.file_system;
+
+    let readable_dir = TempDir::new()?;
+    let workspace_dir = TempDir::new()?;
+    let writable_dir = tempfile::Builder::new()
+        .prefix("codex-fs-sandbox-additional-alias-")
+        .tempdir_in(&alias_root)?;
+    let file_path = writable_dir.path().join("note.txt");
+
+    let mut sandbox = read_only_sandbox(readable_dir.path().to_path_buf());
+    let additional_permissions = PermissionProfile {
+        network: None,
+        file_system: Some(FileSystemPermissions::from_read_write_roots(
+            /*read*/ None,
+            Some(vec![absolute_path(writable_dir.path().canonicalize()?)]),
+        )),
+    };
+    let Some(permissions) =
+        merge_permission_profiles(Some(&sandbox.permissions), Some(&additional_permissions))
+    else {
+        panic!("merged permissions should not be empty");
+    };
+    sandbox.permissions = permissions;
+    sandbox.cwd = Some(absolute_path(workspace_dir.path().to_path_buf()));
+
+    file_system
+        .write_file(
+            &absolute_path(file_path.clone()),
+            b"created".to_vec(),
+            Some(&sandbox),
+        )
+        .await
+        .with_context(|| format!("write file through additional alias root mode={use_remote}"))?;
+    assert_eq!(std::fs::read(&file_path)?, b"created");
+
+    Ok(())
+}
+
+#[test_case(false ; "local")]
+#[test_case(true ; "remote")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn file_system_sandboxed_read_rejects_symlink_escape(use_remote: bool) -> Result<()> {
     let context = create_file_system_context(use_remote).await?;
     let file_system = context.file_system;

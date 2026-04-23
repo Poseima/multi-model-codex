@@ -104,8 +104,9 @@ impl SlashCommand {
             SlashCommand::MemoryDrop => "DO NOT USE",
             SlashCommand::MemoryUpdate => "DO NOT USE",
             SlashCommand::Model => "choose what model and reasoning effort to use",
-            SlashCommand::Fast =>
-                "toggle Fast mode to enable fastest inference with increased plan usage",
+            SlashCommand::Fast => {
+                "toggle Fast mode to enable fastest inference with increased plan usage"
+            }
             SlashCommand::Provider => "switch between configured model providers",
             SlashCommand::SwitchAccount => "switch auth.json from CODEX_HOME/multi_auths",
             SlashCommand::Personality => "choose a communication style for Codex",

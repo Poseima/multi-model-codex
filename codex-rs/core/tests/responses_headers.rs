@@ -67,6 +67,7 @@ async fn responses_stream_includes_subagent_header_on_review() {
         stream_idle_timeout_ms: Some(5_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     };
 
@@ -193,6 +194,7 @@ async fn responses_stream_includes_subagent_header_on_other() {
         stream_idle_timeout_ms: Some(5_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     };
 
@@ -299,6 +301,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
         env_key_instructions: None,
         experimental_bearer_token: None,
         auth: None,
+        aws: None,
         wire_api: WireApi::Responses,
         query_params: None,
         http_headers: None,
@@ -380,6 +383,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
             summary.unwrap_or(model_info.default_reasoning_summary),
             /*service_tier*/ None,
             /*turn_metadata_header*/ None,
+            &codex_rollout_trace::InferenceTraceContext::disabled(),
         )
         .await
         .expect("stream failed");
@@ -440,6 +444,7 @@ async fn responses_respects_model_info_overrides_from_config() {
         stream_idle_timeout_ms: Some(5_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_websockets: false,
         system_role: None,
     };
 

@@ -476,12 +476,27 @@ impl FileSystemSandboxPolicy {
         let Some(path) = resolve_candidate_path(path, cwd) else {
             return FileSystemAccessMode::None;
         };
+        let path_candidates = normalized_and_canonical_candidates(path.as_path());
 
         self.resolved_entries_with_cwd(cwd)
             .into_iter()
-            .filter(|entry| path.as_path().starts_with(entry.path.as_path()))
-            .max_by_key(resolved_entry_precedence)
-            .map(|entry| entry.access)
+            .filter_map(|entry| {
+                let raw_match = path.as_path().starts_with(entry.path.as_path());
+                normalized_and_canonical_candidates(entry.path.as_path())
+                    .into_iter()
+                    .filter_map(|entry_candidate| {
+                        path_candidates
+                            .iter()
+                            .any(|path_candidate| {
+                                path_candidate.starts_with(entry_candidate.as_path())
+                            })
+                            .then_some(entry_candidate.components().count())
+                    })
+                    .max()
+                    .map(|specificity| (specificity, raw_match, entry.access))
+            })
+            .max_by_key(|(specificity, raw_match, access)| (*specificity, *raw_match, *access))
+            .map(|(_, _, access)| access)
             .unwrap_or(FileSystemAccessMode::None)
     }
 
@@ -1168,13 +1183,6 @@ fn special_path_matches_absolute_path(
     }
 }
 
-/// Orders resolved entries so the most specific path wins first, then applies
-/// the access tie-breaker from [`FileSystemAccessMode`].
-fn resolved_entry_precedence(entry: &ResolvedFileSystemEntry) -> (usize, FileSystemAccessMode) {
-    let specificity = entry.path.as_path().components().count();
-    (specificity, entry.access)
-}
-
 fn absolute_root_path_for_cwd(cwd: &AbsolutePathBuf) -> AbsolutePathBuf {
     let root = cwd
         .as_path()
@@ -1186,13 +1194,32 @@ fn absolute_root_path_for_cwd(cwd: &AbsolutePathBuf) -> AbsolutePathBuf {
 }
 
 fn normalized_and_canonical_candidates(path: &Path) -> Vec<PathBuf> {
-    // Compare the lexical absolute form plus the canonical target when it
-    // exists. Missing paths still need the lexical candidate so future-created
-    // denied paths remain blocked by direct tool checks.
+    // Compare the lexical absolute form plus canonical target spellings we can
+    // derive from the nearest existing ancestor. Missing paths still need the
+    // lexical candidate so future-created denied paths remain blocked by
+    // direct tool checks.
     let mut candidates = Vec::new();
 
     if let Ok(normalized) = AbsolutePathBuf::from_absolute_path(path) {
         push_unique(&mut candidates, normalized.to_path_buf());
+
+        for ancestor in normalized.as_path().ancestors() {
+            let Ok(canonical_ancestor) = ancestor.canonicalize() else {
+                continue;
+            };
+            let Ok(canonical_ancestor) = AbsolutePathBuf::from_absolute_path(canonical_ancestor)
+            else {
+                continue;
+            };
+            let Ok(suffix) = normalized.as_path().strip_prefix(ancestor) else {
+                continue;
+            };
+            push_unique(
+                &mut candidates,
+                canonical_ancestor.join(suffix).to_path_buf(),
+            );
+            break;
+        }
     } else {
         push_unique(&mut candidates, path.to_path_buf());
     }
@@ -2040,6 +2067,34 @@ mod tests {
             policy.resolve_access_with_cwd(docs_private_public.as_path(), cwd.path()),
             FileSystemAccessMode::Write
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_access_with_cwd_matches_missing_child_under_alias_path() {
+        let cwd = TempDir::new().expect("tempdir");
+        let real_root = cwd.path().join("real");
+        let alias_root = cwd.path().join("alias");
+        fs::create_dir_all(&real_root).expect("create real root");
+        symlink_dir(&real_root, &alias_root).expect("create alias symlink");
+
+        let canonical_root = AbsolutePathBuf::from_absolute_path(
+            real_root.canonicalize().expect("canonicalize real root"),
+        )
+        .expect("absolute canonical root");
+        let alias_missing = alias_root.join("missing.txt");
+        let policy = FileSystemSandboxPolicy::restricted(vec![FileSystemSandboxEntry {
+            path: FileSystemPath::Path {
+                path: canonical_root,
+            },
+            access: FileSystemAccessMode::Write,
+        }]);
+
+        assert_eq!(
+            policy.resolve_access_with_cwd(&alias_missing, cwd.path()),
+            FileSystemAccessMode::Write
+        );
+        assert!(policy.can_write_path_with_cwd(&alias_missing, cwd.path()));
     }
 
     #[test]

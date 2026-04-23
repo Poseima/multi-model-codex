@@ -1,10 +1,3 @@
-/// Fork: thin wrapper around [`ModelClient`] that supports mid-session replacement
-/// for `Op::OverrideProvider` while keeping call sites close to upstream.
-///
-/// Uses `std::sync::RwLock` internally. Read-side async methods clone the inner client
-/// before awaiting so the lock is never held across an `.await` point.
-use std::sync::Arc;
-use std::sync::RwLock;
 use crate::client::ModelClient;
 use crate::client::ModelClientSession;
 use crate::client_common::Prompt;
@@ -18,6 +11,13 @@ use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_rollout_trace::CompactionTraceContext;
+/// Fork: thin wrapper around [`ModelClient`] that supports mid-session replacement
+/// for `Op::OverrideProvider` while keeping call sites close to upstream.
+///
+/// Uses `std::sync::RwLock` internally. Read-side async methods clone the inner client
+/// before awaiting so the lock is never held across an `.await` point.
+use std::sync::Arc;
+use std::sync::RwLock;
 
 pub(crate) struct SwappableModelClient {
     inner: RwLock<ModelClient>,

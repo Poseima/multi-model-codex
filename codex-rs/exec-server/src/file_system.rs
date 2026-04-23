@@ -8,6 +8,7 @@ use codex_protocol::permissions::FileSystemSpecialPath;
 use codex_protocol::permissions::NetworkSandboxPolicy;
 use codex_protocol::protocol::SandboxPolicy;
 use codex_utils_absolute_path::AbsolutePathBuf;
+use codex_utils_absolute_path::canonicalize_preserving_symlinks;
 use std::path::Path;
 use tokio::io;
 
@@ -119,6 +120,30 @@ pub(crate) fn file_system_policy_has_cwd_dependent_entries(
             } => true,
             FileSystemPath::Path { .. } | FileSystemPath::Special { .. } => false,
         })
+}
+
+pub(crate) fn normalize_top_level_alias(path: AbsolutePathBuf) -> AbsolutePathBuf {
+    let raw_path = path.to_path_buf();
+    for ancestor in raw_path.ancestors() {
+        if std::fs::symlink_metadata(ancestor).is_err() {
+            continue;
+        }
+        let Ok(normalized_ancestor) = canonicalize_preserving_symlinks(ancestor) else {
+            continue;
+        };
+        if normalized_ancestor == ancestor {
+            continue;
+        }
+        let Ok(suffix) = raw_path.strip_prefix(ancestor) else {
+            continue;
+        };
+        if let Ok(normalized_path) =
+            AbsolutePathBuf::from_absolute_path(normalized_ancestor.join(suffix))
+        {
+            return normalized_path;
+        }
+    }
+    path
 }
 
 pub type FileSystemResult<T> = io::Result<T>;

@@ -434,6 +434,7 @@ impl ShellHandler {
         let requested_additional_permissions = additional_permissions.clone();
         let effective_additional_permissions = apply_granted_turn_permissions(
             session.as_ref(),
+            &turn.sub_id,
             turn.cwd.as_path(),
             exec_params.sandbox_permissions,
             additional_permissions,

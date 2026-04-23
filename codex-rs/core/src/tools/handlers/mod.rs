@@ -171,6 +171,7 @@ pub(super) fn implicit_granted_permissions(
 
 pub(super) async fn apply_granted_turn_permissions(
     session: &Session,
+    turn_sub_id: &str,
     cwd: &std::path::Path,
     sandbox_permissions: SandboxPermissions,
     additional_permissions: Option<PermissionProfile>,
@@ -184,7 +185,9 @@ pub(super) async fn apply_granted_turn_permissions(
     }
 
     let granted_session_permissions = session.granted_session_permissions().await;
-    let granted_turn_permissions = session.granted_turn_permissions().await;
+    let granted_turn_permissions = session
+        .granted_turn_permissions_for_sub_id(turn_sub_id)
+        .await;
     let granted_permissions = merge_permission_profiles(
         granted_session_permissions.as_ref(),
         granted_turn_permissions.as_ref(),

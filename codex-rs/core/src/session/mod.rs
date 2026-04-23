@@ -165,8 +165,8 @@ use crate::config::StartedNetworkProxy;
 use crate::config::resolve_web_search_mode_for_turn;
 use crate::context_manager::ContextManager;
 use crate::context_manager::TotalTokenUsageBreakdown;
-use crate::thread_rollout_truncation::initial_history_has_prior_user_turns;
 use crate::memory_experiment; // Fork: project-scoped memory system
+use crate::thread_rollout_truncation::initial_history_has_prior_user_turns;
 use codex_config::CONFIG_TOML_FILE;
 use codex_config::types::McpServerConfig;
 use codex_config::types::ShellEnvironmentPolicy;
@@ -2290,6 +2290,7 @@ impl Session {
         }
     }
 
+    #[cfg(test)]
     #[expect(
         clippy::await_holding_invalid_type,
         reason = "active turn reads must stay consistent with the matching turn state"
@@ -2301,16 +2302,20 @@ impl Session {
         ts.granted_permissions()
     }
 
-    #[expect(
-        clippy::await_holding_invalid_type,
-        reason = "active turn reads must stay consistent with the matching turn state"
-    )]
-    pub(crate) async fn strict_auto_review_enabled_for_turn(&self) -> bool {
-        let active = self.active_turn.lock().await;
-        let Some(active) = active.as_ref() else {
+    pub(crate) async fn granted_turn_permissions_for_sub_id(
+        &self,
+        sub_id: &str,
+    ) -> Option<PermissionProfile> {
+        let turn_state = self.turn_state_for_sub_id(sub_id).await?;
+        let ts = turn_state.lock().await;
+        ts.granted_permissions()
+    }
+
+    pub(crate) async fn strict_auto_review_enabled_for_sub_id(&self, sub_id: &str) -> bool {
+        let Some(turn_state) = self.turn_state_for_sub_id(sub_id).await else {
             return false;
         };
-        let ts = active.turn_state.lock().await;
+        let ts = turn_state.lock().await;
         ts.strict_auto_review_enabled()
     }
 
@@ -3117,9 +3122,7 @@ impl Session {
     ) -> Option<Arc<tokio::sync::Mutex<crate::state::TurnState>>> {
         let active = self.active_turn.lock().await;
         active.as_ref().and_then(|active_turn| {
-            active_turn
-                .tasks
-                .contains_key(sub_id)
+            (active_turn.tasks.is_empty() || active_turn.tasks.contains_key(sub_id))
                 .then(|| Arc::clone(&active_turn.turn_state))
         })
     }

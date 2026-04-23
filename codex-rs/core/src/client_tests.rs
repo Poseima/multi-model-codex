@@ -163,51 +163,9 @@ fn auth_request_telemetry_context_tracks_attached_auth_and_retry_phase() {
     );
 
     assert_eq!(auth_context.auth_mode, Some("Chatgpt"));
-assert!(auth_context.auth_header_attached);
-assert_eq!(auth_context.auth_header_name, Some("authorization"));
-assert!(auth_context.retry_after_unauthorized);
-assert_eq!(auth_context.recovery_mode, Some("managed"));
-assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
-}
-#[test]
-fn normalize_responses_input_rewrites_system_to_developer_for_openai() {
-    let provider = crate::model_provider_info::ModelProviderInfo::create_openai_provider(None)
-        .to_api_provider(None)
-        .expect("openai provider");
-    let input = vec![
-        test_message("system", "narrative head"),
-        test_message("user", "hello"),
-        test_message("system", "late lore"),
-        test_message("assistant", "prefill"),
-    ];
-
-    let normalized = normalize_responses_input_for_provider(&provider, input);
-
-    assert_eq!(
-        normalized,
-        vec![
-            test_message("developer", "narrative head"),
-            test_message("user", "hello"),
-            test_message("developer", "late lore"),
-            test_message("assistant", "prefill"),
-        ]
-    );
-}
-
-#[test]
-fn normalize_responses_input_keeps_system_for_non_openai_provider() {
-    let provider = crate::model_provider_info::create_oss_provider_with_base_url(
-        "https://example.com/v1",
-        crate::model_provider_info::WireApi::Responses,
-    )
-    .to_api_provider(None)
-    .expect("oss provider");
-    let input = vec![
-        test_message("system", "narrative head"),
-        test_message("assistant", "prefill"),
-    ];
-
-    let normalized = normalize_responses_input_for_provider(&provider, input.clone());
-
-    assert_eq!(normalized, input);
+    assert!(auth_context.auth_header_attached);
+    assert_eq!(auth_context.auth_header_name, Some("authorization"));
+    assert!(auth_context.retry_after_unauthorized);
+    assert_eq!(auth_context.recovery_mode, Some("managed"));
+    assert_eq!(auth_context.recovery_phase, Some("refresh_token"));
 }
