@@ -270,15 +270,15 @@ pub(crate) async fn effective_patch_permissions(
     let environment_id = environment.environment_id.as_str();
     let file_paths = file_paths_for_action(action);
     let native_cwd = cwd.to_abs_path()?;
+    let granted_turn_permissions = session
+        .granted_turn_permissions_for_sub_id(&turn.sub_id)
+        .await;
     let granted_permissions = merge_permission_profiles(
         session
             .granted_session_permissions(environment_id)
             .await
             .as_ref(),
-        session
-            .granted_turn_permissions(environment_id)
-            .await
-            .as_ref(),
+        granted_turn_permissions.as_ref(),
     );
     let base_file_system_sandbox_policy = environment
         .permission_profile_with_workspace_roots()
