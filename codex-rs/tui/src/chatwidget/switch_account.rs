@@ -94,6 +94,7 @@ fn auth_profile_description(auth: &AuthDotJson) -> String {
         Some(AuthMode::ApiKey) => "API key",
         Some(AuthMode::Chatgpt) => "ChatGPT",
         Some(AuthMode::ChatgptAuthTokens) => "ChatGPT external tokens",
+        Some(AuthMode::AgentIdentity) => "Agent identity",
         None => {
             if auth.openai_api_key.is_some() {
                 "API key"
