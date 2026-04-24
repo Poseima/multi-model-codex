@@ -162,7 +162,9 @@ impl App {
                 Ok(forked) => {
                     self.shutdown_current_thread(app_server).await;
                     if let Err(err) = self
-                        .replace_chat_widget_with_app_server_thread(tui, app_server, forked)
+                        .replace_chat_widget_with_app_server_thread(
+                            tui, app_server, forked, /*initial_user_message*/ None,
+                        )
                         .await
                     {
                         self.chat_widget.add_error_message(format!(
@@ -219,7 +221,9 @@ impl App {
         {
             Ok(started) => {
                 if let Err(err) = self
-                    .replace_chat_widget_with_app_server_thread(tui, app_server, started)
+                    .replace_chat_widget_with_app_server_thread(
+                        tui, app_server, started, /*initial_user_message*/ None,
+                    )
                     .await
                 {
                     self.chat_widget.add_error_message(format!(
@@ -322,7 +326,9 @@ impl App {
                         Ok(forked) => {
                             self.shutdown_current_thread(app_server).await;
                             if let Err(err) = self
-                                .replace_chat_widget_with_app_server_thread(tui, app_server, forked)
+                                .replace_chat_widget_with_app_server_thread(
+                                    tui, app_server, forked, /*initial_user_message*/ None,
+                                )
                                 .await
                             {
                                 self.chat_widget.add_error_message(format!(
@@ -378,7 +384,7 @@ impl App {
                         Ok(started) => {
                             if let Err(err) = self
                                 .replace_chat_widget_with_app_server_thread(
-                                    tui, app_server, started,
+                                    tui, app_server, started, /*initial_user_message*/ None,
                                 )
                                 .await
                             {
