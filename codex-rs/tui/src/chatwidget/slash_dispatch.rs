@@ -794,9 +794,12 @@ impl ChatWidget {
             | SlashCommand::Compact
             | SlashCommand::Review
             | SlashCommand::Model
+            | SlashCommand::Provider
+            | SlashCommand::SwitchAccount
             | SlashCommand::Realtime
             | SlashCommand::Settings
             | SlashCommand::Personality
+            | SlashCommand::Archive
             | SlashCommand::Plan
             | SlashCommand::Collab
             | SlashCommand::Side
@@ -813,6 +816,7 @@ impl ChatWidget {
             | SlashCommand::Logout
             | SlashCommand::Mention
             | SlashCommand::Skills
+            | SlashCommand::Profile
             | SlashCommand::Title
             | SlashCommand::Statusline
             | SlashCommand::Theme => QueueDrain::Stop,

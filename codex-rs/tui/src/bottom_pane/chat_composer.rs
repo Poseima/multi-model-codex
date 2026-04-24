@@ -3940,10 +3940,31 @@ impl ChatComposer {
                 } else {
                     let available_width =
                         hint_rect.width.saturating_sub(FOOTER_INDENT_COLS as u16) as usize;
-                    let status_line_active = uses_passive_footer_status_layout(&footer_props);
+                    let has_side_conversation_context_label =
+                        self.side_conversation_context_label.is_some();
+                    let passive_footer_status_active =
+                        uses_passive_footer_status_layout(&footer_props);
+                    let status_line_active = passive_footer_status_active
+                        || (has_side_conversation_context_label
+                            && footer_props.status_line_enabled);
                     let combined_status_line = if status_line_active {
-                        passive_footer_status_line(&footer_props)
-                            .map(ratatui::prelude::Stylize::dim)
+                        if passive_footer_status_active {
+                            passive_footer_status_line(&footer_props)
+                        } else {
+                            let mut line = footer_props.status_line_value.clone();
+                            if let Some(active_agent_label) =
+                                footer_props.active_agent_label.as_ref()
+                            {
+                                if let Some(existing) = line.as_mut() {
+                                    existing.spans.push(" · ".into());
+                                    existing.spans.push(active_agent_label.clone().into());
+                                } else {
+                                    line = Some(Line::from(active_agent_label.clone()));
+                                }
+                            }
+                            line
+                        }
+                        .map(ratatui::prelude::Stylize::dim)
                     } else {
                         None
                     };
@@ -4050,7 +4071,9 @@ impl ChatComposer {
                             | FooterMode::ContextOnly => None,
                         }
                     };
-                    let show_right = if matches!(
+                    let show_right = if has_side_conversation_context_label {
+                        can_show_left_and_context
+                    } else if matches!(
                         footer_props.mode,
                         FooterMode::EscHint
                             | FooterMode::HistorySearch
