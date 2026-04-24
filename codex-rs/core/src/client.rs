@@ -155,6 +155,8 @@ const RESPONSES_COMPACT_ENDPOINT: &str = "/responses/compact";
 // period between stream events.
 const COMPACT_REQUEST_TIMEOUT_IDLE_MULTIPLIER: u32 = 4;
 const MEMORIES_SUMMARIZE_ENDPOINT: &str = "/memories/trace_summarize";
+const OPENAI_REALTIME_API_BASE_URL: &str = "https://api.openai.com/v1";
+const CHATGPT_CODEX_BACKEND_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
 #[cfg(test)]
 pub(crate) const WEBSOCKET_CONNECT_TIMEOUT: Duration =
     Duration::from_millis(DEFAULT_WEBSOCKET_CONNECT_TIMEOUT_MS);
@@ -352,6 +354,17 @@ pub(crate) struct RealtimeWebrtcCallStart {
     pub(crate) sdp: String,
     pub(crate) call_id: String,
     pub(crate) sideband_headers: ApiHeaderMap,
+}
+
+fn realtime_call_provider(mut provider: ApiProvider) -> ApiProvider {
+    if provider
+        .base_url
+        .trim_end_matches('/')
+        .eq_ignore_ascii_case(CHATGPT_CODEX_BACKEND_BASE_URL)
+    {
+        provider.base_url = OPENAI_REALTIME_API_BASE_URL.to_string();
+    }
+    provider
 }
 
 /// Reuses the API-auth material that created the WebRTC call for the sideband WebSocket join.
@@ -596,6 +609,8 @@ impl ModelClient {
         // Create the media call over HTTP first, then retain matching auth so realtime can attach
         // the server-side control WebSocket to the call id from that HTTP response.
         let client_setup = self.current_client_setup().await?;
+        let api_provider =
+            api_provider_override.unwrap_or_else(|| realtime_call_provider(client_setup.api_provider));
         if let Some(header_value) = self.generate_attestation_header_for().await {
             extra_headers.insert(X_OAI_ATTESTATION_HEADER, header_value);
         }
@@ -603,7 +618,6 @@ impl ModelClient {
         sideband_headers.extend(sideband_websocket_auth_headers(
             client_setup.api_auth.as_ref(),
         ));
-        let api_provider = api_provider_override.unwrap_or(client_setup.api_provider);
         let transport = ReqwestTransport::new(build_reqwest_client_for_url(&api_provider.base_url));
         let response = ApiRealtimeCallClient::new(transport, api_provider, client_setup.api_auth)
             .create_with_session_and_headers(sdp, session_config, extra_headers)

@@ -2325,6 +2325,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(params.base_instructions.as_deref(), Some("Base override."));
