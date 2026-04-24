@@ -1259,6 +1259,8 @@ impl ChatWidget {
             | SlashCommand::Compact
             | SlashCommand::Review
             | SlashCommand::Model
+            | SlashCommand::Provider
+            | SlashCommand::SwitchAccount
             | SlashCommand::Plan
             | SlashCommand::Goal
             | SlashCommand::Side
@@ -1278,6 +1280,7 @@ impl ChatWidget {
             | SlashCommand::Skills
             | SlashCommand::Import
             | SlashCommand::Hooks
+            | SlashCommand::Profile
             | SlashCommand::Title
             | SlashCommand::Statusline
             | SlashCommand::Theme
