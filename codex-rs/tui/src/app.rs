@@ -187,15 +187,9 @@ mod agent_navigation;
 mod app_server_event_targets;
 mod app_server_events;
 pub(crate) mod app_server_requests;
-mod background_requests;
-mod config_persistence;
-mod event_dispatch;
-mod history_ui;
-mod input;
 mod loaded_threads;
 mod pending_interactive_replay;
 mod pets;
-mod platform_actions;
 mod prompt_profile_support;
 mod replay_filter;
 mod resize_reflow;
@@ -212,7 +206,6 @@ use self::agent_navigation::AgentNavigationState;
 use self::app_server_requests::PendingAppServerRequests;
 use self::loaded_threads::find_loaded_subagent_threads_for_primary;
 use self::pending_interactive_replay::PendingInteractiveReplayState;
-use self::platform_actions::*;
 use self::side::SideParentStatus;
 use self::side::SideParentStatusChange;
 use self::side::SideThreadState;
@@ -329,6 +322,13 @@ struct AutoReviewMode {
     permission_profile: PermissionProfile,
 }
 
+#[derive(Default)]
+struct WindowsSandboxState {
+    setup_started_at: Option<Instant>,
+    // One-shot suppression of the next world-writable scan after user confirmation.
+    skip_world_writable_scan_once: bool,
+}
+
 /// Enabling the Auto-review experiment in the TUI should also switch the
 /// current `/permissions` settings to the matching Auto-review mode. Users
 /// can still change `/permissions` afterward; this just assumes that opting into
@@ -349,6 +349,9 @@ fn managed_filesystem_sandbox_is_restricted(permission_profile: &PermissionProfi
     )
 }
 
+fn guardian_approvals_mode() -> AutoReviewMode {
+    auto_review_mode()
+}
 /// Baseline cadence for periodic stream commit animation ticks.
 ///
 /// Smooth-mode streaming drains one line per tick, so this interval controls
@@ -1467,6 +1470,58 @@ impl App {
         }
     }
 
+    fn push_thread_interactive_request(&mut self, request: ThreadInteractiveRequest) {
+        match request {
+            ThreadInteractiveRequest::Approval(request) => {
+                self.chat_widget.push_approval_request(request);
+            }
+            ThreadInteractiveRequest::McpServerElicitation(request) => {
+                self.chat_widget
+                    .push_mcp_server_elicitation_request(request);
+            }
+        }
+    }
+
+    async fn pending_inactive_thread_requests(&self) -> Vec<(ThreadId, ServerRequest)> {
+        let channels: Vec<(ThreadId, Arc<Mutex<ThreadEventStore>>)> = self
+            .thread_event_channels
+            .iter()
+            .map(|(thread_id, channel)| (*thread_id, Arc::clone(&channel.store)))
+            .collect();
+
+        let mut requests = Vec::new();
+        for (thread_id, store) in channels {
+            if Some(thread_id) == self.active_thread_id {
+                continue;
+            }
+
+            let store = store.lock().await;
+            requests.extend(
+                store
+                    .pending_replay_requests()
+                    .into_iter()
+                    .map(|request| (thread_id, request)),
+            );
+        }
+        requests
+    }
+
+    async fn surface_pending_inactive_thread_interactive_requests(&mut self) {
+        if self.active_side_parent_thread_id().is_some() {
+            return;
+        }
+
+        let requests = self.pending_inactive_thread_requests().await;
+        for (thread_id, request) in requests {
+            if let Some(request) = self
+                .interactive_request_for_thread_request(thread_id, &request)
+                .await
+            {
+                self.push_thread_interactive_request(request);
+            }
+        }
+    }
+
     async fn submit_active_thread_op(
         &mut self,
         app_server: &mut AppServerSession,
@@ -1525,14 +1580,18 @@ impl App {
     /// tradeoff because the effect is limited to stale inventory output in history,
     /// while request-token invalidation would add cross-cutting async state for a
     /// low-severity path.
-    fn fetch_mcp_inventory(&mut self, app_server: &AppServerSession) {
+    fn fetch_mcp_inventory(
+        &mut self,
+        app_server: &AppServerSession,
+        detail: McpServerStatusDetail,
+    ) {
         let request_handle = app_server.request_handle();
         let app_event_tx = self.app_event_tx.clone();
         tokio::spawn(async move {
-            let result = fetch_all_mcp_server_statuses(request_handle)
+            let result = fetch_all_mcp_server_statuses(request_handle, detail)
                 .await
                 .map_err(|err| err.to_string());
-            app_event_tx.send(AppEvent::McpInventoryLoaded { result });
+            app_event_tx.send(AppEvent::McpInventoryLoaded { result, detail });
         });
     }
 
@@ -1857,7 +1916,11 @@ impl App {
     ///
     /// When both the local config and the app-server report zero servers, a special
     /// "empty" cell is shown instead of the full table.
-    fn handle_mcp_inventory_result(&mut self, result: Result<Vec<McpServerStatus>, String>) {
+    fn handle_mcp_inventory_result(
+        &mut self,
+        result: Result<Vec<McpServerStatus>, String>,
+        detail: McpServerStatusDetail,
+    ) {
         let config = self.chat_widget.config_ref().clone();
         self.chat_widget.clear_mcp_inventory_loading();
         self.clear_committed_mcp_inventory_loading();
@@ -1879,9 +1942,7 @@ impl App {
 
         self.chat_widget
             .add_to_history(history_cell::new_mcp_tools_output_from_statuses(
-                &config,
-                &statuses,
-                McpServerStatusDetail::ToolsAndAuthOnly,
+                &config, &statuses, detail,
             ));
     }
 
@@ -2219,8 +2280,11 @@ impl App {
             .collect();
 
         let mut pending_thread_ids = Vec::new();
+        let active_side_parent_thread_id = self.active_side_parent_thread_id();
         for (thread_id, store) in channels {
-            if Some(thread_id) == self.active_thread_id {
+            if Some(thread_id) == self.active_thread_id
+                || Some(thread_id) == active_side_parent_thread_id
+            {
                 continue;
             }
 
@@ -2253,7 +2317,7 @@ impl App {
             (channel.sender.clone(), Arc::clone(&channel.store))
         };
 
-        let should_send = {
+        let (should_send, pending_status) = {
             let mut guard = store.lock().await;
             if guard.session.is_none()
                 && let Some(session) = inferred_session
@@ -2261,8 +2325,9 @@ impl App {
                 guard.session = Some(session);
             }
             guard.push_notification(notification.clone());
-            guard.active
+            (guard.active, guard.side_parent_pending_status())
         };
+        let notification_status_change = SideParentStatusChange::for_notification(&notification);
 
         if should_send {
             match sender.try_send(ThreadBufferedEvent::Notification(notification)) {
@@ -2278,6 +2343,11 @@ impl App {
                     tracing::warn!("thread {thread_id} event channel closed");
                 }
             }
+        }
+        if let Some(status) = pending_status {
+            self.set_side_parent_status(thread_id, Some(status));
+        } else if let Some(change) = notification_status_change {
+            self.apply_side_parent_status_change(thread_id, change);
         }
         self.refresh_pending_thread_approvals().await;
         Ok(())
@@ -2394,11 +2464,12 @@ impl App {
             (channel.sender.clone(), Arc::clone(&channel.store))
         };
 
-        let should_send = {
+        let (should_send, pending_status) = {
             let mut guard = store.lock().await;
             guard.push_request(request.clone());
-            guard.active
+            (guard.active, guard.side_parent_pending_status())
         };
+        let request_status = SideParentStatus::for_request(&request);
 
         if should_send {
             match sender.try_send(ThreadBufferedEvent::Request(request)) {
@@ -2414,16 +2485,13 @@ impl App {
                     tracing::warn!("thread {thread_id} event channel closed");
                 }
             }
-        } else if let Some(request) = inactive_interactive_request {
-            match request {
-                ThreadInteractiveRequest::Approval(request) => {
-                    self.chat_widget.push_approval_request(request);
-                }
-                ThreadInteractiveRequest::McpServerElicitation(request) => {
-                    self.chat_widget
-                        .push_mcp_server_elicitation_request(request);
-                }
-            }
+        } else if self.active_side_parent_thread_id().is_none()
+            && let Some(request) = inactive_interactive_request
+        {
+            self.push_thread_interactive_request(request);
+        }
+        if let Some(status) = pending_status.or(request_status) {
+            self.set_side_parent_status(thread_id, Some(status));
         }
         self.refresh_pending_thread_approvals().await;
         Ok(())
@@ -2806,6 +2874,7 @@ impl App {
             .unwrap_or(ThreadSessionState {
                 thread_id,
                 forked_from_id: None,
+                fork_parent_title: None,
                 thread_name: None,
                 model: self.chat_widget.current_model().to_string(),
                 model_provider_id: self.config.model_provider_id.clone(),
@@ -2815,6 +2884,7 @@ impl App {
                 approval_policy: self.config.permissions.approval_policy.value(),
                 approvals_reviewer: self.config.approvals_reviewer,
                 sandbox_policy: self.config.permissions.sandbox_policy.get().clone(),
+                permission_profile: None,
                 cwd: thread.cwd.clone(),
                 instruction_source_paths: Vec::new(),
                 reasoning_effort: self.chat_widget.current_reasoning_effort(),
@@ -2829,6 +2899,7 @@ impl App {
         session.prompt_profile = thread.prompt_profile.clone();
         session.prompt_profile_path = thread.prompt_profile_path.clone();
         session.cwd = thread.cwd.clone();
+        session.permission_profile = None;
         session.instruction_source_paths = Vec::new();
         session.rollout_path = thread.path.clone();
         if let Some(model) =
@@ -3338,9 +3409,13 @@ impl App {
         snapshot: ThreadEventSnapshot,
         resume_restored_queue: bool,
     ) {
+        let suppress_replay_notices =
+            replay_filter::snapshot_has_pending_interactive_request(&snapshot);
         if let Some(session) = snapshot.session {
             if self.side_threads.contains_key(&session.thread_id) {
                 self.chat_widget.handle_side_thread_session(session);
+            } else if suppress_replay_notices {
+                self.chat_widget.handle_thread_session_quiet(session);
             } else {
                 self.chat_widget.handle_thread_session(session);
             }
@@ -3354,6 +3429,9 @@ impl App {
                 .replay_thread_turns(snapshot.turns, ReplayKind::ThreadSnapshot);
         }
         for event in snapshot.events {
+            if suppress_replay_notices && replay_filter::event_is_notice(&event) {
+                continue;
+            }
             self.handle_thread_event_replay(event);
         }
         self.chat_widget
@@ -4179,13 +4257,7 @@ See the Codex keymap documentation for supported actions and examples."
                 tui.frame_requester().schedule_frame();
             }
             AppEvent::ResumeSessionByIdOrName(id_or_name) => {
-                match crate::lookup_session_target_with_app_server(
-                    app_server,
-                    self.config.codex_home.as_path(),
-                    &id_or_name,
-                )
-                .await?
-                {
+                match crate::lookup_session_target_with_app_server(app_server, &id_or_name).await? {
                     Some(target_session) => {
                         return self
                             .resume_target_session(tui, app_server, target_session)
@@ -4543,11 +4615,11 @@ See the Codex keymap documentation for supported actions and examples."
                         .on_plugin_enabled_set(cwd, plugin_id, enabled, result);
                 }
             }
-            AppEvent::FetchMcpInventory => {
-                self.fetch_mcp_inventory(app_server);
+            AppEvent::FetchMcpInventory { detail } => {
+                self.fetch_mcp_inventory(app_server, detail);
             }
-            AppEvent::McpInventoryLoaded { result } => {
-                self.handle_mcp_inventory_result(result);
+            AppEvent::McpInventoryLoaded { result, detail } => {
+                self.handle_mcp_inventory_result(result, detail);
             }
             AppEvent::SkillsListLoaded { result } => {
                 self.handle_skills_list_result(
@@ -6298,6 +6370,7 @@ fn side_return_shortcut_matches(key_event: KeyEvent) -> bool {
 /// the inventory atomically. Each page requests up to 100 entries.
 async fn fetch_all_mcp_server_statuses(
     request_handle: AppServerRequestHandle,
+    detail: McpServerStatusDetail,
 ) -> Result<Vec<McpServerStatus>> {
     let mut cursor = None;
     let mut statuses = Vec::new();
@@ -6310,7 +6383,7 @@ async fn fetch_all_mcp_server_statuses(
                 params: ListMcpServerStatusParams {
                     cursor: cursor.clone(),
                     limit: Some(100),
-                    detail: Some(McpServerStatusDetail::ToolsAndAuthOnly),
+                    detail: Some(detail),
                 },
             })
             .await

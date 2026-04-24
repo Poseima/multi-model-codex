@@ -1013,9 +1013,12 @@ impl ChatWidget {
             | SlashCommand::Compact
             | SlashCommand::Review
             | SlashCommand::Model
+            | SlashCommand::Provider
+            | SlashCommand::SwitchAccount
             | SlashCommand::Realtime
             | SlashCommand::Settings
             | SlashCommand::Personality
+            | SlashCommand::Archive
             | SlashCommand::Plan
             | SlashCommand::Goal
             | SlashCommand::Collab
@@ -1035,6 +1038,7 @@ impl ChatWidget {
             | SlashCommand::Mention
             | SlashCommand::Skills
             | SlashCommand::Hooks
+            | SlashCommand::Profile
             | SlashCommand::Title
             | SlashCommand::Statusline
             | SlashCommand::Theme

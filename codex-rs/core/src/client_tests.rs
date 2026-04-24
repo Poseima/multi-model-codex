@@ -7,6 +7,7 @@ use super::X_CODEX_PARENT_THREAD_ID_HEADER;
 use super::X_CODEX_TURN_METADATA_HEADER;
 use super::X_CODEX_WINDOW_ID_HEADER;
 use super::X_OPENAI_SUBAGENT_HEADER;
+use super::realtime_call_provider;
 use crate::AttestationContext;
 use crate::AttestationProvider;
 use crate::GenerateAttestationFuture;
@@ -243,6 +244,29 @@ impl futures::Stream for NotifyAfterEventStream {
         }
         Poll::Ready(Some(Ok(event)))
     }
+}
+
+#[test]
+fn realtime_call_provider_uses_openai_api_for_default_chatgpt_backend() {
+    let provider = ModelProviderInfo::create_openai_provider(/*base_url*/ None)
+        .to_api_provider(Some(AuthMode::Chatgpt))
+        .expect("api provider");
+    assert_eq!(provider.base_url, "https://chatgpt.com/backend-api/codex");
+
+    let provider = realtime_call_provider(provider);
+
+    assert_eq!(provider.base_url, "https://api.openai.com/v1");
+}
+
+#[test]
+fn realtime_call_provider_keeps_custom_base_url() {
+    let provider = create_oss_provider_with_base_url("https://example.com/v1", WireApi::Responses)
+        .to_api_provider(/*auth_mode*/ None)
+        .expect("api provider");
+
+    let rewritten = realtime_call_provider(provider.clone());
+
+    assert_eq!(rewritten.base_url, provider.base_url);
 }
 
 #[test]
