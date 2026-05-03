@@ -1255,6 +1255,8 @@ async fn submit_user_message_emits_structured_plugin_mentions_from_bindings() {
         thread_name: None,
         model: "test-model".to_string(),
         model_provider_id: "test-provider".to_string(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         service_tier: None,
         approval_policy: AskForApproval::Never,
         approvals_reviewer: ApprovalsReviewer::User,

@@ -129,6 +129,7 @@ use codex_history::ResponseItemEnvelope;
 use codex_history::ResumedHistory;
 use codex_history::RolloutItem;
 use codex_network_proxy::NetworkProxyConfig;
+use codex_network_proxy::PROXY_ACTIVE_ENV_KEY;
 use codex_otel::MetricsClient;
 use codex_otel::MetricsConfig;
 use codex_otel::TelemetryAuthMode;
@@ -1553,9 +1554,11 @@ async fn user_shell_commands_do_not_inherit_managed_network_proxy() -> anyhow::R
     assert!(turn_context.network.is_some());
 
     #[cfg(windows)]
-    let command = r#"$val = $env:HTTP_PROXY; if ([string]::IsNullOrEmpty($val)) { $val = 'not-set' } ; [System.Console]::Write($val)"#.to_string();
+    let command = format!(
+        r#"$val = $env:{PROXY_ACTIVE_ENV_KEY}; if ([string]::IsNullOrEmpty($val)) {{ $val = 'not-set' }} ; [System.Console]::Write($val)"#
+    );
     #[cfg(not(windows))]
-    let command = r#"sh -c "printf '%s' \"${HTTP_PROXY:-not-set}\"""#.to_string();
+    let command = format!(r#"sh -c "printf '%s' \"${{{PROXY_ACTIVE_ENV_KEY}:-not-set}}\"""#);
 
     execute_user_shell_command(
         Arc::clone(&session),
