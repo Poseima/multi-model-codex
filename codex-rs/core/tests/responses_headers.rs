@@ -397,7 +397,6 @@ async fn responses_stream_includes_thread_spawn_headers() {
         content: vec![ContentItem::InputText {
             text: "hello".into(),
         }],
-        end_turn: None,
         phase: None,
     }];
 

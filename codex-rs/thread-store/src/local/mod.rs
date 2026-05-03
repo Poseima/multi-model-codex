@@ -1130,6 +1130,8 @@ mod tests {
             source: SessionSource::Exec,
             thread_source: None,
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             multi_agent_version: None,
             metadata: thread_metadata(),

@@ -95,6 +95,7 @@ use codex_execpolicy::Decision;
 use codex_execpolicy::NetworkRuleProtocol;
 use codex_execpolicy::Policy;
 use codex_network_proxy::NetworkProxyConfig;
+use codex_network_proxy::PROXY_ACTIVE_ENV_KEY;
 use codex_otel::MetricsClient;
 use codex_otel::MetricsConfig;
 use codex_otel::THREAD_SKILLS_DESCRIPTION_TRUNCATED_CHARS_METRIC;
@@ -1151,9 +1152,11 @@ async fn user_shell_commands_do_not_inherit_managed_network_proxy() -> anyhow::R
     assert!(turn_context.network.is_some());
 
     #[cfg(windows)]
-    let command = r#"$val = $env:HTTP_PROXY; if ([string]::IsNullOrEmpty($val)) { $val = 'not-set' } ; [System.Console]::Write($val)"#.to_string();
+    let command = format!(
+        r#"$val = $env:{PROXY_ACTIVE_ENV_KEY}; if ([string]::IsNullOrEmpty($val)) {{ $val = 'not-set' }} ; [System.Console]::Write($val)"#
+    );
     #[cfg(not(windows))]
-    let command = r#"sh -c "printf '%s' \"${HTTP_PROXY:-not-set}\"""#.to_string();
+    let command = format!(r#"sh -c "printf '%s' \"${{{PROXY_ACTIVE_ENV_KEY}:-not-set}}\"""#);
 
     execute_user_shell_command(
         Arc::clone(&session),
@@ -3761,6 +3764,8 @@ async fn attach_thread_persistence(session: &mut Session) -> PathBuf {
             source: SessionSource::Exec,
             thread_source: None,
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             multi_agent_version: None,
             metadata: ThreadPersistenceMetadata {
@@ -5195,7 +5200,6 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
         services,
         next_internal_sub_id: AtomicU64::new(0),
-        agent_task_registration_lock: Mutex::new(()),
         inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     };
 
@@ -6643,6 +6647,8 @@ async fn shutdown_complete_does_not_append_to_thread_store_after_shutdown() {
             source: SessionSource::Exec,
             thread_source: None,
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             multi_agent_version: None,
             metadata: ThreadPersistenceMetadata {
@@ -7292,7 +7298,6 @@ where
         guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
         services,
         next_internal_sub_id: AtomicU64::new(0),
-        agent_task_registration_lock: Mutex::new(()),
         inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     });
 

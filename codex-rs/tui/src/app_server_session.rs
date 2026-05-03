@@ -1451,6 +1451,14 @@ fn thread_start_params_from_config(
     prompt_profile: Option<PromptSource>,
 ) -> ThreadStartParams {
     let permissions = permissions_selection_from_config(config, thread_params_mode);
+    let prompt_profile_path = prompt_profile.as_ref().and_then(|prompt_profile| {
+        prompt_profile
+            .origin
+            .as_ref()?
+            .source_path
+            .as_ref()
+            .map(PathBuf::from)
+    });
     let sandbox = permissions
         .is_none()
         .then(|| {
@@ -1464,6 +1472,7 @@ fn thread_start_params_from_config(
         model: config.model.clone(),
         model_provider: thread_params_mode.model_provider_from_config(config),
         service_tier: service_tier_override_from_config(config),
+        prompt_profile_path,
         cwd: thread_cwd_from_config(config, thread_params_mode, remote_cwd_override),
         runtime_workspace_roots: Some(config.workspace_roots.clone()),
         approval_policy: Some(config.permissions.approval_policy.value().into()),
@@ -1527,6 +1536,14 @@ fn thread_fork_params_from_config(
     clear_prompt_profile: bool,
 ) -> ThreadForkParams {
     let permissions = permissions_selection_from_config(&config, thread_params_mode);
+    let prompt_profile_path = prompt_profile.as_ref().and_then(|prompt_profile| {
+        prompt_profile
+            .origin
+            .as_ref()?
+            .source_path
+            .as_ref()
+            .map(PathBuf::from)
+    });
     let sandbox = permissions
         .is_none()
         .then(|| {
@@ -1541,6 +1558,7 @@ fn thread_fork_params_from_config(
         model: config.model.clone(),
         model_provider: thread_params_mode.model_provider_from_config(&config),
         service_tier: service_tier_override_from_config(&config),
+        prompt_profile_path,
         cwd: thread_cwd_from_config(&config, thread_params_mode, remote_cwd_override),
         runtime_workspace_roots: Some(config.workspace_roots.clone()),
         approval_policy: Some(config.permissions.approval_policy.value().into()),
