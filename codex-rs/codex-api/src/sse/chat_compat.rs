@@ -43,7 +43,10 @@ pub(crate) fn spawn_chat_stream(
         )
         .await;
     });
-    ResponseStream { rx_event }
+    ResponseStream {
+        rx_event,
+        upstream_request_id: None,
+    }
 }
 
 /// Processes Server-Sent Events from the Chat Completions streaming API.
@@ -128,6 +131,7 @@ async fn process_chat_sse_with_format<S>(
             .send(Ok(ResponseEvent::Completed {
                 response_id: String::new(),
                 token_usage,
+                end_turn: None,
             }))
             .await;
     }
@@ -448,7 +452,6 @@ async fn append_assistant_text(
             id: None,
             role: "assistant".to_string(),
             content: vec![],
-            end_turn: None,
             phase: None,
         };
         *assistant_item = Some(item.clone());

@@ -192,6 +192,7 @@ fn model_provider_from_proto(
         requires_openai_auth: provider.requires_openai_auth,
         supports_websockets: provider.supports_websockets,
         supports_standalone_web_search: provider.supports_standalone_web_search,
+        system_role: None,
     };
     Ok((id, info))
 }
@@ -220,6 +221,7 @@ fn model_provider_to_proto(
         requires_openai_auth,
         supports_websockets,
         supports_standalone_web_search,
+        system_role: _,
     } = provider;
 
     proto::ModelProvider {
@@ -305,6 +307,7 @@ fn proto_string_map(values: HashMap<String, RedactedString>) -> proto::StringMap
 fn proto_wire_api(wire_api: WireApi) -> proto::WireApi {
     match wire_api {
         WireApi::Responses => proto::WireApi::Responses,
+        WireApi::Chat => panic!("chat wire api is not supported in remote thread config proto"),
     }
 }
 
@@ -568,6 +571,7 @@ mod tests {
             requires_openai_auth: false,
             supports_websockets: true,
             supports_standalone_web_search: true,
+            system_role: None,
             aws: None,
         }
     }
