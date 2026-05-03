@@ -190,6 +190,7 @@ fn model_provider_from_proto(
         websocket_connect_timeout_ms: provider.websocket_connect_timeout_ms,
         requires_openai_auth: provider.requires_openai_auth,
         supports_websockets: provider.supports_websockets,
+        system_role: None,
     };
     Ok((id, info))
 }
@@ -217,6 +218,7 @@ fn model_provider_to_proto(
         websocket_connect_timeout_ms,
         requires_openai_auth,
         supports_websockets,
+        system_role: _,
     } = provider;
 
     proto::ModelProvider {
@@ -289,6 +291,7 @@ fn proto_string_map(values: HashMap<String, String>) -> proto::StringMap {
 fn proto_wire_api(wire_api: WireApi) -> proto::WireApi {
     match wire_api {
         WireApi::Responses => proto::WireApi::Responses,
+        WireApi::Chat => panic!("chat wire api is not supported in remote thread config proto"),
     }
 }
 
@@ -536,6 +539,7 @@ mod tests {
             websocket_connect_timeout_ms: Some(10_000),
             requires_openai_auth: false,
             supports_websockets: true,
+            system_role: None,
             aws: None,
         }
     }

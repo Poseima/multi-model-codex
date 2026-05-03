@@ -1504,6 +1504,8 @@ async fn seed_pathless_store_thread(
             thread_source: None,
             originator: "test_originator".to_string(),
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             selected_capability_roots: Vec::new(),
             multi_agent_version: None,

@@ -1263,6 +1263,42 @@ async fn multi_agent_feature_selects_one_agent_tool_family() {
     let ToolSpec::Namespace(namespace) = v2.visible_spec(MULTI_AGENT_V2_NAMESPACE) else {
         panic!("expected {MULTI_AGENT_V2_NAMESPACE} namespace");
     };
+    let Some(ResponsesApiNamespaceTool::Function(send_message)) =
+        namespace.tools.iter().find(|tool| {
+            matches!(
+                tool,
+                ResponsesApiNamespaceTool::Function(tool) if tool.name == "send_message"
+            )
+        })
+    else {
+        panic!("expected send_message in {MULTI_AGENT_V2_NAMESPACE} namespace");
+    };
+    assert!(
+        !send_message
+            .parameters
+            .properties
+            .as_ref()
+            .expect("send_message should use object params")
+            .contains_key("interrupt")
+    );
+    let Some(ResponsesApiNamespaceTool::Function(followup_task)) =
+        namespace.tools.iter().find(|tool| {
+            matches!(
+                tool,
+                ResponsesApiNamespaceTool::Function(tool) if tool.name == "followup_task"
+            )
+        })
+    else {
+        panic!("expected followup_task in {MULTI_AGENT_V2_NAMESPACE} namespace");
+    };
+    assert!(
+        followup_task
+            .parameters
+            .properties
+            .as_ref()
+            .expect("followup_task should use object params")
+            .contains_key("interrupt")
+    );
     let Some(ResponsesApiNamespaceTool::Function(spawn_agent)) =
         namespace.tools.iter().find(|tool| {
             matches!(

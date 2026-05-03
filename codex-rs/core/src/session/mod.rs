@@ -2722,16 +2722,20 @@ impl Session {
         ts.granted_permissions(environment_id)
     }
 
-    #[expect(
-        clippy::await_holding_invalid_type,
-        reason = "active turn reads must stay consistent with the matching turn state"
-    )]
-    pub(crate) async fn strict_auto_review_enabled_for_turn(&self) -> bool {
-        let active = self.active_turn.lock().await;
-        let Some(active) = active.as_ref() else {
+    pub(crate) async fn granted_turn_permissions_for_sub_id(
+        &self,
+        sub_id: &str,
+    ) -> Option<AdditionalPermissionProfile> {
+        let turn_state = self.turn_state_for_sub_id(sub_id).await?;
+        let ts = turn_state.lock().await;
+        ts.granted_permissions()
+    }
+
+    pub(crate) async fn strict_auto_review_enabled_for_sub_id(&self, sub_id: &str) -> bool {
+        let Some(turn_state) = self.turn_state_for_sub_id(sub_id).await else {
             return false;
         };
-        let ts = active.turn_state.lock().await;
+        let ts = turn_state.lock().await;
         ts.strict_auto_review_enabled()
     }
 

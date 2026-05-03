@@ -167,6 +167,7 @@ use super::footer::FooterProps;
 use super::footer::GoalStatusIndicator;
 use super::footer::SummaryLeft;
 use super::footer::can_show_left_with_context;
+use super::footer::context_window_line;
 use super::footer::esc_hint_mode;
 use super::footer::footer_height;
 use super::footer::footer_hint_items_width;
@@ -3437,6 +3438,8 @@ impl ChatComposer {
             is_wsl,
             status_line_value: self.footer.status_line_value.clone(),
             status_line_enabled: self.footer.status_line_enabled,
+            context_window_percent: self.footer.context_window_percent,
+            context_window_used_tokens: self.footer.context_window_used_tokens,
             key_hints: FooterKeyHints {
                 toggle_shortcuts: self.footer.toggle_shortcuts_key,
                 queue: self.footer.queue_key,
