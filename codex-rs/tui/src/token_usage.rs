@@ -60,6 +60,45 @@ pub(crate) struct TokenUsageInfo {
     pub(crate) model_context_window: Option<i64>,
 }
 
+impl TokenUsageInfo {
+    pub(crate) fn new_or_append(
+        current: &Option<Self>,
+        usage: &Option<TokenUsage>,
+        model_context_window: Option<i64>,
+    ) -> Option<Self> {
+        match (current, usage) {
+            (Some(current), Some(usage)) => {
+                let mut total_token_usage = current.total_token_usage.clone();
+                total_token_usage.input_tokens += usage.input_tokens;
+                total_token_usage.cached_input_tokens += usage.cached_input_tokens;
+                total_token_usage.output_tokens += usage.output_tokens;
+                total_token_usage.reasoning_output_tokens += usage.reasoning_output_tokens;
+                total_token_usage.total_tokens += usage.total_tokens;
+                Some(Self {
+                    total_token_usage,
+                    last_token_usage: usage.clone(),
+                    model_context_window: model_context_window.or(current.model_context_window),
+                })
+            }
+            (Some(current), None) => Some(Self {
+                total_token_usage: current.total_token_usage.clone(),
+                last_token_usage: current.last_token_usage.clone(),
+                model_context_window: model_context_window.or(current.model_context_window),
+            }),
+            (None, Some(usage)) => Some(Self {
+                total_token_usage: usage.clone(),
+                last_token_usage: usage.clone(),
+                model_context_window,
+            }),
+            (None, None) => model_context_window.map(|model_context_window| Self {
+                total_token_usage: TokenUsage::default(),
+                last_token_usage: TokenUsage::default(),
+                model_context_window: Some(model_context_window),
+            }),
+        }
+    }
+}
+
 impl fmt::Display for TokenUsage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
