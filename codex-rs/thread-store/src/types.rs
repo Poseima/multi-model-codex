@@ -10,6 +10,7 @@ use codex_protocol::dynamic_tools::DynamicToolSpec;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::openai_models::ReasoningEffort;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::GitInfo;
 use codex_protocol::protocol::MultiAgentVersion;
@@ -85,6 +86,10 @@ pub struct CreateThreadParams {
     pub originator: String,
     /// Base instructions persisted in session metadata.
     pub base_instructions: BaseInstructions,
+    /// Prompt profile persisted in session metadata, when configured.
+    pub prompt_profile: Option<PromptSource>,
+    /// Source path for the prompt profile, when loaded from disk.
+    pub prompt_profile_path: Option<PathBuf>,
     /// Dynamic tools available to the thread at startup.
     pub dynamic_tools: Vec<DynamicToolSpec>,
     /// Environment-qualified capability roots selected for this thread.

@@ -665,6 +665,7 @@ impl App {
                             collaboration_mode.clone(),
                             *personality,
                             final_output_json_schema.clone(),
+                            Some(config.model_provider_id.clone()),
                         )
                         .await?;
                     if self.active_thread_id == Some(thread_id)
@@ -690,6 +691,10 @@ impl App {
             }
             AppCommand::Compact => {
                 app_server.thread_compact_start(thread_id).await?;
+                Ok(true)
+            }
+            AppCommand::Archive => {
+                app_server.thread_archive(thread_id).await?;
                 Ok(true)
             }
             AppCommand::SetThreadName { name } => {
