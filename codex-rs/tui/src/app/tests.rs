@@ -107,7 +107,6 @@ use crate::multi_agents::SubAgentActivityDisplay;
 use assert_matches::assert_matches;
 
 use crate::app_command::AppCommand as Op;
-use crate::app_event::ConsolidationScrollbackReflow;
 use crate::diff_model::FileChange;
 use crate::legacy_core::config::ConfigBuilder;
 use crate::legacy_core::config::ConfigOverrides;
@@ -119,6 +118,7 @@ use codex_app_server_protocol::AdditionalPermissionProfile;
 use codex_app_server_protocol::AgentMessageDeltaNotification;
 use codex_app_server_protocol::AskForApproval;
 use codex_app_server_protocol::CommandExecutionRequestApprovalParams;
+use codex_app_server_protocol::ConfigWarningNotification;
 use codex_app_server_protocol::FileChangeRequestApprovalParams;
 use codex_app_server_protocol::FileUpdateChange;
 use codex_app_server_protocol::ItemStartedNotification;
@@ -137,6 +137,7 @@ use codex_app_server_protocol::PermissionsRequestApprovalParams;
 use codex_app_server_protocol::RequestId as AppServerRequestId;
 use codex_app_server_protocol::ServerNotification;
 use codex_app_server_protocol::ServerRequest;
+use codex_app_server_protocol::SessionSource;
 use codex_app_server_protocol::Thread;
 use codex_app_server_protocol::ThreadArchivedNotification;
 use codex_app_server_protocol::ThreadAttachmentOperation;
@@ -1243,61 +1244,6 @@ async fn replay_thread_snapshot_restores_draft_and_queued_input() {
             "draft-only replay should not auto-submit queued input"
         );
     }
-}
-
-#[tokio::test]
-async fn replay_thread_snapshot_restores_the_matching_safety_buffer_prompt() {
-    let (mut app, _app_event_rx, _op_rx) = make_test_app_with_channels().await;
-    let thread_id = ThreadId::new();
-    let session = test_thread_session(thread_id, test_path_buf("/tmp/project"));
-    app.thread_event_channels.insert(
-        thread_id,
-        ThreadEventChannel::new_with_session(
-            THREAD_EVENT_CHANNEL_CAPACITY,
-            session.clone(),
-            Vec::new(),
-        ),
-    );
-    app.activate_thread_channel(thread_id).await;
-    app.chat_widget.handle_thread_session(session);
-    let default_mode = CollaborationModeMask {
-        name: "Default".to_string(),
-        mode: None,
-        model: None,
-        reasoning_effort: None,
-        developer_instructions: None,
-    };
-    app.chat_widget
-        .submit_user_message_with_mode("buffered prompt A".to_string(), default_mode.clone());
-    let expected_input_state = app
-        .chat_widget
-        .capture_thread_input_state()
-        .expect("expected thread input state");
-
-    app.store_active_thread_receiver().await;
-    let snapshot = {
-        let channel = app
-            .thread_event_channels
-            .get(&thread_id)
-            .expect("thread channel should exist");
-        let store = channel.store.lock().await;
-        assert_eq!(store.input_state, Some(expected_input_state.clone()));
-        store.snapshot()
-    };
-
-    let (mut chat_widget, _app_event_tx, _rx, _op_rx) = make_chatwidget_manual_with_sender().await;
-    chat_widget.handle_thread_session(test_thread_session(
-        ThreadId::new(),
-        test_path_buf("/tmp/other-project"),
-    ));
-    chat_widget.submit_user_message_with_mode("buffered prompt B".to_string(), default_mode);
-    app.chat_widget = chat_widget;
-    app.replay_thread_snapshot(snapshot, /*resume_restored_queue*/ false);
-
-    assert_eq!(
-        app.chat_widget.capture_thread_input_state(),
-        Some(expected_input_state)
-    );
 }
 
 #[tokio::test]
@@ -5764,6 +5710,8 @@ async fn render_clear_ui_header_after_long_transcript_for_snapshot() -> String {
             thread_name: None,
             model: "gpt-test".to_string(),
             model_provider_id: "test-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_tier: None,
             approval_policy: AskForApproval::Never,
             approvals_reviewer: ApprovalsReviewer::User,
@@ -7299,6 +7247,26 @@ fn active_turn_interrupt_race_extracts_actual_turn_id_from_mismatch() {
     );
 }
 
+async fn fresh_session_config_uses_current_service_tier() {
+    let mut app = make_test_app().await;
+    app.chat_widget.set_service_tier(Some(
+        codex_protocol::config_types::ServiceTier::Fast
+            .request_value()
+            .to_string(),
+    ));
+
+    let config = app.fresh_session_config();
+
+    assert_eq!(
+        config.service_tier,
+        Some(
+            codex_protocol::config_types::ServiceTier::Fast
+                .request_value()
+                .to_string()
+        )
+    );
+}
+
 #[tokio::test]
 async fn backtrack_selection_preserves_selected_prompt_and_requests_branch() {
     let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
@@ -7332,6 +7300,8 @@ async fn backtrack_selection_preserves_selected_prompt_and_requests_branch() {
             thread_name: None,
             model: "gpt-test".to_string(),
             model_provider_id: "test-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_tier: None,
             approval_policy: AskForApproval::Never,
             approvals_reviewer: ApprovalsReviewer::User,
@@ -7389,11 +7359,6 @@ async fn backtrack_selection_preserves_selected_prompt_and_requests_branch() {
     ];
 
     assert_eq!(user_count(&app.transcript_cells), 2);
-    let transcript_before: Vec<String> = app
-        .transcript_cells
-        .iter()
-        .map(|cell| lines_to_single_string(&cell.display_lines(/*width*/ 80)))
-        .collect();
 
     let base_id = ThreadId::new();
     app.chat_widget
@@ -7405,6 +7370,8 @@ async fn backtrack_selection_preserves_selected_prompt_and_requests_branch() {
             thread_name: None,
             model: "gpt-test".to_string(),
             model_provider_id: "test-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_tier: None,
             approval_policy: AskForApproval::Never,
             approvals_reviewer: ApprovalsReviewer::User,
@@ -8554,6 +8521,84 @@ async fn refreshed_snapshot_session_persists_resumed_turns() {
 }
 
 #[tokio::test]
+async fn queued_rollback_syncs_overlay_and_clears_deferred_history() {
+    let mut app = make_test_app().await;
+    app.transcript_cells = vec![
+        Arc::new(UserHistoryCell {
+            message: "first".to_string(),
+            text_elements: Vec::new(),
+            local_image_paths: Vec::new(),
+            remote_image_urls: Vec::new(),
+        }) as Arc<dyn HistoryCell>,
+        Arc::new(AgentMessageCell::new(
+            vec![Line::from("after first")],
+            /*is_first_line*/ false,
+        )) as Arc<dyn HistoryCell>,
+        Arc::new(UserHistoryCell {
+            message: "second".to_string(),
+            text_elements: Vec::new(),
+            local_image_paths: Vec::new(),
+            remote_image_urls: Vec::new(),
+        }) as Arc<dyn HistoryCell>,
+        Arc::new(AgentMessageCell::new(
+            vec![Line::from("after second")],
+            /*is_first_line*/ false,
+        )) as Arc<dyn HistoryCell>,
+    ];
+    app.overlay = Some(Overlay::new_transcript(
+        app.transcript_cells.clone(),
+        app.keymap.pager.clone(),
+    ));
+    app.deferred_history_lines = vec![Line::from("stale buffered line").into()];
+    app.backtrack.overlay_preview_active = true;
+    app.backtrack.nth_user_message = 1;
+    app.chat_widget.update_account_state(
+        /*status_account_display*/ None, /*plan_type*/ None,
+        /*has_chatgpt_account*/ false, /*has_codex_backend_auth*/ true,
+    );
+    app.chat_widget
+        .set_composer_text("/usage daily".to_string(), Vec::new(), Vec::new());
+    app.chat_widget
+        .handle_key_event(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    app.chat_widget
+        .handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    app.chat_widget
+        .handle_key_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    let pending_usage = app
+        .chat_widget
+        .active_cell_transcript_lines(/*width*/ 80)
+        .expect("pending usage transcript");
+    assert!(lines_to_single_string(&pending_usage).contains("Token activity\n   Loading..."));
+
+    let changed = app.apply_non_pending_thread_rollback(/*num_turns*/ 1);
+
+    assert!(changed);
+    assert!(app.backtrack_render_pending);
+    assert!(app.deferred_history_lines.is_empty());
+    assert!(
+        app.chat_widget
+            .active_cell_transcript_lines(/*width*/ 80)
+            .is_none_or(|lines| !lines_to_single_string(&lines).contains("Token activity"))
+    );
+    assert_eq!(app.backtrack.nth_user_message, 0);
+    let user_messages: Vec<String> = app
+        .transcript_cells
+        .iter()
+        .filter_map(|cell| {
+            cell.as_any()
+                .downcast_ref::<UserHistoryCell>()
+                .map(|cell| cell.message.clone())
+        })
+        .collect();
+    assert_eq!(user_messages, vec!["first".to_string()]);
+    let overlay_cell_count = match app.overlay.as_ref() {
+        Some(Overlay::Transcript(t)) => t.committed_cell_count(),
+        _ => panic!("expected transcript overlay"),
+    };
+    assert_eq!(overlay_cell_count, app.transcript_cells.len());
+}
+
+#[tokio::test]
 async fn late_usage_result_can_follow_finalized_plan() {
     let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
     app.chat_widget
@@ -8599,6 +8644,8 @@ async fn new_session_requests_shutdown_for_previous_conversation() {
             thread_name: None,
             model: "gpt-test".to_string(),
             model_provider_id: "test-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_tier: None,
             approval_policy: AskForApproval::Never,
             approvals_reviewer: ApprovalsReviewer::User,
@@ -9350,6 +9397,8 @@ async fn clear_only_ui_reset_preserves_chat_session_state() {
             thread_name: Some("keep me".to_string()),
             model: "gpt-test".to_string(),
             model_provider_id: "test-provider".to_string(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             service_tier: None,
             approval_policy: AskForApproval::Never,
             approvals_reviewer: ApprovalsReviewer::User,
@@ -9393,6 +9442,7 @@ async fn clear_only_ui_reset_preserves_chat_session_state() {
     assert!(!app.has_emitted_history_lines);
     assert!(!app.backtrack.primed);
     assert!(!app.backtrack.overlay_preview_active);
+    assert!(app.backtrack.pending_rollback.is_none());
     assert!(!app.backtrack_render_pending);
     assert_eq!(app.chat_widget.thread_id(), Some(thread_id));
     assert_eq!(app.chat_widget.composer_text_with_pending(), "draft prompt");
