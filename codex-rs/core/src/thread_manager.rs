@@ -584,11 +584,8 @@ impl ThreadManager {
         &self,
         options: StartThreadOptions,
     ) -> CodexResult<NewThread> {
-        self.start_thread_with_options_and_prompt_profile(
-            options,
-            PromptProfileOverride::Inherit,
-        )
-        .await
+        self.start_thread_with_options_and_prompt_profile(options, PromptProfileOverride::Inherit)
+            .await
     }
 
     pub async fn start_thread_with_options_and_prompt_profile(
@@ -958,6 +955,7 @@ impl ThreadManager {
         let snapshot = snapshot.into();
         let history = RolloutRecorder::get_rollout_history(&path).await?;
         let snapshot_state = snapshot_turn_state(&history);
+        let interrupted_marker = InterruptedTurnHistoryMarker::from_config(&config);
         let history = match snapshot {
             ForkSnapshot::TruncateBeforeNthUserMessage(nth_user_message) => {
                 truncate_before_nth_user_message(history, nth_user_message, &snapshot_state)
@@ -970,7 +968,11 @@ impl ThreadManager {
                     InitialHistory::Resumed(resumed) => InitialHistory::Forked(resumed.history),
                 };
                 if snapshot_state.ends_mid_turn {
-                    append_interrupted_boundary(history, snapshot_state.active_turn_id)
+                    append_interrupted_boundary(
+                        history,
+                        snapshot_state.active_turn_id,
+                        interrupted_marker,
+                    )
                 } else {
                     history
                 }

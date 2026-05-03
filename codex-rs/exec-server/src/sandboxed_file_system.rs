@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use codex_app_server_protocol::JSONRPCErrorError;
+use codex_file_system::normalize_top_level_alias;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use tokio::io;
 
@@ -14,7 +15,6 @@ use crate::FileSystemResult;
 use crate::FileSystemSandboxContext;
 use crate::ReadDirectoryEntry;
 use crate::RemoveOptions;
-use crate::file_system::normalize_top_level_alias;
 use crate::fs_helper::FsHelperPayload;
 use crate::fs_helper::FsHelperRequest;
 use crate::fs_sandbox::FileSystemSandboxRunner;

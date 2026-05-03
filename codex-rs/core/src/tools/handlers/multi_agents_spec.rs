@@ -178,6 +178,13 @@ pub fn create_followup_task_tool() -> ToolSpec {
                 "Message text to send to the target agent.".to_string(),
             )),
         ),
+        (
+            "interrupt".to_string(),
+            JsonSchema::boolean(Some(
+                "When true, stop the target's current task and handle this immediately. When false (default), queue this message for the next turn."
+                    .to_string(),
+            )),
+        ),
     ]);
 
     ToolSpec::Function(ResponsesApiTool {

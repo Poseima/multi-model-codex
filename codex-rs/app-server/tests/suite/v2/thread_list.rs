@@ -245,6 +245,7 @@ async fn thread_list_surfaces_prompt_profile_metadata() -> Result<()> {
             source_kinds: None,
             archived: None,
             cwd: None,
+            use_state_db_only: false,
             search_term: None,
         })
         .await?;

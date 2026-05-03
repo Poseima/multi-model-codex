@@ -33,6 +33,8 @@ pub(super) async fn create_thread(
             params.source,
             params.thread_source,
             params.base_instructions,
+            params.prompt_profile,
+            params.prompt_profile_path,
             params.dynamic_tools,
         ),
     )

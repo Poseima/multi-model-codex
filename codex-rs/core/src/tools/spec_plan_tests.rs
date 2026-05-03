@@ -527,6 +527,7 @@ fn test_build_specs_multi_agent_v2_uses_task_names_and_hides_resume() {
     let (properties, required) = expect_object_schema(parameters);
     assert!(properties.contains_key("target"));
     assert!(properties.contains_key("message"));
+    assert!(properties.contains_key("interrupt"));
     assert!(!properties.contains_key("items"));
     assert_eq!(
         required,

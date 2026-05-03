@@ -5,25 +5,12 @@ import type { Personality } from "../Personality";
 import type { ReasoningEffort } from "../ReasoningEffort";
 import type { ReasoningSummary } from "../ReasoningSummary";
 import type { JsonValue } from "../serde_json/JsonValue";
-import type { CollaborationMode } from "../CollaborationMode";
 import type { ApprovalsReviewer } from "./ApprovalsReviewer";
 import type { AskForApproval } from "./AskForApproval";
-import type { PermissionProfileSelectionParams } from "./PermissionProfileSelectionParams";
 import type { SandboxPolicy } from "./SandboxPolicy";
-import type { TurnEnvironmentParams } from "./TurnEnvironmentParams";
 import type { UserInput } from "./UserInput";
 
 export type TurnStartParams = {threadId: string, input: Array<UserInput>, /**
- * Optional turn-scoped Responses API client metadata.
- */
-responsesapiClientMetadata?: Record<string, string> | null, /**
- * Optional turn-scoped environments.
- *
- * Omitted uses the thread sticky environments. Empty disables
- * environment access for this turn. Non-empty selects the first
- * environment as the current turn environment for this turn.
- */
-environments?: Array<TurnEnvironmentParams> | null, /**
  * Override the working directory for this turn and subsequent turns.
  */
 cwd?: string | null, /**
@@ -37,12 +24,6 @@ approvalsReviewer?: ApprovalsReviewer | null, /**
  * Override the sandbox policy for this turn and subsequent turns.
  */
 sandboxPolicy?: SandboxPolicy | null, /**
- * Select a named permissions profile for this turn and subsequent turns.
- * Cannot be combined with `sandboxPolicy`. Use bounded `modifications`
- * for supported turn adjustments instead of replacing the full
- * permissions profile.
- */
-permissions?: PermissionProfileSelectionParams | null, /**
  * Override the model for this turn and subsequent turns.
  */
 model?: string | null, /**
@@ -62,13 +43,6 @@ personality?: Personality | null, /**
  * this turn.
  */
 outputSchema?: JsonValue | null, /**
- * EXPERIMENTAL - Set a pre-set collaboration mode.
- * Takes precedence over model, reasoning_effort, and developer instructions if set.
- *
- * For `collaboration_mode.settings.developer_instructions`, `null` means
- * "use the built-in instructions for the selected mode".
- */
-collaborationMode?: CollaborationMode | null, /**
  * Override the model provider for this turn and subsequent turns.
  */
 providerId: string | null};

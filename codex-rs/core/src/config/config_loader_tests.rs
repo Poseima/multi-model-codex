@@ -881,12 +881,12 @@ writable_roots = ["~/code"]
 
     if codex_utils_home_dir::is_embedded_mode() {
         assert_eq!(
-            *config.permissions.sandbox_policy.get(),
+            config.legacy_sandbox_policy(),
             SandboxPolicy::new_read_only_policy()
         );
     } else {
         let expected_root = AbsolutePathBuf::from_absolute_path(home.join("code"))?;
-        match config.permissions.sandbox_policy.get() {
+        match config.legacy_sandbox_policy() {
             SandboxPolicy::WorkspaceWrite { writable_roots, .. } => {
                 assert_eq!(
                     writable_roots

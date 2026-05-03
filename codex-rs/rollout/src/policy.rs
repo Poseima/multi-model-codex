@@ -218,3 +218,42 @@ fn event_msg_persistence_mode(ev: &EventMsg) -> Option<EventPersistenceMode> {
         | EventMsg::CollabResumeBegin(_) => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EventPersistenceMode;
+    use super::should_persist_event_msg;
+    use codex_protocol::ThreadId;
+    use codex_protocol::protocol::EventMsg;
+    use codex_protocol::protocol::ImageGenerationEndEvent;
+    use codex_protocol::protocol::ThreadNameUpdatedEvent;
+
+    #[test]
+    fn persists_image_generation_end_events_in_limited_mode() {
+        let event = EventMsg::ImageGenerationEnd(ImageGenerationEndEvent {
+            call_id: "ig_123".into(),
+            status: "completed".into(),
+            revised_prompt: Some("final prompt".into()),
+            result: "Zm9v".into(),
+            saved_path: None,
+        });
+
+        assert!(should_persist_event_msg(
+            &event,
+            EventPersistenceMode::Limited
+        ));
+    }
+
+    #[test]
+    fn persists_thread_name_updates_in_limited_mode() {
+        let event = EventMsg::ThreadNameUpdated(ThreadNameUpdatedEvent {
+            thread_id: ThreadId::new(),
+            thread_name: Some("saved-session".to_string()),
+        });
+
+        assert!(should_persist_event_msg(
+            &event,
+            EventPersistenceMode::Limited
+        ));
+    }
+}

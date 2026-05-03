@@ -259,6 +259,7 @@ fn followup_task_tool_requires_message_and_has_no_output_schema() {
         .expect("followup_task should use object params");
     assert!(properties.contains_key("target"));
     assert!(properties.contains_key("message"));
+    assert!(properties.contains_key("interrupt"));
     assert!(!properties.contains_key("items"));
     assert_eq!(
         parameters.required.as_ref(),
