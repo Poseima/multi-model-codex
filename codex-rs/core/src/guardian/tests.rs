@@ -2021,7 +2021,6 @@ async fn guardian_parallel_reviews_fork_from_last_committed_trunk_history_inner(
                     content: vec![ContentItem::InputText {
                         text: "Please inspect pending changes before pushing.".to_string(),
                     }],
-                    end_turn: None,
                     phase: None,
                 },
                 ResponseItem::Message {
@@ -2030,7 +2029,6 @@ async fn guardian_parallel_reviews_fork_from_last_committed_trunk_history_inner(
                     content: vec![ContentItem::OutputText {
                         text: "I need approval to run git diff.".to_string(),
                     }],
-                    end_turn: None,
                     phase: None,
                 },
             ],
@@ -2090,7 +2088,6 @@ async fn guardian_parallel_reviews_fork_from_last_committed_trunk_history_inner(
                     content: vec![ContentItem::InputText {
                         text: "Now inspect whether pushing is safe.".to_string(),
                     }],
-                    end_turn: None,
                     phase: None,
                 },
                 ResponseItem::Message {
@@ -2099,7 +2096,6 @@ async fn guardian_parallel_reviews_fork_from_last_committed_trunk_history_inner(
                     content: vec![ContentItem::OutputText {
                         text: "I need approval to push after the diff check.".to_string(),
                     }],
-                    end_turn: None,
                     phase: None,
                 },
             ],

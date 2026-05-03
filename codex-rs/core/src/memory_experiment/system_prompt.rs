@@ -6,9 +6,9 @@
 //! the system prompt prefix for better prompt cache efficiency.
 
 use crate::memory_experiment;
-use codex_memories_read::build_memory_tool_developer_instructions;
 use codex_features::Feature;
 use codex_features::Features;
+use codex_memories_read::build_memory_tool_developer_instructions;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use std::path::Path;
 

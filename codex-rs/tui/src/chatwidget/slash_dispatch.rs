@@ -194,7 +194,8 @@ impl ChatWidget {
                 self.app_event_tx.compact();
             }
             SlashCommand::Archive => {
-                self.app_event_tx.send(AppEvent::CodexOp(Op::Archive));
+                self.app_event_tx
+                    .send(AppEvent::CodexOp(AppCommand::Archive));
             }
             SlashCommand::Review => {
                 self.open_review_popup();

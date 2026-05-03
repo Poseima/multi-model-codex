@@ -140,7 +140,7 @@ fn request_user_input_unavailable_messages_respect_default_mode_feature_flag() {
         Some("request_user_input is unavailable in Pair Programming mode".to_string())
     );
     assert_eq!(
-        request_user_input_unavailable_message(ModeKind::Dawn, false),
+        request_user_input_unavailable_message(ModeKind::Dawn, &default_available_modes()),
         Some("request_user_input is unavailable in Dawn mode".to_string())
     );
 }

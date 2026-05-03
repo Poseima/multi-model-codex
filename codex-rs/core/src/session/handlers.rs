@@ -509,10 +509,7 @@ pub async fn drop_memories(sess: &Arc<Session>, config: &Arc<Config>, sub_id: St
         sess.send_event_raw(Event {
             id: sub_id,
             msg: EventMsg::Error(ErrorEvent {
-                message: format!(
-                    "Memory drop failed for {}: {err}",
-                    project_root.display()
-                ),
+                message: format!("Memory drop failed for {}: {err}", project_root.display()),
                 codex_error_info: Some(CodexErrorInfo::Other),
             }),
         })

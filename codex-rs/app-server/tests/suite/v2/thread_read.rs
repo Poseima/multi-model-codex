@@ -1305,6 +1305,8 @@ async fn seed_pathless_store_thread(
             source: ProtocolSessionSource::Cli,
             thread_source: None,
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             metadata: ThreadPersistenceMetadata {
                 cwd: None,

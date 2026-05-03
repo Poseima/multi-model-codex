@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use codex_features::Feature;
+use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
@@ -106,8 +107,11 @@ async fn start_archive_conversation(
 
     // Allow writes to the memory directory (cwd). The parent's default ReadOnly
     // sandbox blocks all file creation, which the archive agent needs.
-    sub_agent_config.permissions.sandbox_policy =
-        Constrained::allow_only(SandboxPolicy::new_workspace_write_policy());
+    sub_agent_config.permissions.permission_profile =
+        Constrained::allow_only(PermissionProfile::from_legacy_sandbox_policy_for_cwd(
+            &SandboxPolicy::new_workspace_write_policy(),
+            ctx.cwd.as_path(),
+        ));
 
     // No MCP servers needed — the archive agent only reads/writes memory files.
     sub_agent_config.mcp_servers = Constrained::allow_only(std::collections::HashMap::new());
@@ -274,7 +278,6 @@ async fn exit_archive_mode(
                 id: Some(ARCHIVE_USER_MESSAGE_ID.to_string()),
                 role: "user".to_string(),
                 content: vec![ContentItem::InputText { text: user_msg }],
-                end_turn: None,
                 phase: None,
             }],
         )
@@ -289,7 +292,6 @@ async fn exit_archive_mode(
                 content: vec![ContentItem::OutputText {
                     text: assistant_msg,
                 }],
-                end_turn: None,
                 phase: None,
             },
         )

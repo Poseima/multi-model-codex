@@ -170,6 +170,7 @@ use super::footer::FooterProps;
 use super::footer::GoalStatusIndicator;
 use super::footer::SummaryLeft;
 use super::footer::can_show_left_with_context;
+use super::footer::context_window_line;
 use super::footer::esc_hint_mode;
 use super::footer::footer_height;
 use super::footer::footer_hint_items_width;
@@ -3752,6 +3753,8 @@ impl ChatComposer {
             is_wsl,
             status_line_value: self.status_line_value.clone(),
             status_line_enabled: self.status_line_enabled,
+            context_window_percent: self.context_window_percent,
+            context_window_used_tokens: self.context_window_used_tokens,
             key_hints: FooterKeyHints {
                 toggle_shortcuts: self.footer_toggle_shortcuts_key,
                 queue: self.footer_queue_key,
@@ -4706,12 +4709,12 @@ impl ChatComposer {
                             }
                         } else {
                             Some(super::fork_footer::context_window_line_with_total(
-                            footer_props.context_window_percent,
-                            footer_props.context_window_used_tokens,
-                            self.context_window_total,
-                            /*mode_indicator*/ None,
-                            /*show_cycle_hint*/ false,
-                        ))
+                                footer_props.context_window_percent,
+                                footer_props.context_window_used_tokens,
+                                self.context_window_total,
+                                /*mode_indicator*/ None,
+                                /*show_cycle_hint*/ false,
+                            ))
                         };
                     let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
                     if status_line_active

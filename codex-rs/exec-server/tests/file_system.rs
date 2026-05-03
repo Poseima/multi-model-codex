@@ -658,19 +658,26 @@ async fn file_system_sandboxed_write_allows_additional_write_alias_root(
     let file_path = writable_dir.path().join("note.txt");
 
     let mut sandbox = read_only_sandbox(readable_dir.path().to_path_buf());
-    let additional_permissions = PermissionProfile {
+    let additional_permissions = AdditionalPermissionProfile {
         network: None,
         file_system: Some(FileSystemPermissions::from_read_write_roots(
             /*read*/ None,
             Some(vec![absolute_path(writable_dir.path().canonicalize()?)]),
         )),
     };
-    let Some(permissions) =
-        merge_permission_profiles(Some(&sandbox.permissions), Some(&additional_permissions))
-    else {
-        panic!("merged permissions should not be empty");
-    };
-    sandbox.permissions = permissions;
+    let file_system_policy = effective_file_system_sandbox_policy(
+        &sandbox.permissions.file_system_sandbox_policy(),
+        Some(&additional_permissions),
+    );
+    let network_policy = effective_network_sandbox_policy(
+        sandbox.permissions.network_sandbox_policy(),
+        Some(&additional_permissions),
+    );
+    sandbox.permissions = PermissionProfile::from_runtime_permissions_with_enforcement(
+        sandbox.permissions.enforcement(),
+        &file_system_policy,
+        network_policy,
+    );
     sandbox.cwd = Some(absolute_path(workspace_dir.path().to_path_buf()));
 
     file_system

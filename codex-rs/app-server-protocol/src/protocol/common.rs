@@ -796,6 +796,7 @@ client_request_definitions! {
     },
     ProviderList => "provider/list" {
         params: v2::ProviderListParams,
+        serialization: None,
         response: v2::ProviderListResponse,
     },
     #[experimental("collaborationMode/list")]

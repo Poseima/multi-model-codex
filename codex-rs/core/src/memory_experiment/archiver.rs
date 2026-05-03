@@ -141,7 +141,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "How does auth work?".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             ResponseItem::Message {
@@ -150,7 +149,6 @@ mod tests {
                 content: vec![ContentItem::OutputText {
                     text: "Auth uses JWT tokens.".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
         ];
@@ -169,7 +167,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "Hello".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             ResponseItem::FunctionCall {
@@ -235,7 +232,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "You are a helpful assistant.".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             // System-injected user message (AGENTS.md) — should be skipped.
@@ -245,7 +241,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "# AGENTS.md\n\nCollaboration instructions...".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             // System-injected user message (permissions) — should be skipped.
@@ -255,7 +250,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "<permissions>\nallow all\n</permissions>".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             // System-injected user message (environment context) — should be skipped.
@@ -265,7 +259,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "<environment_context>\nOS: macOS\n</environment_context>".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             // System-injected user message (archive handoff) — should be skipped.
@@ -275,7 +268,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "[System: memory archiving complete.]".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             // Real user message — should be kept.
@@ -285,7 +277,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "How does auth work?".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             // Real assistant message — should be kept.
@@ -295,7 +286,6 @@ mod tests {
                 content: vec![ContentItem::OutputText {
                     text: "Auth uses JWT tokens.".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
         ];
@@ -378,7 +368,6 @@ mod tests {
             content: vec![ContentItem::OutputText {
                 text: "<think>\nLet me reason.\n</think>\nThe answer is 42.".to_string(),
             }],
-            end_turn: None,
             phase: None,
         }];
 

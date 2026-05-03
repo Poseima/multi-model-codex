@@ -2446,7 +2446,7 @@ impl Session {
     pub(crate) async fn granted_turn_permissions_for_sub_id(
         &self,
         sub_id: &str,
-    ) -> Option<PermissionProfile> {
+    ) -> Option<AdditionalPermissionProfile> {
         let turn_state = self.turn_state_for_sub_id(sub_id).await?;
         let ts = turn_state.lock().await;
         ts.granted_permissions()

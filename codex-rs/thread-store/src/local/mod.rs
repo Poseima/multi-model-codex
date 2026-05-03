@@ -1016,6 +1016,8 @@ mod tests {
             source: SessionSource::Exec,
             thread_source: None,
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             metadata: thread_metadata(),
             event_persistence_mode: ThreadEventPersistenceMode::Limited,

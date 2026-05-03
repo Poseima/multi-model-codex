@@ -4149,7 +4149,14 @@ impl ChatWidget {
                 && !self.bottom_pane.is_task_running()
                 && self.bottom_pane.no_modal_or_popup_active() =>
             {
-                self.cycle_collaboration_mode();
+                if self.should_show_plan_mode_nudge()
+                    && let Some(plan_mask) =
+                        collaboration_modes::plan_mask(self.model_catalog.as_ref())
+                {
+                    self.set_collaboration_mask(plan_mask);
+                } else {
+                    self.cycle_collaboration_mode();
+                }
                 self.refresh_plan_mode_nudge();
             }
             _ => {
@@ -7780,7 +7787,9 @@ impl ChatWidget {
         }
         match self.active_mode_kind() {
             ModeKind::Plan => Some(CollaborationModeIndicator::Plan),
-            ModeKind::Default | ModeKind::PairProgramming | ModeKind::Execute => None,
+            ModeKind::Default | ModeKind::PairProgramming | ModeKind::Execute | ModeKind::Dawn => {
+                None
+            }
         }
     }
 

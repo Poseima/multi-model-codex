@@ -78,7 +78,6 @@ impl<'a> ChatRequestBuilder<'a> {
                 ResponseItem::CustomToolCall { .. } => {}
                 ResponseItem::CustomToolCallOutput { .. } => {}
                 ResponseItem::WebSearchCall { .. } => {}
-                ResponseItem::GhostSnapshot { .. } => {}
                 ResponseItem::Compaction { .. } => {}
             }
         }
@@ -336,9 +335,6 @@ impl<'a> ChatRequestBuilder<'a> {
                         "content": output,
                     }));
                 }
-                ResponseItem::GhostSnapshot { .. } => {
-                    continue;
-                }
                 ResponseItem::Reasoning { .. }
                 | ResponseItem::WebSearchCall { .. }
                 | ResponseItem::ImageGenerationCall { .. }
@@ -534,7 +530,6 @@ mod tests {
             content: vec![ContentItem::InputText {
                 text: "hi".to_string(),
             }],
-            end_turn: None,
             phase: None,
         }];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
@@ -562,7 +557,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "read these".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             ResponseItem::FunctionCall {
@@ -651,7 +645,6 @@ mod tests {
             content: vec![ContentItem::InputText {
                 text: "developer instruction".to_string(),
             }],
-            end_turn: None,
             phase: None,
         }];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
@@ -675,7 +668,6 @@ mod tests {
             content: vec![ContentItem::InputText {
                 text: "developer instruction".to_string(),
             }],
-            end_turn: None,
             phase: None,
         }];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
@@ -722,7 +714,6 @@ mod tests {
                 content: vec![ContentItem::InputText {
                     text: "do something".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             ResponseItem::FunctionCall {
@@ -739,7 +730,6 @@ mod tests {
                 content: vec![ContentItem::OutputText {
                     text: "Let me check...".to_string(),
                 }],
-                end_turn: None,
                 phase: None,
             },
             ResponseItem::FunctionCallOutput {

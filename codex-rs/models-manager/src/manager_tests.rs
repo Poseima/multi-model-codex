@@ -786,7 +786,7 @@ fn bundled_models_json_roundtrips() {
 
 #[test]
 fn bundled_catalog_includes_fork_models() {
-    let models = ModelsManager::load_remote_models_from_file()
+    let models = load_remote_models_from_file()
         .expect("bundled models should deserialize and merge fork additions");
     assert!(
         models.iter().any(|model| model.slug == "MiniMax-M2.5"),
