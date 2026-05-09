@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   metadata:
+    if: ${{ github.repository == 'openai/codex' }}
     runs-on: ubuntu-latest
     outputs:
       # Older revisions can contain a detector that does not emit this output.
@@ -70,6 +71,7 @@ jobs:
         uses: ./.github/actions/check-clean-worktree
 
   build:
+    if: ${{ github.repository == 'openai/codex' }}
     name: Build ${{ matrix.variant }} ${{ matrix.target }}
     needs: metadata
     # Metadata always runs; only relevant changes pay for the large matrix.

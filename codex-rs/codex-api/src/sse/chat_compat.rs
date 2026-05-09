@@ -939,7 +939,7 @@ mod tests {
         let chunk_2 = json!({
             "choices": [{
                 "delta": {
-                    "content": "ink>alpha</thi"
+                    "content": "ink>alpha</th".to_string() + "i"
                 }
             }]
         });
