@@ -2615,8 +2615,6 @@ mod tests {
                     agent_role: None,
                     git_info: None,
                     name: None,
-        prompt_profile: None,
-        prompt_profile_path: None,
                     turns: Vec::new(),
                 },
                 model: "gpt-5".to_string(),
