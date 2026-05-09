@@ -278,6 +278,7 @@ pub struct StartThreadOptions {
     /// Explicit global instructions carried by an internal caller instead of loading them again.
     pub user_instructions: Option<LoadedUserInstructions>,
     pub thread_extension_init: ExtensionDataInit,
+    pub prompt_profile_override: PromptProfileOverride,
     pub client_mcp_extensions: ClientMcpExtensions,
     /// Thread ID reserved before startup so the caller can associate host-owned state with it.
     pub reserved_thread_id: Option<ThreadId>,
@@ -304,6 +305,7 @@ impl StartThreadOptions {
             inherited_environments: None,
             user_instructions: None,
             thread_extension_init: ExtensionDataInit::default(),
+            prompt_profile_override: PromptProfileOverride::Inherit,
             client_mcp_extensions: ClientMcpExtensions::default(),
             reserved_thread_id: None,
             disabled_plugin_ids: None,
@@ -333,12 +335,13 @@ impl ThreadSpawnRequest {
         auth_manager: Arc<AuthManager>,
         agent_control: AgentControl,
     ) -> Self {
+        let prompt_profile_override = options.prompt_profile_override.clone();
         Self {
             startup: None,
             options,
             auth_manager,
             agent_control,
-            prompt_profile_override: PromptProfileOverride::Inherit,
+            prompt_profile_override,
             parent_thread_id: None,
             parent_originator: None,
             forked_from_thread_id: None,
@@ -1130,6 +1133,7 @@ impl ThreadManager {
                 parent_trace: None,
                 environments: Some(environments),
                 thread_extension_init: ExtensionDataInit::default(),
+                prompt_profile_override: PromptProfileOverride::Inherit,
                 client_mcp_extensions: ClientMcpExtensions::default(),
                 reserved_thread_id: None,
             },
@@ -2191,6 +2195,7 @@ impl ThreadManagerState {
             inherited_environments: captured_environments,
             user_instructions: supplied_user_instructions,
             mut thread_extension_init,
+            prompt_profile_override: _,
             client_mcp_extensions,
             reserved_thread_id,
             disabled_plugin_ids,
