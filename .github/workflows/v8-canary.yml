@@ -52,6 +52,7 @@ concurrency:
 
 jobs:
   metadata:
+    if: ${{ github.repository == 'openai/codex' }}
     runs-on: ubuntu-latest
     outputs:
       v8_version: ${{ steps.v8_version.outputs.version }}
@@ -98,6 +99,7 @@ jobs:
           echo "${output}" >> "${GITHUB_OUTPUT}"
 
   build:
+    if: ${{ github.repository == 'openai/codex' }}
     name: Build ${{ matrix.variant }} ${{ matrix.target }}
     needs: metadata
     runs-on: ${{ matrix.runner }}
