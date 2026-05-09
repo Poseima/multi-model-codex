@@ -1035,6 +1035,7 @@ impl ThreadManager {
         config: Config,
         history: InitialHistory,
         options: ForkThreadHistoryOptions,
+        supports_openai_form_elicitation: bool,
     ) -> CodexResult<NewThread>
     where
         S: Into<ForkSnapshot>,
@@ -1044,7 +1045,7 @@ impl ThreadManager {
             config,
             history,
             options,
-            /*supports_openai_form_elicitation*/ false,
+            supports_openai_form_elicitation,
         )
         .await
     }

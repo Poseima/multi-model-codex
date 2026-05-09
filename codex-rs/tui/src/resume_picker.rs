@@ -5741,8 +5741,8 @@ session_picker_view = "dense"
             agent_role: None,
             git_info: None,
             name: Some(String::from("Named thread")),
-        prompt_profile: None,
-        prompt_profile_path: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             turns: Vec::new(),
         };
 

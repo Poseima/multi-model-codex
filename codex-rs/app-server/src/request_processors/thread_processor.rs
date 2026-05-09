@@ -908,6 +908,9 @@ impl ThreadRequestProcessor {
             session_start_source,
             thread_source,
             environments,
+            persist_extended_history,
+            prompt_profile,
+            prompt_profile_path,
         } = params;
         if sandbox.is_some() && permissions.is_some() {
             return Err(invalid_request(
@@ -917,6 +920,12 @@ impl ThreadRequestProcessor {
         let environment_selections =
             resolve_turn_environment_selections(self.thread_manager.as_ref(), environments)?;
         let runtime_workspace_roots = runtime_workspace_roots.map(resolve_runtime_workspace_roots);
+        let prompt_profile_override =
+            super::prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            )
+            .map_err(invalid_request)?;
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -960,6 +969,8 @@ impl ThreadRequestProcessor {
                 multi_agent_mode,
                 dynamic_tools,
                 selected_capability_roots.unwrap_or_default(),
+                prompt_profile_override,
+                persist_extended_history,
                 session_start_source,
                 thread_source.map(Into::into),
                 environment_selections,
@@ -1035,6 +1046,8 @@ impl ThreadRequestProcessor {
         multi_agent_mode: Option<MultiAgentMode>,
         dynamic_tools: Option<Vec<DynamicToolSpec>>,
         selected_capability_roots: Vec<SelectedCapabilityRoot>,
+        prompt_profile_override: codex_core::PromptProfileOverride,
+        persist_extended_history: bool,
         session_start_source: Option<codex_app_server_protocol::ThreadStartSource>,
         thread_source: Option<codex_protocol::protocol::ThreadSource>,
         environments: Option<Vec<TurnEnvironmentSelection>>,
@@ -1144,25 +1157,32 @@ impl ThreadRequestProcessor {
             ..
         } = listener_task_context
             .thread_manager
-            .start_thread_with_options(StartThreadOptions {
-                config,
-                initial_history: match session_start_source
-                    .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
-                {
-                    codex_app_server_protocol::ThreadStartSource::Startup => InitialHistory::New,
-                    codex_app_server_protocol::ThreadStartSource::Clear => InitialHistory::Cleared,
+            .start_thread_with_options_and_prompt_profile(
+                StartThreadOptions {
+                    config,
+                    initial_history: match session_start_source
+                        .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
+                    {
+                        codex_app_server_protocol::ThreadStartSource::Startup => {
+                            InitialHistory::New
+                        }
+                        codex_app_server_protocol::ThreadStartSource::Clear => {
+                            InitialHistory::Cleared
+                        }
+                    },
+                    session_source: None,
+                    thread_source,
+                    dynamic_tools: core_dynamic_tools,
+                    persist_extended_history,
+                    metrics_service_name: service_name,
+                    multi_agent_mode,
+                    parent_trace: request_trace,
+                    environments,
+                    thread_extension_init,
+                    supports_openai_form_elicitation,
                 },
-                session_source: None,
-                thread_source,
-                dynamic_tools: core_dynamic_tools,
-                persist_extended_history: false,
-                metrics_service_name: service_name,
-                multi_agent_mode,
-                parent_trace: request_trace,
-                environments,
-                thread_extension_init,
-                supports_openai_form_elicitation,
-            })
+                prompt_profile_override,
+            )
             .instrument(tracing::info_span!(
                 "app_server.thread_start.create_thread",
                 otel.name = "app_server.thread_start.create_thread",
@@ -3307,6 +3327,10 @@ impl ThreadRequestProcessor {
             ephemeral,
             thread_source,
             exclude_turns,
+            persist_extended_history,
+            prompt_profile,
+            prompt_profile_path,
+            clear_prompt_profile,
         } = params;
         let include_turns = !exclude_turns;
         if sandbox.is_some() && permissions.is_some() {
@@ -3356,6 +3380,20 @@ impl ThreadRequestProcessor {
             Some(cli_overrides)
         };
         let runtime_workspace_roots = runtime_workspace_roots.map(resolve_runtime_workspace_roots);
+        let prompt_profile_override = if clear_prompt_profile {
+            if prompt_profile.is_some() || prompt_profile_path.is_some() {
+                return Err(invalid_request(
+                    "clearPromptProfile cannot be combined with promptProfile or promptProfilePath",
+                ));
+            }
+            codex_core::PromptProfileOverride::Clear
+        } else {
+            super::prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            )
+            .map_err(invalid_request)?
+        };
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -3387,7 +3425,7 @@ impl ThreadRequestProcessor {
             ..
         } = self
             .thread_manager
-            .fork_thread_from_history(
+            .fork_thread_from_history_with_prompt_profile(
                 ForkSnapshot::Interrupted,
                 config,
                 InitialHistory::Resumed(ResumedHistory {
@@ -3395,8 +3433,12 @@ impl ThreadRequestProcessor {
                     history: history_items.clone(),
                     rollout_path: source_thread.rollout_path.clone(),
                 }),
-                thread_source.map(Into::into),
-                self.request_trace_context(&request_id).await,
+                ForkThreadHistoryOptions {
+                    thread_source: thread_source.map(Into::into),
+                    prompt_profile_override,
+                    persist_extended_history,
+                    parent_trace: self.request_trace_context(&request_id).await,
+                },
                 supports_openai_form_elicitation,
             )
             .await
