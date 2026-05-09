@@ -1,6 +1,6 @@
 use crate::error::ApiError;
 use crate::provider::Provider;
-use crate::requests::headers::build_conversation_headers;
+use crate::requests::headers::build_session_headers;
 use crate::requests::headers::insert_header;
 use crate::requests::headers::subagent_header;
 use codex_protocol::models::ContentItem;
@@ -79,6 +79,7 @@ impl<'a> ChatRequestBuilder<'a> {
                 ResponseItem::CustomToolCallOutput { .. } => {}
                 ResponseItem::WebSearchCall { .. } => {}
                 ResponseItem::Compaction { .. } => {}
+                ResponseItem::ContextCompaction { .. } => {}
             }
         }
 
@@ -339,7 +340,8 @@ impl<'a> ChatRequestBuilder<'a> {
                 | ResponseItem::WebSearchCall { .. }
                 | ResponseItem::ImageGenerationCall { .. }
                 | ResponseItem::Other
-                | ResponseItem::Compaction { .. } => {
+                | ResponseItem::Compaction { .. }
+                | ResponseItem::ContextCompaction { .. } => {
                     continue;
                 }
             }
@@ -355,7 +357,7 @@ impl<'a> ChatRequestBuilder<'a> {
             "tools": self.tools,
         });
 
-        let mut headers = build_conversation_headers(self.conversation_id);
+        let mut headers = build_session_headers(self.conversation_id.clone(), self.conversation_id);
         if let Some(subagent) = subagent_header(&self.session_source) {
             insert_header(&mut headers, "x-openai-subagent", &subagent);
         }

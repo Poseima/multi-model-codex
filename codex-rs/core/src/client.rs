@@ -1345,7 +1345,7 @@ impl ModelClientSession {
         let instructions = prompt.base_instructions.text.clone();
         let input = prompt.get_formatted_input();
         let tools_json = create_tools_json_for_chat_completions_api(&prompt.tools)?;
-        let conversation_id = self.client.state.conversation_id.to_string();
+        let conversation_id = self.client.state.session_id.to_string();
         let session_source = self.client.state.session_source.clone();
 
         let mut auth_recovery = auth_manager

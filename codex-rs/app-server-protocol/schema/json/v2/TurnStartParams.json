@@ -568,13 +568,6 @@
       ],
       "description": "Override the personality for this turn and subsequent turns."
     },
-    "providerId": {
-      "description": "Override the model provider for this turn and subsequent turns.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
     "sandboxPolicy": {
       "anyOf": [
         {

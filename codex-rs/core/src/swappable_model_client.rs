@@ -1,3 +1,4 @@
+use crate::client::CompactConversationRequestSettings;
 use crate::client::ModelClient;
 use crate::client::ModelClientSession;
 use crate::client_common::Prompt;
@@ -5,7 +6,6 @@ use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
 use codex_login::AuthManager;
 use codex_otel::SessionTelemetry;
-use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::error::Result;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ModelInfo;
@@ -64,8 +64,7 @@ impl SwappableModelClient {
         &self,
         prompt: &Prompt,
         model_info: &ModelInfo,
-        effort: Option<ReasoningEffortConfig>,
-        summary: ReasoningSummaryConfig,
+        settings: CompactConversationRequestSettings,
         session_telemetry: &SessionTelemetry,
         compaction_trace: &CompactionTraceContext,
     ) -> Result<Vec<ResponseItem>> {
@@ -74,8 +73,7 @@ impl SwappableModelClient {
             .compact_conversation_history(
                 prompt,
                 model_info,
-                effort,
-                summary,
+                settings,
                 session_telemetry,
                 compaction_trace,
             )

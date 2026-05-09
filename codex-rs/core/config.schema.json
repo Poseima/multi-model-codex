@@ -1451,7 +1451,7 @@
           "type": "boolean"
         },
         "system_role": {
-          "description": "Override for the role name used in system/instruction messages in chat completions. Most providers use `\"system\"` (the default). Set this if the provider expects a different role name (e.g. `\"user\"`).",
+          "description": "Override for the role name used in system/instruction messages in chat completions. Most providers use `\"system\"` (the default). Set this if the provider expects a different role name.",
           "type": "string"
         },
         "websocket_connect_timeout_ms": {

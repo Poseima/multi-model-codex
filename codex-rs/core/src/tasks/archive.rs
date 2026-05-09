@@ -230,9 +230,7 @@ async fn process_archive_events(
                 return None;
             }
             // Suppress session config events from the subagent.
-            EventMsg::SessionConfigured(_)
-            | EventMsg::ThreadNameUpdated(_)
-            | EventMsg::TokenCount(_) => {}
+            EventMsg::SessionConfigured(_) | EventMsg::TokenCount(_) => {}
             other => {
                 session
                     .clone_session()
