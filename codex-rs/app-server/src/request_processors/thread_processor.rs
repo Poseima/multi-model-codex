@@ -841,6 +841,8 @@ impl ThreadRequestProcessor {
             thread_source,
             environments,
             persist_extended_history,
+            prompt_profile,
+            prompt_profile_path,
         } = params;
         if sandbox.is_some() && permissions.is_some() {
             return Err(invalid_request(
@@ -852,6 +854,12 @@ impl ThreadRequestProcessor {
                 .await;
         }
         let environment_selections = self.parse_environment_selections(environments)?;
+        let prompt_profile_override =
+            super::prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            )
+            .map_err(invalid_request)?;
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -892,6 +900,7 @@ impl ThreadRequestProcessor {
                 config,
                 typesafe_overrides,
                 dynamic_tools,
+                prompt_profile_override,
                 session_start_source,
                 thread_source.map(Into::into),
                 environment_selections,
@@ -976,6 +985,7 @@ impl ThreadRequestProcessor {
         config_overrides: Option<HashMap<String, serde_json::Value>>,
         typesafe_overrides: ConfigOverrides,
         dynamic_tools: Option<Vec<ApiDynamicToolSpec>>,
+        prompt_profile_override: codex_core::PromptProfileOverride,
         session_start_source: Option<codex_app_server_protocol::ThreadStartSource>,
         thread_source: Option<codex_protocol::protocol::ThreadSource>,
         environments: Option<Vec<TurnEnvironmentSelection>>,
@@ -1086,22 +1096,29 @@ impl ThreadRequestProcessor {
             ..
         } = listener_task_context
             .thread_manager
-            .start_thread_with_options(StartThreadOptions {
-                config,
-                initial_history: match session_start_source
-                    .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
-                {
-                    codex_app_server_protocol::ThreadStartSource::Startup => InitialHistory::New,
-                    codex_app_server_protocol::ThreadStartSource::Clear => InitialHistory::Cleared,
+            .start_thread_with_options_and_prompt_profile(
+                StartThreadOptions {
+                    config,
+                    initial_history: match session_start_source
+                        .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
+                    {
+                        codex_app_server_protocol::ThreadStartSource::Startup => {
+                            InitialHistory::New
+                        }
+                        codex_app_server_protocol::ThreadStartSource::Clear => {
+                            InitialHistory::Cleared
+                        }
+                    },
+                    session_source: None,
+                    thread_source,
+                    dynamic_tools: core_dynamic_tools,
+                    persist_extended_history: false,
+                    metrics_service_name: service_name,
+                    parent_trace: request_trace,
+                    environments,
                 },
-                session_source: None,
-                thread_source,
-                dynamic_tools: core_dynamic_tools,
-                persist_extended_history: false,
-                metrics_service_name: service_name,
-                parent_trace: request_trace,
-                environments,
-            })
+                prompt_profile_override,
+            )
             .instrument(tracing::info_span!(
                 "app_server.thread_start.create_thread",
                 otel.name = "app_server.thread_start.create_thread",
@@ -3021,9 +3038,12 @@ impl ThreadRequestProcessor {
             base_instructions,
             developer_instructions,
             ephemeral,
-            thread_source,
+            thread_source: _,
             exclude_turns,
             persist_extended_history,
+            prompt_profile,
+            prompt_profile_path,
+            clear_prompt_profile,
         } = params;
         let include_turns = !exclude_turns;
         if sandbox.is_some() && permissions.is_some() {
@@ -3073,6 +3093,20 @@ impl ThreadRequestProcessor {
         } else {
             Some(cli_overrides)
         };
+        let prompt_profile_override = if clear_prompt_profile {
+            if prompt_profile.is_some() || prompt_profile_path.is_some() {
+                return Err(invalid_request(
+                    "clearPromptProfile cannot be combined with promptProfile or promptProfilePath",
+                ));
+            }
+            codex_core::PromptProfileOverride::Clear
+        } else {
+            super::prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            )
+            .map_err(invalid_request)?
+        };
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -3105,7 +3139,7 @@ impl ThreadRequestProcessor {
             ..
         } = self
             .thread_manager
-            .fork_thread_from_history(
+            .fork_thread_from_history_with_prompt_profile(
                 ForkSnapshot::Interrupted,
                 config,
                 InitialHistory::Resumed(ResumedHistory {
@@ -3113,7 +3147,7 @@ impl ThreadRequestProcessor {
                     history: history_items.clone(),
                     rollout_path: source_thread.rollout_path.clone(),
                 }),
-                thread_source.map(Into::into),
+                prompt_profile_override,
                 /*persist_extended_history*/ false,
                 self.request_trace_context(&request_id).await,
             )

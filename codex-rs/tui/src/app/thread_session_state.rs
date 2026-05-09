@@ -352,8 +352,8 @@ mod tests {
             agent_role: None,
             git_info: None,
             name: Some("read thread".to_string()),
-        prompt_profile: None,
-        prompt_profile_path: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             turns: Vec::new(),
         };
 

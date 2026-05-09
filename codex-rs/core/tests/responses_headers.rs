@@ -9,6 +9,7 @@ use codex_model_provider_info::ModelProviderInfo;
 use codex_model_provider_info::WireApi;
 use codex_otel::SessionTelemetry;
 use codex_otel::TelemetryAuthMode;
+use codex_protocol::SessionId;
 use codex_protocol::ThreadId;
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::models::ContentItem;
@@ -354,6 +355,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
 
     let client = ModelClient::new(
         /*auth_manager*/ None,
+        SessionId::new(),
         conversation_id,
         /*installation_id*/ TEST_INSTALLATION_ID.to_string(),
         provider.clone(),
@@ -362,6 +364,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
         /*enable_request_compression*/ false,
         /*include_timing_metrics*/ false,
         /*beta_features_header*/ None,
+        /*attestation_provider*/ None,
     );
     let mut client_session = client.new_session();
 

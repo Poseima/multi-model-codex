@@ -1363,7 +1363,7 @@ impl ModelClientSession {
                 }))
             })
             .collect::<Vec<_>>();
-        let conversation_id = self.client.state.conversation_id.to_string();
+        let conversation_id = self.client.state.session_id.to_string();
         let session_source = self.client.state.session_source.clone();
 
         let mut auth_recovery = auth_manager
