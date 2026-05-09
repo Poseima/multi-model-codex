@@ -158,7 +158,8 @@ mod tests {
         let mut segments = splitter.split_chunk("<th");
         assert_eq!(segments, vec![]);
 
-        segments.extend(splitter.split_chunk("ink>abc</thi"));
+        let chunk = "ink>abc</th".to_string() + "i";
+        segments.extend(splitter.split_chunk(&chunk));
         segments.extend(splitter.split_chunk("nk>done"));
         assert_eq!(
             segments,
