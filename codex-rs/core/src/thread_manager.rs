@@ -214,6 +214,7 @@ pub struct StartThreadOptions {
     pub parent_trace: Option<W3cTraceContext>,
     pub environments: Option<Vec<TurnEnvironmentSelection>>,
     pub thread_extension_init: ExtensionDataInit,
+    pub prompt_profile_override: PromptProfileOverride,
     pub client_mcp_extensions: ClientMcpExtensions,
 }
 
@@ -232,6 +233,7 @@ impl StartThreadOptions {
             parent_trace: None,
             environments: None,
             thread_extension_init: ExtensionDataInit::default(),
+            prompt_profile_override: PromptProfileOverride::Inherit,
             client_mcp_extensions: ClientMcpExtensions::default(),
         }
     }
@@ -256,11 +258,12 @@ impl ThreadSpawnRequest {
         auth_manager: Arc<AuthManager>,
         agent_control: AgentControl,
     ) -> Self {
+        let prompt_profile_override = options.prompt_profile_override.clone();
         Self {
             options,
             auth_manager,
             agent_control,
-            prompt_profile_override: PromptProfileOverride::Inherit,
+            prompt_profile_override,
             parent_thread_id: None,
             forked_from_thread_id: None,
             fork_persistence: ForkPersistence::Copied,
@@ -859,6 +862,7 @@ impl ThreadManager {
                 parent_trace: None,
                 environments: Some(environments),
                 thread_extension_init: ExtensionDataInit::default(),
+                prompt_profile_override: PromptProfileOverride::Inherit,
                 client_mcp_extensions: ClientMcpExtensions::default(),
             },
             /*forked_from_thread_id*/ None,
@@ -1760,6 +1764,7 @@ impl ThreadManagerState {
             parent_trace,
             environments,
             thread_extension_init,
+            prompt_profile_override: _,
             client_mcp_extensions,
         } = options;
         let session_source = session_source.unwrap_or_else(|| self.session_source.clone());
