@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 jobs:
   test:
+    if: ${{ github.repository == 'openai/codex' }}
     # PRs use a fast Windows cross-compiled test leg for pre-merge signal.
     # Post-merge pushes to main also run the native Windows test job below for
     # broader Windows signal without putting PR latency back on the critical
@@ -145,7 +146,7 @@ jobs:
     # Native Windows Bazel tests are slower and frequently approach the
     # 30-minute PR budget. Run this only for post-merge commits to main and give
     # it a larger timeout.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'openai/codex'
     timeout-minutes: 40
     runs-on: windows-latest
     name: Bazel test on windows-latest for x86_64-pc-windows-gnullvm (native main)
@@ -218,6 +219,7 @@ jobs:
           key: ${{ steps.prepare_bazel.outputs.repository-cache-key }}
 
   clippy:
+    if: ${{ github.repository == 'openai/codex' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -312,6 +314,7 @@ jobs:
           key: ${{ steps.prepare_bazel.outputs.repository-cache-key }}
 
   verify-release-build:
+    if: ${{ github.repository == 'openai/codex' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
