@@ -419,14 +419,19 @@ else
   # --noexperimental_remote_repo_contents_cache:
   #   disable remote repo contents cache enabled in .bazelrc startup options.
   #   https://bazel.build/reference/command-line-reference#startup_options-flag--experimental_remote_repo_contents_cache
-  # --remote_cache= and --remote_executor=:
-  #   clear remote cache/execution endpoints configured in .bazelrc.
+  # --remote_cache=, --remote_executor=, --experimental_remote_downloader=,
+  # and --bes_backend=:
+  #   clear remote services configured in .bazelrc.
   #   https://bazel.build/reference/command-line-reference#common_options-flag--remote_cache
   #   https://bazel.build/reference/command-line-reference#common_options-flag--remote_executor
+  #   https://bazel.build/reference/command-line-reference#common_options-flag--experimental_remote_downloader
+  #   https://bazel.build/reference/command-line-reference#common_options-flag--bes_backend
   bazel_run_args=(
     "${bazel_args[@]}"
     --remote_cache=
     --remote_executor=
+    --experimental_remote_downloader=
+    --bes_backend=
   )
   if (( ${#post_config_bazel_args[@]} > 0 )); then
     bazel_run_args+=("${post_config_bazel_args[@]}")

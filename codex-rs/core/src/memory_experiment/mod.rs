@@ -96,7 +96,7 @@ pub(crate) fn read_config(codex_home: &Path, project_root: &Path) -> ExperimentC
 }
 
 /// Read a single raw config file. Returns default (all `None`) if missing or
-/// unparseable.
+/// unparsable.
 fn read_raw_config(path: &Path) -> ExperimentConfigRaw {
     std::fs::read_to_string(path)
         .ok()

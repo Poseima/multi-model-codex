@@ -154,7 +154,7 @@ The app uses JWT with refresh token rotation for stateless auth.
 - **Outcome:** [Optional: how it ended, difficulty signal]
 ```
 
-### PHASE 4: RE-Organize (Update Memory Clues and semantics memory hierachy)
+### PHASE 4: RE-Organize (Update Memory Clues and semantics memory hierarchy)
 
 1.  **Rebuild `memory_clues.md`:** Write the complete file reflecting ALL memory files in `semantic/` and `episodic/`. List all `.md` files, extract their keywords and summaries.
 2.  **Calculate `memory_clues.md` length:** 1 token is approximately 4 chars, calculate if memory_clues.md exceeds 20k tokens

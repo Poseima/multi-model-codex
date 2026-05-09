@@ -64,7 +64,7 @@ pub(crate) async fn prune_expired(project_root: &Path) -> std::io::Result<usize>
                 }
                 continue;
             }
-            warn!("unparseable expires timestamp in {filename}: {expires_str}");
+            warn!("unparsable expires timestamp in {filename}: {expires_str}");
             continue;
         };
 
