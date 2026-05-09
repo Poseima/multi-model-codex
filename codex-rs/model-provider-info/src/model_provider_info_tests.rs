@@ -171,6 +171,7 @@ fn test_supports_remote_compaction_for_azure_name() {
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
         supports_websockets: false,
+        system_role: None,
     };
 
     assert!(provider.supports_remote_compaction());
@@ -196,6 +197,7 @@ fn test_supports_remote_compaction_for_non_openai_non_azure_provider() {
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
         supports_websockets: false,
+        system_role: None,
     };
 
     assert!(!provider.supports_remote_compaction());
@@ -304,6 +306,7 @@ fn test_create_amazon_bedrock_provider() {
             websocket_connect_timeout_ms: None,
             requires_openai_auth: false,
             supports_websockets: false,
+            system_role: None,
         }
     );
 }
@@ -512,6 +515,7 @@ fn detects_azure_responses_base_urls() {
             env_key_instructions: None,
             experimental_bearer_token: None,
             auth: None,
+            aws: None,
             wire_api: WireApi::Responses,
             query_params: None,
             http_headers: None,
@@ -538,6 +542,7 @@ fn detects_azure_responses_base_urls() {
         env_key_instructions: None,
         experimental_bearer_token: None,
         auth: None,
+        aws: None,
         wire_api: WireApi::Responses,
         query_params: None,
         http_headers: None,
@@ -566,6 +571,7 @@ fn detects_azure_responses_base_urls() {
             env_key_instructions: None,
             experimental_bearer_token: None,
             auth: None,
+            aws: None,
             wire_api: WireApi::Responses,
             query_params: None,
             http_headers: None,
