@@ -6897,6 +6897,8 @@ async fn make_session_with_history_source_and_agent_control_and_rx(
             .base_instructions
             .clone()
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
+        prompt_profile: None,
+        prompt_profile_path: None,
         permission_profile_state: config.permissions.permission_profile_state().clone(),
         allow_login_shell: config.permissions.allow_login_shell,
         shell_environment_policy: config.permissions.shell_environment_policy.clone(),

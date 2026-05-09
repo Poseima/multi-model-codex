@@ -1154,6 +1154,9 @@ impl ThreadRequestProcessor {
             thread_source,
             project_id,
             environments,
+            persist_extended_history,
+            prompt_profile,
+            prompt_profile_path,
         } = params;
         if matches!(
             history_mode,
@@ -1190,6 +1193,12 @@ impl ThreadRequestProcessor {
         let runtime_workspace_roots = runtime_workspace_roots.map(resolve_runtime_workspace_roots);
         let environments =
             resolve_turn_environment_selections(self.thread_manager.as_ref(), environments)?;
+        let prompt_profile_override =
+            super::prompt_profile_support::resolve_prompt_profile_override(
+                prompt_profile,
+                prompt_profile_path,
+            )
+            .map_err(invalid_request)?;
         let mut typesafe_overrides = self.build_thread_config_overrides(
             model,
             model_provider,
@@ -1238,6 +1247,8 @@ impl ThreadRequestProcessor {
                 dynamic_tools,
                 selected_capability_roots.unwrap_or_default(),
                 history_mode.map(Into::into),
+                prompt_profile_override,
+                persist_extended_history,
                 session_start_source,
                 thread_source.map(Into::into),
                 project_id,
@@ -1317,6 +1328,8 @@ impl ThreadRequestProcessor {
         dynamic_tools: Option<Vec<DynamicToolSpec>>,
         selected_capability_roots: Vec<SelectedCapabilityRoot>,
         history_mode: Option<ThreadHistoryMode>,
+        prompt_profile_override: codex_core::PromptProfileOverride,
+        persist_extended_history: bool,
         session_start_source: Option<codex_app_server_protocol::ThreadStartSource>,
         thread_source: Option<codex_protocol::protocol::ThreadSource>,
         project_id: Option<String>,
@@ -1458,25 +1471,32 @@ impl ThreadRequestProcessor {
         let create_thread_started_at = std::time::Instant::now();
         let new_thread = listener_task_context
             .thread_manager
-            .start_thread(StartThreadOptions {
-                allow_provider_model_fallback,
-                initial_history: match session_start_source
-                    .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
-                {
-                    codex_app_server_protocol::ThreadStartSource::Startup => InitialHistory::New,
-                    codex_app_server_protocol::ThreadStartSource::Clear => InitialHistory::Cleared,
+            .start_thread_with_options(
+                StartThreadOptions {
+                    allow_provider_model_fallback,
+                    initial_history: match session_start_source
+                        .unwrap_or(codex_app_server_protocol::ThreadStartSource::Startup)
+                    {
+                        codex_app_server_protocol::ThreadStartSource::Startup => {
+                            InitialHistory::New
+                        }
+                        codex_app_server_protocol::ThreadStartSource::Clear => {
+                            InitialHistory::Cleared
+                        }
+                    },
+                    history_mode,
+                    thread_source,
+                    dynamic_tools: core_dynamic_tools,
+                    persist_extended_history,
+                    metrics_service_name: service_name,
+                    parent_trace: request_trace,
+                    environments: Some(environments),
+                    thread_extension_init,
+                    prompt_profile_override,
+                    client_mcp_extensions,
+                    ..start_options
                 },
-                history_mode,
-                thread_source,
-                dynamic_tools: core_dynamic_tools,
-                persist_extended_history: false,
-                metrics_service_name: service_name,
-                parent_trace: request_trace,
-                environments: Some(environments),
-                thread_extension_init,
-                client_mcp_extensions,
-                ..start_options
-            })
+            )
             .instrument(tracing::info_span!(
                 "app_server.thread_start.create_thread",
                 otel.name = "app_server.thread_start.create_thread",
@@ -4783,6 +4803,7 @@ impl ThreadRequestProcessor {
             thread_source,
             exclude_turns,
             defer_goal_continuation,
+            persist_extended_history,
             prompt_profile,
             prompt_profile_path,
             clear_prompt_profile,
@@ -5070,7 +5091,7 @@ impl ThreadRequestProcessor {
                     codex_core::ForkThreadHistoryOptions {
                         thread_source,
                         prompt_profile_override,
-                        persist_extended_history: false,
+                        persist_extended_history,
                         parent_trace,
                         client_mcp_extensions: client_mcp_extensions.clone(),
                         reserved_thread_id,
@@ -5090,7 +5111,7 @@ impl ThreadRequestProcessor {
                     codex_core::ForkThreadHistoryOptions {
                         thread_source,
                         prompt_profile_override,
-                        persist_extended_history: false,
+                        persist_extended_history,
                         parent_trace,
                         client_mcp_extensions,
                         reserved_thread_id,

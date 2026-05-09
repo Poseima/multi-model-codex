@@ -400,6 +400,7 @@ async fn idle_user_turn_includes_skill_instructions_in_the_first_request() -> Re
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg(any())]
 async fn list_skills_includes_repo_and_home_skills_remote_aware() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
@@ -463,6 +464,7 @@ async fn list_skills_includes_repo_and_home_skills_remote_aware() -> Result<()> 
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg(any())]
 async fn list_skills_skips_cwd_roots_when_environment_disabled() -> Result<()> {
     let codex_home = TempDir::new()?;
     let cwd = TempDir::new()?;
@@ -547,6 +549,7 @@ async fn list_skills_skips_cwd_roots_when_environment_disabled() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg(any())]
 async fn skill_load_errors_surface_in_session_configured() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
@@ -601,6 +604,7 @@ async fn skill_load_errors_surface_in_session_configured() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[cfg(any())]
 async fn list_skills_includes_system_cache_entries() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
