@@ -332,6 +332,9 @@ impl ChatWidget {
                 self.open_permissions_popup();
                 self.defer_input_until_settings_applied();
             }
+            SlashCommand::Approvals => {
+                self.open_approvals_popup();
+            }
             SlashCommand::Vim => {
                 self.toggle_vim_mode_and_notify();
             }
@@ -1217,6 +1220,7 @@ impl ChatWidget {
             | SlashCommand::Agents
             | SlashCommand::MultiAgents
             | SlashCommand::Permissions
+            | SlashCommand::Approvals
             | SlashCommand::ElevateSandbox
             | SlashCommand::SandboxReadRoot
             | SlashCommand::Experimental
