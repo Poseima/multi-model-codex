@@ -620,7 +620,6 @@ impl AppServerSession {
         collaboration_mode: Option<codex_protocol::config_types::CollaborationMode>,
         personality: Option<codex_protocol::config_types::Personality>,
         output_schema: Option<serde_json::Value>,
-        provider_id: Option<String>,
     ) -> Result<TurnStartResponse> {
         let request_id = self.next_request_id();
         let (sandbox_policy, permissions) = turn_permissions_overrides(
@@ -649,7 +648,6 @@ impl AppServerSession {
                     personality,
                     output_schema,
                     collaboration_mode,
-                    provider_id,
                 },
             })
             .await
