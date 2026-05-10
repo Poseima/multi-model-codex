@@ -659,7 +659,6 @@ impl App {
                             collaboration_mode.clone(),
                             *personality,
                             final_output_json_schema.clone(),
-                            Some(config.model_provider_id.clone()),
                         )
                         .await?;
                 }
