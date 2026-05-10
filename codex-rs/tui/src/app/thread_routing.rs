@@ -665,7 +665,6 @@ impl App {
                             collaboration_mode.clone(),
                             *personality,
                             final_output_json_schema.clone(),
-                            Some(config.model_provider_id.clone()),
                         )
                         .await?;
                     if self.active_thread_id == Some(thread_id)
