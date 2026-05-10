@@ -261,6 +261,9 @@ impl ChatWidget {
             SlashCommand::Permissions => {
                 self.open_permissions_popup();
             }
+            SlashCommand::Approvals => {
+                self.open_approvals_popup();
+            }
             SlashCommand::Vim => {
                 self.toggle_vim_mode_and_notify();
             }
@@ -1018,6 +1021,7 @@ impl ChatWidget {
             | SlashCommand::Agent
             | SlashCommand::MultiAgents
             | SlashCommand::Permissions
+            | SlashCommand::Approvals
             | SlashCommand::ElevateSandbox
             | SlashCommand::SandboxReadRoot
             | SlashCommand::Experimental
