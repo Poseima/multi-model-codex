@@ -226,6 +226,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         originator: "codex".to_string(),
         cli_version: "0.0.0".to_string(),
         source: SessionSource::Cli,
+        thread_source: None,
         agent_path: None,
         agent_nickname: None,
         agent_role: None,

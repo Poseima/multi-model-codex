@@ -137,6 +137,7 @@ fn fork_catalog_expected_models() -> Vec<Model> {
         input_modalities: vec![codex_protocol::openai_models::InputModality::Text],
         supports_personality: false,
         additional_speed_tiers: Vec::new(),
+        service_tiers: Vec::new(),
         is_default: false,
     })
     .collect()

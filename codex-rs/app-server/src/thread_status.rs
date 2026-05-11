@@ -908,8 +908,6 @@ mod tests {
             thread_source: None,
             git_info: None,
             name: None,
-            prompt_profile: None,
-            prompt_profile_path: None,
             turns: Vec::new(),
         }
     }
