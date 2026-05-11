@@ -8098,7 +8098,10 @@ mod tests {
         match &composer.active_popup {
             ActivePopup::Command(popup) => match popup.selected_item() {
                 Some(CommandItem::Builtin(cmd)) => {
-                    assert_eq!(cmd.command(), "profile")
+                    assert_eq!(cmd.command(), "profile");
+                }
+                Some(CommandItem::ServiceTier(_)) => {
+                    panic!("selected service tier command for '/profile'");
                 }
                 None => panic!("no selected command for '/profile'"),
             },
