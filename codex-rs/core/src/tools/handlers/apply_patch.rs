@@ -287,7 +287,7 @@ fn apply_patch_payload_command(payload: &ToolPayload) -> Option<String> {
     }
 }
 
-pub(crate) async fn effective_patch_permissions(
+pub(super) async fn effective_patch_permissions(
     session: &Session,
     turn_id: &str,
     environment: &TurnEnvironment,

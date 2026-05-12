@@ -421,6 +421,7 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+    use codex_apply_patch::ApplyPatchFileChange;
     use codex_apply_patch::MaybeApplyPatchVerified;
     use codex_exec_server::LOCAL_FS;
         use tempfile::TempDir;
