@@ -321,6 +321,7 @@ mod tests {
             websocket_connect_timeout_ms: None,
             requires_openai_auth: false,
             supports_websockets: false,
+            system_role: None,
         }
     }
 

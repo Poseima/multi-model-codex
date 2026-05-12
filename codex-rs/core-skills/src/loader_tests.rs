@@ -1815,6 +1815,7 @@ async fn hides_system_skill_when_user_skill_has_same_name() {
             policy: None,
             path_to_skills_md: normalized(&user_skill_path),
             scope: SkillScope::User,
+            plugin_id: None,
         }]
     );
 }

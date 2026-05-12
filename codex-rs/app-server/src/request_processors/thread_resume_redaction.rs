@@ -183,6 +183,8 @@ mod tests {
             agent_role: None,
             git_info: None,
             name: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             turns: vec![Turn {
                 id: "turn-1".to_string(),
                 items,
