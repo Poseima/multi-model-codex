@@ -290,6 +290,26 @@ struct ListedAgentResult {
     last_task_message: Option<String>,
 }
 
+fn run_stack_heavy_async_test<F, Fut>(name: &'static str, test: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("create tokio runtime");
+            runtime.block_on(test());
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
+}
+
 #[tokio::test]
 async fn handler_rejects_non_function_payloads() {
     let (session, turn) = make_session_and_context().await;
@@ -1489,98 +1509,100 @@ async fn multi_agent_v2_followup_task_rejects_root_target_from_child() {
     );
 }
 
-#[tokio::test]
-async fn multi_agent_v2_list_agents_returns_completed_status_and_last_task_message() {
-    let (mut session, mut turn) = make_session_and_context().await;
-    let manager = thread_manager();
-    let root = manager
-        .start_thread((*turn.config).clone())
-        .await
-        .expect("root thread should start");
-    session.services.agent_control = manager.agent_control();
-    session.conversation_id = root.thread_id;
-    let mut config = (*turn.config).clone();
-    let _ = config.features.enable(Feature::MultiAgentV2);
-    turn.config = Arc::new(config);
+#[test]
+fn multi_agent_v2_list_agents_returns_completed_status_and_last_task_message() {
+    run_stack_heavy_async_test("multi-agent-v2-list-completed", || async {
+        let (mut session, mut turn) = make_session_and_context().await;
+        let manager = thread_manager();
+        let root = manager
+            .start_thread((*turn.config).clone())
+            .await
+            .expect("root thread should start");
+        session.services.agent_control = manager.agent_control();
+        session.conversation_id = root.thread_id;
+        let mut config = (*turn.config).clone();
+        let _ = config.features.enable(Feature::MultiAgentV2);
+        turn.config = Arc::new(config);
 
-    let session = Arc::new(session);
-    let turn = Arc::new(turn);
-    let spawn_output = SpawnAgentHandlerV2::default()
-        .handle(invocation(
-            session.clone(),
-            turn.clone(),
-            "spawn_agent",
-            function_payload(json!({
-                "message": "inspect this repo",
-                "task_name": "worker"
-            })),
-        ))
-        .await
-        .expect("spawn_agent should succeed");
-    let _ = expect_text_output(spawn_output);
+        let session = Arc::new(session);
+        let turn = Arc::new(turn);
+        let spawn_output = SpawnAgentHandlerV2::default()
+            .handle(invocation(
+                session.clone(),
+                turn.clone(),
+                "spawn_agent",
+                function_payload(json!({
+                    "message": "inspect this repo",
+                    "task_name": "worker"
+                })),
+            ))
+            .await
+            .expect("spawn_agent should succeed");
+        let _ = expect_text_output(spawn_output);
 
-    let agent_id = session
-        .services
-        .agent_control
-        .resolve_agent_reference(session.conversation_id, &turn.session_source, "worker")
-        .await
-        .expect("worker path should resolve");
-    let child_thread = manager
-        .get_thread(agent_id)
-        .await
-        .expect("child thread should exist");
-    let child_turn = child_thread.codex.session.new_default_turn().await;
-    child_thread
-        .codex
-        .session
-        .send_event(
-            child_turn.as_ref(),
-            EventMsg::TurnComplete(TurnCompleteEvent {
-                turn_id: child_turn.sub_id.clone(),
-                last_agent_message: Some("done".to_string()),
-                completed_at: None,
-                duration_ms: None,
-                time_to_first_token_ms: None,
-            }),
-        )
-        .await;
+        let agent_id = session
+            .services
+            .agent_control
+            .resolve_agent_reference(session.conversation_id, &turn.session_source, "worker")
+            .await
+            .expect("worker path should resolve");
+        let child_thread = manager
+            .get_thread(agent_id)
+            .await
+            .expect("child thread should exist");
+        let child_turn = child_thread.codex.session.new_default_turn().await;
+        child_thread
+            .codex
+            .session
+            .send_event(
+                child_turn.as_ref(),
+                EventMsg::TurnComplete(TurnCompleteEvent {
+                    turn_id: child_turn.sub_id.clone(),
+                    last_agent_message: Some("done".to_string()),
+                    completed_at: None,
+                    duration_ms: None,
+                    time_to_first_token_ms: None,
+                }),
+            )
+            .await;
 
-    let output = ListAgentsHandlerV2
-        .handle(invocation(
-            session,
-            turn,
-            "list_agents",
-            function_payload(json!({})),
-        ))
-        .await
-        .expect("list_agents should succeed");
-    let (content, success) = expect_text_output(output);
-    let result: ListAgentsResult =
-        serde_json::from_str(&content).expect("list_agents result should be json");
+        let output = ListAgentsHandlerV2
+            .handle(invocation(
+                session,
+                turn,
+                "list_agents",
+                function_payload(json!({})),
+            ))
+            .await
+            .expect("list_agents should succeed");
+        let (content, success) = expect_text_output(output);
+        let result: ListAgentsResult =
+            serde_json::from_str(&content).expect("list_agents result should be json");
 
-    let agent_names = result
-        .agents
-        .iter()
-        .map(|agent| agent.agent_name.as_str())
-        .collect::<Vec<_>>();
-    assert_eq!(agent_names, vec!["/root", "/root/worker"]);
-    let root_agent = result
-        .agents
-        .iter()
-        .find(|agent| agent.agent_name == "/root")
-        .expect("root agent should be listed");
-    assert_eq!(root_agent.last_task_message.as_deref(), Some("Main thread"));
-    let worker = result
-        .agents
-        .iter()
-        .find(|agent| agent.agent_name == "/root/worker")
-        .expect("worker agent should be listed");
-    assert_eq!(worker.agent_status, json!({"completed": "done"}));
-    assert_eq!(
-        worker.last_task_message.as_deref(),
-        Some("inspect this repo")
-    );
-    assert_eq!(success, Some(true));
+        let agent_names = result
+            .agents
+            .iter()
+            .map(|agent| agent.agent_name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(agent_names, vec!["/root", "/root/worker"]);
+        let root_agent = result
+            .agents
+            .iter()
+            .find(|agent| agent.agent_name == "/root")
+            .expect("root agent should be listed");
+        assert_eq!(root_agent.last_task_message.as_deref(), Some("Main thread"));
+        let worker = result
+            .agents
+            .iter()
+            .find(|agent| agent.agent_name == "/root/worker")
+            .expect("worker agent should be listed");
+        assert_eq!(worker.agent_status, json!({"completed": "done"}));
+        assert_eq!(
+            worker.last_task_message.as_deref(),
+            Some("inspect this repo")
+        );
+        assert_eq!(success, Some(true));
+    });
 }
 
 #[tokio::test]
@@ -1968,139 +1990,157 @@ async fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_messa
         .expect("shutdown should submit");
 }
 
-#[tokio::test]
-async fn multi_agent_v2_followup_task_completion_notifies_parent_on_every_turn() {
-    let (mut session, mut turn) = make_session_and_context().await;
-    let manager = thread_manager();
-    let root = manager
-        .start_thread((*turn.config).clone())
-        .await
-        .expect("root thread should start");
-    session.services.agent_control = manager.agent_control();
-    session.conversation_id = root.thread_id;
-    let mut config = turn.config.as_ref().clone();
-    let _ = config.features.enable(Feature::MultiAgentV2);
-    turn.config = Arc::new(config);
-    let session = Arc::new(session);
-    let turn = Arc::new(turn);
+#[test]
+fn multi_agent_v2_followup_task_completion_notifies_parent_on_every_turn() {
+    std::thread::Builder::new()
+        .name("multi-agent-v2-followup-completion".to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("create tokio runtime");
+            runtime.block_on(async {
+                let (mut session, mut turn) = make_session_and_context().await;
+                let manager = thread_manager();
+                let root = manager
+                    .start_thread((*turn.config).clone())
+                    .await
+                    .expect("root thread should start");
+                session.services.agent_control = manager.agent_control();
+                session.conversation_id = root.thread_id;
+                let mut config = turn.config.as_ref().clone();
+                let _ = config.features.enable(Feature::MultiAgentV2);
+                turn.config = Arc::new(config);
+                let session = Arc::new(session);
+                let turn = Arc::new(turn);
 
-    SpawnAgentHandlerV2::default()
-        .handle(invocation(
-            session.clone(),
-            turn.clone(),
-            "spawn_agent",
-            function_payload(json!({
-                "message": "boot worker",
-                "task_name": "worker"
-            })),
-        ))
-        .await
-        .expect("spawn worker");
-    let agent_id = session
-        .services
-        .agent_control
-        .resolve_agent_reference(session.conversation_id, &turn.session_source, "worker")
-        .await
-        .expect("worker should resolve");
-    let thread = manager
-        .get_thread(agent_id)
-        .await
-        .expect("worker thread should exist");
-    let worker_path = AgentPath::try_from("/root/worker").expect("worker path");
+                SpawnAgentHandlerV2::default()
+                    .handle(invocation(
+                        session.clone(),
+                        turn.clone(),
+                        "spawn_agent",
+                        function_payload(json!({
+                            "message": "boot worker",
+                            "task_name": "worker"
+                        })),
+                    ))
+                    .await
+                    .expect("spawn worker");
+                let agent_id = session
+                    .services
+                    .agent_control
+                    .resolve_agent_reference(
+                        session.conversation_id,
+                        &turn.session_source,
+                        "worker",
+                    )
+                    .await
+                    .expect("worker should resolve");
+                let thread = manager
+                    .get_thread(agent_id)
+                    .await
+                    .expect("worker thread should exist");
+                let worker_path = AgentPath::try_from("/root/worker").expect("worker path");
 
-    let first_turn = thread.codex.session.new_default_turn().await;
-    thread
-        .codex
-        .session
-        .send_event(
-            first_turn.as_ref(),
-            EventMsg::TurnComplete(TurnCompleteEvent {
-                turn_id: first_turn.sub_id.clone(),
-                last_agent_message: Some("first done".to_string()),
-                completed_at: None,
-                duration_ms: None,
-                time_to_first_token_ms: None,
-            }),
-        )
-        .await;
+                let first_turn = thread.codex.session.new_default_turn().await;
+                thread
+                    .codex
+                    .session
+                    .send_event(
+                        first_turn.as_ref(),
+                        EventMsg::TurnComplete(TurnCompleteEvent {
+                            turn_id: first_turn.sub_id.clone(),
+                            last_agent_message: Some("first done".to_string()),
+                            completed_at: None,
+                            duration_ms: None,
+                            time_to_first_token_ms: None,
+                        }),
+                    )
+                    .await;
 
-    FollowupTaskHandlerV2
-        .handle(invocation(
-            session,
-            turn,
-            "followup_task",
-            function_payload(json!({
-                "target": agent_id.to_string(),
-                "message": "continue",
-            })),
-        ))
-        .await
-        .expect("followup_task should succeed");
+                FollowupTaskHandlerV2
+                    .handle(invocation(
+                        session,
+                        turn,
+                        "followup_task",
+                        function_payload(json!({
+                            "target": agent_id.to_string(),
+                            "message": "continue",
+                        })),
+                    ))
+                    .await
+                    .expect("followup_task should succeed");
 
-    let second_turn = thread.codex.session.new_default_turn().await;
-    thread
-        .codex
-        .session
-        .send_event(
-            second_turn.as_ref(),
-            EventMsg::TurnComplete(TurnCompleteEvent {
-                turn_id: second_turn.sub_id.clone(),
-                last_agent_message: Some("second done".to_string()),
-                completed_at: None,
-                duration_ms: None,
-                time_to_first_token_ms: None,
-            }),
-        )
-        .await;
+                let second_turn = thread.codex.session.new_default_turn().await;
+                thread
+                    .codex
+                    .session
+                    .send_event(
+                        second_turn.as_ref(),
+                        EventMsg::TurnComplete(TurnCompleteEvent {
+                            turn_id: second_turn.sub_id.clone(),
+                            last_agent_message: Some("second done".to_string()),
+                            completed_at: None,
+                            duration_ms: None,
+                            time_to_first_token_ms: None,
+                        }),
+                    )
+                    .await;
 
-    let first_notification = format_subagent_notification_message(
-        worker_path.as_str(),
-        &AgentStatus::Completed(Some("first done".to_string())),
-    );
-    let second_notification = format_subagent_notification_message(
-        worker_path.as_str(),
-        &AgentStatus::Completed(Some("second done".to_string())),
-    );
+                let first_notification = format_subagent_notification_message(
+                    worker_path.as_str(),
+                    &AgentStatus::Completed(Some("first done".to_string())),
+                );
+                let second_notification = format_subagent_notification_message(
+                    worker_path.as_str(),
+                    &AgentStatus::Completed(Some("second done".to_string())),
+                );
 
-    let notifications = timeout(Duration::from_secs(5), async {
-        loop {
-            let notifications = manager
-                .captured_ops()
-                .into_iter()
-                .filter_map(|(id, op)| {
-                    (id == root.thread_id)
-                        .then_some(op)
-                        .and_then(|op| match op {
-                            Op::InterAgentCommunication { communication }
-                                if communication.author == worker_path
-                                    && communication.recipient == AgentPath::root()
-                                    && communication.other_recipients.is_empty()
-                                    && !communication.trigger_turn =>
-                            {
-                                Some(communication.content)
-                            }
-                            _ => None,
-                        })
+                let notifications = timeout(Duration::from_secs(5), async {
+                    loop {
+                        let notifications = manager
+                            .captured_ops()
+                            .into_iter()
+                            .filter_map(|(id, op)| {
+                                (id == root.thread_id)
+                                    .then_some(op)
+                                    .and_then(|op| match op {
+                                        Op::InterAgentCommunication { communication }
+                                            if communication.author == worker_path
+                                                && communication.recipient == AgentPath::root()
+                                                && communication.other_recipients.is_empty()
+                                                && !communication.trigger_turn =>
+                                        {
+                                            Some(communication.content)
+                                        }
+                                        _ => None,
+                                    })
+                            })
+                            .collect::<Vec<_>>();
+                        let first_count = notifications
+                            .iter()
+                            .filter(|message| **message == first_notification)
+                            .count();
+                        let second_count = notifications
+                            .iter()
+                            .filter(|message| **message == second_notification)
+                            .count();
+                        if first_count == 1 && second_count == 1 {
+                            break notifications;
+                        }
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
                 })
-                .collect::<Vec<_>>();
-            let first_count = notifications
-                .iter()
-                .filter(|message| **message == first_notification)
-                .count();
-            let second_count = notifications
-                .iter()
-                .filter(|message| **message == second_notification)
-                .count();
-            if first_count == 1 && second_count == 1 {
-                break notifications;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("parent should receive one completion notification per child turn");
+                .await
+                .expect("parent should receive one completion notification per child turn");
 
-    assert_eq!(notifications.len(), 2);
+                assert_eq!(notifications.len(), 2);
+            });
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
 }
 
 #[tokio::test]
@@ -2156,81 +2196,99 @@ async fn multi_agent_v2_followup_task_rejects_legacy_items_field() {
     assert!(message.contains("unknown field `items`"));
 }
 
-#[tokio::test]
-async fn multi_agent_v2_interrupted_turn_does_not_notify_parent() {
-    let (mut session, mut turn) = make_session_and_context().await;
-    let manager = thread_manager();
-    let root = manager
-        .start_thread((*turn.config).clone())
-        .await
-        .expect("root thread should start");
-    session.services.agent_control = manager.agent_control();
-    session.conversation_id = root.thread_id;
-    let mut config = turn.config.as_ref().clone();
-    let _ = config.features.enable(Feature::MultiAgentV2);
-    turn.config = Arc::new(config);
-    let session = Arc::new(session);
-    let turn = Arc::new(turn);
+#[test]
+fn multi_agent_v2_interrupted_turn_does_not_notify_parent() {
+    std::thread::Builder::new()
+        .name("multi-agent-v2-interrupted-turn".to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("create tokio runtime");
+            runtime.block_on(async {
+                let (mut session, mut turn) = make_session_and_context().await;
+                let manager = thread_manager();
+                let root = manager
+                    .start_thread((*turn.config).clone())
+                    .await
+                    .expect("root thread should start");
+                session.services.agent_control = manager.agent_control();
+                session.conversation_id = root.thread_id;
+                let mut config = turn.config.as_ref().clone();
+                let _ = config.features.enable(Feature::MultiAgentV2);
+                turn.config = Arc::new(config);
+                let session = Arc::new(session);
+                let turn = Arc::new(turn);
 
-    SpawnAgentHandlerV2::default()
-        .handle(invocation(
-            session.clone(),
-            turn.clone(),
-            "spawn_agent",
-            function_payload(json!({
-                "message": "boot worker",
-                "task_name": "worker"
-            })),
-        ))
-        .await
-        .expect("spawn worker");
-    let agent_id = session
-        .services
-        .agent_control
-        .resolve_agent_reference(session.conversation_id, &turn.session_source, "worker")
-        .await
-        .expect("worker should resolve");
-    let thread = manager
-        .get_thread(agent_id)
-        .await
-        .expect("worker thread should exist");
+                SpawnAgentHandlerV2::default()
+                    .handle(invocation(
+                        session.clone(),
+                        turn.clone(),
+                        "spawn_agent",
+                        function_payload(json!({
+                            "message": "boot worker",
+                            "task_name": "worker"
+                        })),
+                    ))
+                    .await
+                    .expect("spawn worker");
+                let agent_id = session
+                    .services
+                    .agent_control
+                    .resolve_agent_reference(
+                        session.conversation_id,
+                        &turn.session_source,
+                        "worker",
+                    )
+                    .await
+                    .expect("worker should resolve");
+                let thread = manager
+                    .get_thread(agent_id)
+                    .await
+                    .expect("worker thread should exist");
 
-    let aborted_turn = thread.codex.session.new_default_turn().await;
-    thread
-        .codex
-        .session
-        .send_event(
-            aborted_turn.as_ref(),
-            EventMsg::TurnAborted(TurnAbortedEvent {
-                turn_id: Some(aborted_turn.sub_id.clone()),
-                reason: TurnAbortReason::Interrupted,
-                completed_at: None,
-                duration_ms: None,
-            }),
-        )
-        .await;
+                let aborted_turn = thread.codex.session.new_default_turn().await;
+                thread
+                    .codex
+                    .session
+                    .send_event(
+                        aborted_turn.as_ref(),
+                        EventMsg::TurnAborted(TurnAbortedEvent {
+                            turn_id: Some(aborted_turn.sub_id.clone()),
+                            reason: TurnAbortReason::Interrupted,
+                            completed_at: None,
+                            duration_ms: None,
+                        }),
+                    )
+                    .await;
 
-    let notifications = manager
-        .captured_ops()
-        .into_iter()
-        .filter_map(|(id, op)| {
-            (id == root.thread_id)
-                .then_some(op)
-                .and_then(|op| match op {
-                    Op::InterAgentCommunication { communication }
-                        if communication.author.as_str() == "/root/worker"
-                            && communication.recipient == AgentPath::root()
-                            && communication.other_recipients.is_empty()
-                            && !communication.trigger_turn =>
-                    {
-                        Some(communication.content)
-                    }
-                    _ => None,
-                })
+                let notifications = manager
+                    .captured_ops()
+                    .into_iter()
+                    .filter_map(|(id, op)| {
+                        (id == root.thread_id)
+                            .then_some(op)
+                            .and_then(|op| match op {
+                                Op::InterAgentCommunication { communication }
+                                    if communication.author.as_str() == "/root/worker"
+                                        && communication.recipient == AgentPath::root()
+                                        && communication.other_recipients.is_empty()
+                                        && !communication.trigger_turn =>
+                                {
+                                    Some(communication.content)
+                                }
+                                _ => None,
+                            })
+                    })
+                    .collect::<Vec<_>>();
+
+                assert_eq!(notifications, Vec::<String>::new());
+            });
         })
-        .collect::<Vec<_>>();
-
-    assert_eq!(notifications, Vec::<String>::new());
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
 }
 
 #[tokio::test]

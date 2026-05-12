@@ -819,127 +819,141 @@ async fn spawn_agent_fork_flushes_parent_rollout_before_loading_history() {
         .expect("parent shutdown should submit");
 }
 
-#[tokio::test]
-async fn spawn_agent_fork_last_n_turns_keeps_only_recent_turns() {
-    let harness = AgentControlHarness::new().await;
-    let (parent_thread_id, parent_thread) = harness.start_thread().await;
+#[test]
+fn spawn_agent_fork_last_n_turns_keeps_only_recent_turns() {
+    std::thread::Builder::new()
+        .name("spawn-agent-fork-last-n-turns".to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("create tokio runtime");
+            runtime.block_on(async {
+                let harness = AgentControlHarness::new().await;
+                let (parent_thread_id, parent_thread) = harness.start_thread().await;
 
-    parent_thread
-        .inject_user_message_without_turn("old parent context".to_string())
-        .await;
-    let queued_communication = InterAgentCommunication::new(
-        AgentPath::root(),
-        AgentPath::try_from("/root/worker").expect("agent path"),
-        Vec::new(),
-        "queued message".to_string(),
-        /*trigger_turn*/ false,
-    );
-    let queued_turn_context = parent_thread.codex.session.new_default_turn().await;
-    parent_thread
-        .codex
-        .session
-        .record_conversation_items(
-            queued_turn_context.as_ref(),
-            &[queued_communication.to_response_input_item().into()],
-        )
-        .await;
+                parent_thread
+                    .inject_user_message_without_turn("old parent context".to_string())
+                    .await;
+                let queued_communication = InterAgentCommunication::new(
+                    AgentPath::root(),
+                    AgentPath::try_from("/root/worker").expect("agent path"),
+                    Vec::new(),
+                    "queued message".to_string(),
+                    /*trigger_turn*/ false,
+                );
+                let queued_turn_context = parent_thread.codex.session.new_default_turn().await;
+                parent_thread
+                    .codex
+                    .session
+                    .record_conversation_items(
+                        queued_turn_context.as_ref(),
+                        &[queued_communication.to_response_input_item().into()],
+                    )
+                    .await;
 
-    let triggered_communication = InterAgentCommunication::new(
-        AgentPath::root(),
-        AgentPath::try_from("/root/worker").expect("agent path"),
-        Vec::new(),
-        "triggered context".to_string(),
-        /*trigger_turn*/ true,
-    );
-    let triggered_turn_context = parent_thread.codex.session.new_default_turn().await;
-    parent_thread
-        .codex
-        .session
-        .record_conversation_items(
-            triggered_turn_context.as_ref(),
-            &[triggered_communication.to_response_input_item().into()],
-        )
-        .await;
-    parent_thread
-        .inject_user_message_without_turn("current parent task".to_string())
-        .await;
-    let spawn_turn_context = parent_thread.codex.session.new_default_turn().await;
-    let parent_spawn_call_id = "spawn-call-last-n".to_string();
-    parent_thread
-        .codex
-        .session
-        .record_conversation_items(
-            spawn_turn_context.as_ref(),
-            &[spawn_agent_call(&parent_spawn_call_id)],
-        )
-        .await;
-    parent_thread
-        .codex
-        .session
-        .ensure_rollout_materialized()
-        .await;
-    parent_thread
-        .codex
-        .session
-        .flush_rollout()
-        .await
-        .expect("parent rollout should flush");
+                let triggered_communication = InterAgentCommunication::new(
+                    AgentPath::root(),
+                    AgentPath::try_from("/root/worker").expect("agent path"),
+                    Vec::new(),
+                    "triggered context".to_string(),
+                    /*trigger_turn*/ true,
+                );
+                let triggered_turn_context = parent_thread.codex.session.new_default_turn().await;
+                parent_thread
+                    .codex
+                    .session
+                    .record_conversation_items(
+                        triggered_turn_context.as_ref(),
+                        &[triggered_communication.to_response_input_item().into()],
+                    )
+                    .await;
+                parent_thread
+                    .inject_user_message_without_turn("current parent task".to_string())
+                    .await;
+                let spawn_turn_context = parent_thread.codex.session.new_default_turn().await;
+                let parent_spawn_call_id = "spawn-call-last-n".to_string();
+                parent_thread
+                    .codex
+                    .session
+                    .record_conversation_items(
+                        spawn_turn_context.as_ref(),
+                        &[spawn_agent_call(&parent_spawn_call_id)],
+                    )
+                    .await;
+                parent_thread
+                    .codex
+                    .session
+                    .ensure_rollout_materialized()
+                    .await;
+                parent_thread
+                    .codex
+                    .session
+                    .flush_rollout()
+                    .await
+                    .expect("parent rollout should flush");
 
-    let child_thread_id = harness
-        .control
-        .spawn_agent_with_metadata(
-            harness.config.clone(),
-            text_input("child task"),
-            Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
-                parent_thread_id,
-                depth: 1,
-                agent_path: None,
-                agent_nickname: None,
-                agent_role: None,
-            })),
-            SpawnAgentOptions {
-                fork_parent_spawn_call_id: Some(parent_spawn_call_id.clone()),
-                fork_mode: Some(SpawnAgentForkMode::LastNTurns(2)),
-                ..Default::default()
-            },
-        )
-        .await
-        .expect("forked spawn should keep only the last two turns")
-        .thread_id;
+                let child_thread_id = harness
+                    .control
+                    .spawn_agent_with_metadata(
+                        harness.config.clone(),
+                        text_input("child task"),
+                        Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+                            parent_thread_id,
+                            depth: 1,
+                            agent_path: None,
+                            agent_nickname: None,
+                            agent_role: None,
+                        })),
+                        SpawnAgentOptions {
+                            fork_parent_spawn_call_id: Some(parent_spawn_call_id.clone()),
+                            fork_mode: Some(SpawnAgentForkMode::LastNTurns(2)),
+                            ..Default::default()
+                        },
+                    )
+                    .await
+                    .expect("forked spawn should keep only the last two turns")
+                    .thread_id;
 
-    let child_thread = harness
-        .manager
-        .get_thread(child_thread_id)
-        .await
-        .expect("child thread should be registered");
-    let history = child_thread.codex.session.clone_history().await;
+                let child_thread = harness
+                    .manager
+                    .get_thread(child_thread_id)
+                    .await
+                    .expect("child thread should be registered");
+                let history = child_thread.codex.session.clone_history().await;
 
-    assert!(
-        !history_contains_text(history.raw_items(), "old parent context"),
-        "forked child history should drop parent context outside the requested last-N turn window"
-    );
-    assert!(
-        !history_contains_text(history.raw_items(), "queued message"),
-        "forked child history should drop queued inter-agent messages outside the requested last-N turn window"
-    );
-    assert!(
-        !history_contains_text(history.raw_items(), "triggered context"),
-        "forked child history should filter assistant inter-agent messages even when they fall inside the requested last-N turn window"
-    );
-    assert!(
-        history_contains_text(history.raw_items(), "current parent task"),
-        "forked child history should keep the parent user message from the requested last-N turn window"
-    );
+                assert!(
+                    !history_contains_text(history.raw_items(), "old parent context"),
+                    "forked child history should drop parent context outside the requested last-N turn window"
+                );
+                assert!(
+                    !history_contains_text(history.raw_items(), "queued message"),
+                    "forked child history should drop queued inter-agent messages outside the requested last-N turn window"
+                );
+                assert!(
+                    !history_contains_text(history.raw_items(), "triggered context"),
+                    "forked child history should filter assistant inter-agent messages even when they fall inside the requested last-N turn window"
+                );
+                assert!(
+                    history_contains_text(history.raw_items(), "current parent task"),
+                    "forked child history should keep the parent user message from the requested last-N turn window"
+                );
 
-    let _ = harness
-        .control
-        .shutdown_live_agent(child_thread_id)
-        .await
-        .expect("child shutdown should submit");
-    let _ = parent_thread
-        .submit(Op::Shutdown {})
-        .await
-        .expect("parent shutdown should submit");
+                let _ = harness
+                    .control
+                    .shutdown_live_agent(child_thread_id)
+                    .await
+                    .expect("child shutdown should submit");
+                let _ = parent_thread
+                    .submit(Op::Shutdown {})
+                    .await
+                    .expect("parent shutdown should submit");
+            });
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
 }
 
 #[tokio::test]
