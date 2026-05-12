@@ -44,6 +44,8 @@ pub(crate) struct SendMessageArgs {
 pub(crate) struct FollowupTaskArgs {
     pub(crate) target: String,
     pub(crate) message: String,
+    #[serde(default)]
+    pub(crate) interrupt: bool,
 }
 
 fn message_content(message: String) -> Result<String, FunctionCallError> {
@@ -61,6 +63,7 @@ pub(crate) async fn handle_message_string_tool(
     mode: MessageDeliveryMode,
     target: String,
     message: String,
+    interrupt: bool,
 ) -> Result<FunctionToolOutput, FunctionCallError> {
     let prompt = message_content(message)?;
     let ToolInvocation {
@@ -101,6 +104,14 @@ pub(crate) async fn handle_message_string_tool(
     let receiver_agent_path = receiver_agent.agent_path.clone().ok_or_else(|| {
         FunctionCallError::RespondToModel("target agent is missing an agent_path".to_string())
     })?;
+    if interrupt {
+        session
+            .services
+            .agent_control
+            .interrupt_agent(receiver_thread_id)
+            .await
+            .map_err(|err| collab_agent_error(receiver_thread_id, err))?;
+    }
     let communication = InterAgentCommunication::new(
         turn.session_source
             .get_agent_path()
