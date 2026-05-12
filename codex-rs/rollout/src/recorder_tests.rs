@@ -100,6 +100,8 @@ async fn state_db_init_backfills_before_returning() -> anyhow::Result<()> {
             dynamic_tools: None,
             memory_mode: None,
             multi_agent_version: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
         },
         git: None,
     };
