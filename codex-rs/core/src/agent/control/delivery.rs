@@ -81,6 +81,7 @@ impl AgentControl {
         target: ThreadId,
         message: AgentMessage,
         mode: MessageDeliveryMode,
+        interrupt: bool,
     ) -> Result<AgentPath, MessageDeliveryError> {
         let receiver_agent = self
             .ensure_agent_known(target)
@@ -105,6 +106,11 @@ impl AgentControl {
         self.ensure_v2_agent_loaded(resume_config, target, /*parent*/ None)
             .await
             .map_err(MessageDeliveryError::Agent)?;
+        if interrupt {
+            self.interrupt_agent(target)
+                .await
+                .map_err(MessageDeliveryError::Agent)?;
+        }
         let author = turn
             .session_source
             .get_agent_path()

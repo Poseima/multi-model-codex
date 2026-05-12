@@ -23,6 +23,8 @@ pub(crate) struct SendMessageArgs {
 pub(crate) struct FollowupTaskArgs {
     pub(crate) target: String,
     pub(crate) message: String,
+    #[serde(default)]
+    pub(crate) interrupt: bool,
 }
 
 pub(super) fn message_content(message: String) -> Result<String, FunctionCallError> {
@@ -41,6 +43,7 @@ pub(super) async fn handle_message_string_tool(
     target: String,
     message: String,
     analytics: &mut ToolCallAnalytics,
+    interrupt: bool,
 ) -> Result<FunctionToolOutput, FunctionCallError> {
     let message = message_content(message)?;
     let ToolInvocation {
@@ -61,6 +64,7 @@ pub(super) async fn handle_message_string_tool(
             receiver_thread_id,
             agent_message_from_tool(message, &source),
             mode,
+            interrupt,
         )
         .await
         .map_err(|err| match err {
