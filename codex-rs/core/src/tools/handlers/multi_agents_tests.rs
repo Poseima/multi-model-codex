@@ -304,6 +304,26 @@ struct InterruptAgentResult {
     previous_status: AgentStatus,
 }
 
+fn run_stack_heavy_async_test<F, Fut>(name: &'static str, test: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("create tokio runtime");
+            runtime.block_on(test());
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
+}
+
 #[tokio::test]
 async fn handler_rejects_non_function_payloads() {
     let (session, turn) = make_session_and_context().await;
@@ -1661,21 +1681,21 @@ async fn multi_agent_v2_list_agents_returns_completed_status_without_encrypted_s
     let _ = config.features.enable(Feature::MultiAgentV2);
     set_turn_config(&mut turn, config);
 
-    let session = Arc::new(session);
-    let turn = Arc::new(turn);
-    let spawn_output = SpawnAgentHandlerV2::default()
-        .handle(invocation(
-            session.clone(),
-            turn.clone(),
-            "spawn_agent",
-            function_payload(json!({
-                "message": "inspect this repo",
-                "task_name": "worker"
-            })),
-        ))
-        .await
-        .expect("spawn_agent should succeed");
-    let _ = expect_text_output(spawn_output);
+        let session = Arc::new(session);
+        let turn = Arc::new(turn);
+        let spawn_output = SpawnAgentHandlerV2::default()
+            .handle(invocation(
+                session.clone(),
+                turn.clone(),
+                "spawn_agent",
+                function_payload(json!({
+                    "message": "inspect this repo",
+                    "task_name": "worker"
+                })),
+            ))
+            .await
+            .expect("spawn_agent should succeed");
+        let _ = expect_text_output(spawn_output);
 
     let agent_id = session
         .services
@@ -1703,18 +1723,18 @@ async fn multi_agent_v2_list_agents_returns_completed_status_without_encrypted_s
         )
         .await;
 
-    let output = ListAgentsHandlerV2
-        .handle(invocation(
-            session,
-            turn,
-            "list_agents",
-            function_payload(json!({})),
-        ))
-        .await
-        .expect("list_agents should succeed");
-    let (content, success) = expect_text_output(output);
-    let result: ListAgentsResult =
-        serde_json::from_str(&content).expect("list_agents result should be json");
+        let output = ListAgentsHandlerV2
+            .handle(invocation(
+                session,
+                turn,
+                "list_agents",
+                function_payload(json!({})),
+            ))
+            .await
+            .expect("list_agents should succeed");
+        let (content, success) = expect_text_output(output);
+        let result: ListAgentsResult =
+            serde_json::from_str(&content).expect("list_agents result should be json");
 
     let agent_names = result
         .agents
@@ -2096,7 +2116,7 @@ async fn multi_agent_v2_send_message_rejects_interrupt_parameter() {
 }
 
 #[tokio::test]
-async fn multi_agent_v2_assign_task_interrupts_busy_child_without_losing_message() {
+async fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
     let (mut session, mut turn) = make_session_and_context().await;
     let manager = thread_manager();
     let root = manager
@@ -2104,10 +2124,10 @@ async fn multi_agent_v2_assign_task_interrupts_busy_child_without_losing_message
         .await
         .expect("root thread should start");
     session.services.agent_control = manager.agent_control();
-    session.conversation_id = root.thread_id;
+    session.thread_id = root.thread_id;
     let mut config = turn.config.as_ref().clone();
     let _ = config.features.enable(Feature::MultiAgentV2);
-    turn.config = Arc::new(config);
+    set_turn_config(&mut turn, config);
     let session = Arc::new(session);
     let turn = Arc::new(turn);
 
@@ -2150,11 +2170,11 @@ async fn multi_agent_v2_assign_task_interrupts_busy_child_without_losing_message
         )
         .await;
 
-    AssignTaskHandlerV2
+    FollowupTaskHandlerV2
         .handle(invocation(
             session,
             turn,
-            "assign_task",
+            "followup_task",
             function_payload(json!({
                 "target": agent_id.to_string(),
                 "message": "continue",
@@ -2162,7 +2182,7 @@ async fn multi_agent_v2_assign_task_interrupts_busy_child_without_losing_message
             })),
         ))
         .await
-        .expect("interrupting v2 assign_task should succeed");
+        .expect("interrupting v2 followup_task should succeed");
 
     let ops = manager.captured_ops();
     let ops_for_agent: Vec<&Op> = ops
@@ -2177,14 +2197,16 @@ async fn multi_agent_v2_assign_task_interrupts_busy_child_without_losing_message
                 if communication.author == AgentPath::root()
                     && communication.recipient.as_str() == "/root/worker"
                     && communication.other_recipients.is_empty()
-                    && communication.content == "continue"
+                    && communication.content.is_empty()
+                    && communication.encrypted_content.as_deref() == Some("continue")
+                    && communication.trigger_turn
         )
     }));
 
     wait_for_turn_aborted(&thread, &interrupted_turn_id, TurnAbortReason::Interrupted).await;
     wait_for_redirected_envelope_in_history(
         &thread,
-        &InterAgentCommunication::new(
+        &InterAgentCommunication::new_encrypted(
             AgentPath::root(),
             worker_path,
             Vec::new(),
@@ -2451,42 +2473,47 @@ async fn multi_agent_v2_interrupted_turn_does_not_notify_parent() {
         .await
         .expect("worker thread should exist");
 
-    let aborted_turn = thread.codex.session.new_default_turn().await;
-    thread
-        .codex
-        .session
-        .send_event(
-            aborted_turn.as_ref(),
-            EventMsg::TurnAborted(TurnAbortedEvent {
-                turn_id: Some(aborted_turn.sub_id.clone()),
-                reason: TurnAbortReason::Interrupted,
-                completed_at: None,
-                duration_ms: None,
-            }),
-        )
-        .await;
+                let aborted_turn = thread.codex.session.new_default_turn().await;
+                thread
+                    .codex
+                    .session
+                    .send_event(
+                        aborted_turn.as_ref(),
+                        EventMsg::TurnAborted(TurnAbortedEvent {
+                            turn_id: Some(aborted_turn.sub_id.clone()),
+                            reason: TurnAbortReason::Interrupted,
+                            completed_at: None,
+                            duration_ms: None,
+                        }),
+                    )
+                    .await;
 
-    let notifications = manager
-        .captured_ops()
-        .into_iter()
-        .filter_map(|(id, op)| {
-            (id == root.thread_id)
-                .then_some(op)
-                .and_then(|op| match op {
-                    Op::InterAgentCommunication { communication }
-                        if communication.author.as_str() == "/root/worker"
-                            && communication.recipient == AgentPath::root()
-                            && communication.other_recipients.is_empty()
-                            && !communication.trigger_turn =>
-                    {
-                        Some(communication.content)
-                    }
-                    _ => None,
-                })
+                let notifications = manager
+                    .captured_ops()
+                    .into_iter()
+                    .filter_map(|(id, op)| {
+                        (id == root.thread_id)
+                            .then_some(op)
+                            .and_then(|op| match op {
+                                Op::InterAgentCommunication { communication }
+                                    if communication.author.as_str() == "/root/worker"
+                                        && communication.recipient == AgentPath::root()
+                                        && communication.other_recipients.is_empty()
+                                        && !communication.trigger_turn =>
+                                {
+                                    Some(communication.content)
+                                }
+                                _ => None,
+                            })
+                    })
+                    .collect::<Vec<_>>();
+
+                assert_eq!(notifications, Vec::<String>::new());
+            });
         })
-        .collect::<Vec<_>>();
-
-    assert_eq!(notifications, Vec::<String>::new());
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
 }
 
 #[tokio::test]

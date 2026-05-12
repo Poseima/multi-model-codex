@@ -2277,6 +2277,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let resume = thread_resume_params_from_config(
             config.clone(),
@@ -2289,6 +2290,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         let expected_service_tier = Some(Some(ServiceTier::Fast.request_value().to_string()));
