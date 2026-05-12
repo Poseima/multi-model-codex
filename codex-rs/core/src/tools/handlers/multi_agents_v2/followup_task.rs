@@ -44,6 +44,7 @@ impl Handler {
             args.target,
             args.message,
             analytics,
+            args.interrupt,
         )
         .await
         .map(boxed_tool_output)

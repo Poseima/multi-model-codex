@@ -38,6 +38,8 @@ pub(crate) struct SendMessageArgs {
 pub(crate) struct FollowupTaskArgs {
     pub(crate) target: String,
     pub(crate) message: String,
+    #[serde(default)]
+    pub(crate) interrupt: bool,
 }
 
 pub(super) fn message_content(message: String) -> Result<String, FunctionCallError> {
@@ -56,6 +58,7 @@ pub(super) async fn handle_message_string_tool(
     target: String,
     message: String,
     analytics: &mut ToolCallAnalytics,
+    interrupt: bool,
 ) -> Result<FunctionToolOutput, FunctionCallError> {
     let message = message_content(message)?;
     let ToolInvocation {
@@ -92,6 +95,14 @@ pub(super) async fn handle_message_string_tool(
         .ensure_v2_agent_loaded(resume_config, receiver_thread_id, /*parent*/ None)
         .await
         .map_err(|err| collab_agent_error(receiver_thread_id, err))?;
+    if interrupt {
+        session
+            .services
+            .agent_control
+            .interrupt_agent(receiver_thread_id)
+            .await
+            .map_err(|err| collab_agent_error(receiver_thread_id, err))?;
+    }
     let author = turn
         .session_source
         .get_agent_path()
