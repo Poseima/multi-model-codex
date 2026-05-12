@@ -176,7 +176,9 @@ mod tests {
     use codex_protocol::ThreadId;
     use codex_protocol::protocol::EventMsg;
     use codex_protocol::protocol::ImageGenerationEndEvent;
-    use codex_protocol::protocol::ThreadNameUpdatedEvent;
+    use codex_protocol::protocol::ThreadGoal;
+    use codex_protocol::protocol::ThreadGoalStatus;
+    use codex_protocol::protocol::ThreadGoalUpdatedEvent;
 
     #[test]
     fn persists_image_generation_end_events_in_limited_mode() {
@@ -195,10 +197,21 @@ mod tests {
     }
 
     #[test]
-    fn persists_thread_name_updates_in_limited_mode() {
-        let event = EventMsg::ThreadNameUpdated(ThreadNameUpdatedEvent {
-            thread_id: ThreadId::new(),
-            thread_name: Some("saved-session".to_string()),
+    fn persists_thread_goal_updates_in_limited_mode() {
+        let thread_id = ThreadId::new();
+        let event = EventMsg::ThreadGoalUpdated(ThreadGoalUpdatedEvent {
+            thread_id,
+            turn_id: None,
+            goal: ThreadGoal {
+                thread_id,
+                objective: "saved-session".to_string(),
+                status: ThreadGoalStatus::Active,
+                token_budget: None,
+                tokens_used: 0,
+                time_used_seconds: 0,
+                created_at: 1,
+                updated_at: 1,
+            },
         });
 
         assert!(should_persist_event_msg(
