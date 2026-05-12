@@ -298,6 +298,8 @@ fn sample_thread(thread_id: &str) -> Thread {
         agent_role: None,
         git_info: None,
         name: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         turns: Vec::new(),
     }
 }
