@@ -80,11 +80,6 @@ pub enum SlashCommand {
     TestApproval,
     #[strum(serialize = "subagents")]
     MultiAgents,
-    // Debugging commands.
-    #[strum(serialize = "debug-m-drop")]
-    MemoryDrop,
-    #[strum(serialize = "debug-m-update")]
-    MemoryUpdate,
 }
 
 impl SlashCommand {
@@ -124,8 +119,6 @@ impl SlashCommand {
             SlashCommand::Pets => "choose or hide the terminal pet",
             SlashCommand::Ps => "list background terminals",
             SlashCommand::Stop => "stop all background terminals",
-            SlashCommand::MemoryDrop => "DO NOT USE",
-            SlashCommand::MemoryUpdate => "DO NOT USE",
             SlashCommand::Model => "choose what model and reasoning effort to use",
             SlashCommand::Ide => {
                 "include current selection, open files, and other context from your IDE"
@@ -233,9 +226,7 @@ impl SlashCommand {
             | SlashCommand::Plan
             | SlashCommand::Cd
             | SlashCommand::Clear
-            | SlashCommand::Logout
-            | SlashCommand::MemoryDrop
-            | SlashCommand::MemoryUpdate => false,
+            | SlashCommand::Logout => false,
             SlashCommand::Diff
             | SlashCommand::Resume
             | SlashCommand::Model
