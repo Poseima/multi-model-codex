@@ -15,6 +15,7 @@ use super::helpers::stored_thread_from_rollout_item;
 use super::read_thread::stored_thread_from_state_metadata;
 use crate::ListThreadsParams;
 use crate::SortDirection;
+use crate::StoredThread;
 use crate::ThreadPage;
 use crate::ThreadRelationFilter;
 use crate::ThreadSortKey;
@@ -89,6 +90,7 @@ pub(super) async fn list_threads(
         .collect::<HashMap<_, _>>();
     let names = resolve_thread_names(store, &thread_history_modes).await;
     for thread in &mut items {
+        attach_prompt_profile_metadata(thread).await;
         if let Some(name) = names.get(&thread.thread_id).cloned() {
             set_thread_name(thread, name);
         }
@@ -228,13 +230,16 @@ async fn list_section_threads(
         next_anchor,
         ..
     } = page;
-    let items = metadata_items
+    let mut items = metadata_items
         .into_iter()
         .map(|metadata| {
             let parent_thread_id = parent_thread_ids.get(&metadata.id).copied();
             stored_thread_from_state_metadata(store, metadata, parent_thread_id)
         })
-        .collect();
+        .collect::<Vec<_>>();
+    for thread in &mut items {
+        attach_prompt_profile_metadata(thread).await;
+    }
     let next_cursor = next_anchor.and_then(|anchor| {
         anchor.id.map(|thread_id| {
             let position = anchor.ts.timestamp_millis();
@@ -242,6 +247,17 @@ async fn list_section_threads(
         })
     });
     Ok(ThreadPage { items, next_cursor })
+}
+
+async fn attach_prompt_profile_metadata(thread: &mut StoredThread) {
+    let Some(path) = thread.rollout_path.as_deref() else {
+        return;
+    };
+    let Ok(meta_line) = codex_rollout::read_session_meta_line(path).await else {
+        return;
+    };
+    thread.prompt_profile = meta_line.meta.prompt_profile;
+    thread.prompt_profile_path = meta_line.meta.prompt_profile_path;
 }
 
 pub(super) async fn list_rollout_threads(
