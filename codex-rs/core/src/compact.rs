@@ -595,6 +595,15 @@ fn compacted_user_message(
     })
 }
 
+pub(crate) fn has_real_user_message(items: &[ResponseItem]) -> bool {
+    items.iter().any(|item| {
+        matches!(
+            crate::event_mapping::parse_turn_item(item),
+            Some(TurnItem::UserMessage(user)) if !is_summary_message(&user.message())
+        )
+    })
+}
+
 pub(crate) fn is_summary_message(message: &str) -> bool {
     message.starts_with(format!("{SUMMARY_PREFIX}\n").as_str())
 }

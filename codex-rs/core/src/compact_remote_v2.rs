@@ -152,6 +152,10 @@ async fn run_remote_compact_task_inner(
     let reason = compaction_metadata.reason();
     let implementation = compaction_metadata.implementation();
     let phase = compaction_metadata.phase();
+    let history = sess.clone_history().await;
+    if !crate::compact::has_real_user_message(history.raw_items()) {
+        return Ok(());
+    }
     let mut analytics_details = CompactionAnalyticsDetails {
         active_context_tokens_before: Some(sess.get_total_token_usage().await),
         ..Default::default()

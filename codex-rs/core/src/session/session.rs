@@ -36,7 +36,6 @@ use codex_protocol::protocol::TurnEnvironmentSelections;
 use codex_skills::SkillError;
 use codex_utils_git_discovery::GitRootDiscovery;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 use tokio::sync::Semaphore;
 
 /// Context for an initialized model agent
@@ -78,7 +77,6 @@ pub(crate) struct Session {
     pub(super) fork_persistence: ForkPersistence,
     pub(super) forked_from_ordinal_exclusive: Option<u64>,
     pub(super) next_internal_sub_id: AtomicU64,
-    pub(super) inline_archive_running: AtomicBool,
 }
 
 #[derive(Clone)]
@@ -1546,7 +1544,6 @@ impl Session {
                 fork_persistence,
                 forked_from_ordinal_exclusive,
                 next_internal_sub_id: AtomicU64::new(0),
-                inline_archive_running: AtomicBool::new(false),
             });
             if let Some(network_policy_decider_session) = network_policy_decider_session {
                 let mut guard = network_policy_decider_session.write().await;

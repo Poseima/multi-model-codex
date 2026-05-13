@@ -1543,6 +1543,8 @@ impl ThreadRequestProcessor {
                 otel.name = "app_server.thread_start.config_snapshot",
             ))
             .await;
+        let prompt_profile = thread.prompt_profile().await;
+        let prompt_profile_path = thread.prompt_profile_path().await;
         let mut thread = build_thread_from_snapshot(
             thread_id,
             session_configured.session_id.to_string(),
@@ -1551,6 +1553,8 @@ impl ThreadRequestProcessor {
             session_configured.rollout_path.clone(),
         );
         thread.project_id = project_id.clone();
+        thread.prompt_profile = prompt_profile;
+        thread.prompt_profile_path = prompt_profile_path;
 
         // Auto-attach a thread listener when starting a thread.
         log_listener_attach_result(
@@ -3038,6 +3042,7 @@ impl ThreadRequestProcessor {
             fallback_thread
         };
         apply_live_thread_settings(&mut thread, &config_snapshot);
+        apply_prompt_profile_from_loaded_thread(&mut thread, loaded_thread).await;
         self.apply_thread_read_store_fields(thread_id, &mut thread, include_turns, loaded_thread)
             .await?;
         Ok(thread)
@@ -4651,16 +4656,16 @@ impl ThreadRequestProcessor {
     async fn load_thread_from_resume_source_or_send_internal(
         &self,
         thread_id: ThreadId,
-        thread: &CodexThread,
+        codex_thread: &CodexThread,
         thread_history: &InitialHistory,
         rollout_path: &Path,
         resume_source_thread: Option<StoredThread>,
         include_turns: bool,
     ) -> std::result::Result<Thread, String> {
-        let config_snapshot = thread.config_snapshot().await;
-        let session_id = thread.session_configured().session_id.to_string();
+        let config_snapshot = codex_thread.config_snapshot().await;
+        let session_id = codex_thread.session_configured().session_id.to_string();
         let can_accept_direct_input = can_accept_direct_input(
-            thread.multi_agent_version(),
+            codex_thread.multi_agent_version(),
             &config_snapshot.session_source,
         );
         let thread = match thread_history {
@@ -4725,7 +4730,7 @@ impl ThreadRequestProcessor {
                 let mut thread = build_thread_from_snapshot(
                     thread_id,
                     session_id.clone(),
-                    thread.multi_agent_version(),
+                    codex_thread.multi_agent_version(),
                     &config_snapshot,
                     Some(rollout_path.into()),
                 );
@@ -4742,6 +4747,7 @@ impl ThreadRequestProcessor {
         thread.id = thread_id.to_string();
         thread.session_id = session_id;
         thread.path = Some(rollout_path.to_path_buf());
+        apply_prompt_profile_from_loaded_thread(&mut thread, codex_thread).await;
         if include_turns {
             let history_items = thread_history.get_rollout_items();
             populate_thread_turns_from_history(
@@ -5256,6 +5262,7 @@ impl ThreadRequestProcessor {
                 thread.turns.as_slice(),
             ));
         }
+        apply_prompt_profile_from_loaded_thread(&mut thread, forked_thread.as_ref()).await;
         if let Some(name) = source_thread_name {
             set_thread_name_from_title(&mut thread, name);
         }
@@ -6071,8 +6078,8 @@ pub(crate) fn thread_from_stored_thread(
         git_info,
         name: thread.name,
         daybreak_enabled: thread.daybreak_enabled,
-        prompt_profile: None,
-        prompt_profile_path: None,
+        prompt_profile: thread.prompt_profile,
+        prompt_profile_path: thread.prompt_profile_path,
         turns: Vec::new(),
     };
     (thread, history)
@@ -6291,6 +6298,11 @@ fn paginate_background_terminals(
     let end = start.saturating_add(effective_limit).min(terminals.len());
     let next_cursor = (end < terminals.len()).then(|| terminals[end - 1].process_id.clone());
     Ok((terminals[start..end].to_vec(), next_cursor))
+}
+
+async fn apply_prompt_profile_from_loaded_thread(thread: &mut Thread, loaded_thread: &CodexThread) {
+    thread.prompt_profile = loaded_thread.prompt_profile().await;
+    thread.prompt_profile_path = loaded_thread.prompt_profile_path().await;
 }
 
 fn build_thread_from_loaded_snapshot(

@@ -354,6 +354,12 @@ pub(super) async fn stored_thread_from_sqlite_metadata(
         .map(|meta| meta.history_mode)
         .unwrap_or(metadata.history_mode);
     let name = thread_name_from_metadata(store, &metadata, history_mode).await;
+    let prompt_profile = session_meta
+        .as_ref()
+        .and_then(|meta| meta.prompt_profile.clone());
+    let prompt_profile_path = session_meta
+        .as_ref()
+        .and_then(|meta| meta.prompt_profile_path.clone());
     let mut thread = stored_thread_from_state_metadata(store, metadata, parent_thread_id);
     thread.originator = thread.originator.or_else(|| {
         session_meta
@@ -363,6 +369,8 @@ pub(super) async fn stored_thread_from_sqlite_metadata(
     thread.forked_from_id = forked_from_id;
     thread.history_mode = history_mode;
     thread.name = name;
+    thread.prompt_profile = prompt_profile;
+    thread.prompt_profile_path = prompt_profile_path;
     Ok(thread)
 }
 
@@ -376,6 +384,8 @@ pub(super) fn stored_thread_from_state_metadata(
         ThreadHistoryMode::Legacy => distinct_thread_metadata_title(&metadata),
     };
     let rollout_path = codex_rollout::plain_rollout_path(metadata.rollout_path.as_path());
+    let prompt_profile = None;
+    let prompt_profile_path = None;
     let preview = metadata
         .preview
         .clone()
@@ -416,6 +426,8 @@ pub(super) fn stored_thread_from_state_metadata(
         agent_nickname: metadata.agent_nickname,
         agent_role: metadata.agent_role,
         agent_path: metadata.agent_path,
+        prompt_profile,
+        prompt_profile_path,
         git_info: git_info_from_parts(
             metadata.git_sha,
             metadata.git_branch,
@@ -517,6 +529,8 @@ fn stored_thread_from_meta_line(
         agent_nickname: meta_line.meta.agent_nickname,
         agent_role: meta_line.meta.agent_role,
         agent_path: meta_line.meta.agent_path,
+        prompt_profile: meta_line.meta.prompt_profile,
+        prompt_profile_path: meta_line.meta.prompt_profile_path,
         git_info: meta_line.git,
         approval_mode: AskForApproval::OnRequest,
         permission_profile: PermissionProfile::read_only(),

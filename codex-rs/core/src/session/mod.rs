@@ -743,7 +743,7 @@ impl Session {
             PromptProfileOverride::Set {
                 prompt_profile,
                 prompt_profile_path,
-            } => (Some(prompt_profile), prompt_profile_path),
+            } => (Some(*prompt_profile), prompt_profile_path),
         };
         let session_configuration = SessionConfiguration {
             provider: create_model_provider(

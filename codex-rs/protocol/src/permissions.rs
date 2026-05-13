@@ -986,10 +986,29 @@ impl FileSystemSandboxPolicy {
         {
             return false;
         }
-        with_local_policy_context(path, cwd, |path, context| {
-            self.has_full_disk_write_access() || self.metadata_write_denial(path, context).is_none()
-        })
-        .unwrap_or(false)
+        self.has_full_disk_write_access() || !self.is_metadata_write_denied_with_cwd(path, cwd)
+    }
+
+    fn is_metadata_write_denied_with_cwd(&self, path: &Path, cwd: &Path) -> bool {
+        if !matches!(self.kind, FileSystemSandboxKind::Restricted) {
+            return false;
+        }
+
+        let Some(target) = resolve_candidate_path(path, cwd) else {
+            return true;
+        };
+        let Some((protected_metadata_path, _)) =
+            metadata_child_of_writable_root(self, target.as_path(), cwd)
+        else {
+            return false;
+        };
+
+        !has_explicit_write_entry_for_metadata_path(
+            self,
+            &protected_metadata_path,
+            target.as_path(),
+            cwd,
+        )
     }
 
     pub fn resolve_access(
@@ -2467,6 +2486,39 @@ fn has_explicit_resolved_path_entry(
     entries.iter().any(|entry| &entry.path == path)
 }
 
+fn metadata_path_name(name: &OsStr) -> Option<&'static str> {
+    PROTECTED_METADATA_PATH_NAMES
+        .iter()
+        .copied()
+        .find(|metadata_name| name == OsStr::new(metadata_name))
+}
+
+fn metadata_child_of_writable_root(
+    policy: &FileSystemSandboxPolicy,
+    target: &Path,
+    cwd: &Path,
+) -> Option<(AbsolutePathBuf, &'static str)> {
+    let target_candidates = normalized_and_canonical_candidates(target);
+    policy
+        .resolved_entries_with_cwd(cwd)
+        .iter()
+        .filter(|entry| entry.access.can_write())
+        .filter_map(|entry| {
+            normalized_and_canonical_candidates(entry.path.as_path())
+                .into_iter()
+                .filter_map(|entry_candidate| {
+                    target_candidates.iter().find_map(|target_candidate| {
+                        let relative_path = target_candidate.strip_prefix(&entry_candidate).ok()?;
+                        let first_component = relative_path.components().next()?;
+                        let metadata_name = metadata_path_name(first_component.as_os_str())?;
+                        Some((entry.path.join(metadata_name), metadata_name))
+                    })
+                })
+                .next()
+        })
+        .next()
+}
+
 fn protected_metadata_names_for_writable_root(
     policy: &FileSystemSandboxPolicy,
     root: &AbsolutePathBuf,
@@ -2519,6 +2571,33 @@ fn protected_metadata_names_need_direct_runtime_enforcement(
                         .any(|subpath| subpath == &metadata_path)
                 })
         })
+}
+
+fn has_explicit_write_entry_for_metadata_path(
+    policy: &FileSystemSandboxPolicy,
+    protected_metadata_path: &AbsolutePathBuf,
+    target: &Path,
+    cwd: &Path,
+) -> bool {
+    let protected_metadata_candidates =
+        normalized_and_canonical_candidates(protected_metadata_path.as_path());
+    let target_candidates = normalized_and_canonical_candidates(target);
+    policy.resolved_entries_with_cwd(cwd).iter().any(|entry| {
+        if !entry.access.can_write() {
+            return false;
+        }
+
+        let entry_candidates = normalized_and_canonical_candidates(entry.path.as_path());
+        target_candidates.iter().any(|target_candidate| {
+            entry_candidates
+                .iter()
+                .any(|entry_candidate| target_candidate.starts_with(entry_candidate))
+        }) && entry_candidates.iter().any(|entry_candidate| {
+            protected_metadata_candidates
+                .iter()
+                .any(|metadata_candidate| entry_candidate.starts_with(metadata_candidate))
+        })
+    })
 }
 
 fn is_git_pointer_file(path: &AbsolutePathBuf) -> bool {
