@@ -59,6 +59,8 @@ fn stored_thread(cwd: &str, title: &str, first_user_message: &str) -> StoredThre
         agent_nickname: None,
         agent_role: None,
         agent_path: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         git_info: Some(GitInfo {
             commit_hash: Some(GitSha::new("abcdef")),
             branch: Some("main".to_string()),

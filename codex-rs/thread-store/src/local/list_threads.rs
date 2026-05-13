@@ -13,6 +13,7 @@ use super::helpers::set_thread_name_from_title;
 use super::helpers::stored_thread_from_rollout_item;
 use crate::ListThreadsParams;
 use crate::SortDirection;
+use crate::StoredThread;
 use crate::ThreadPage;
 use crate::ThreadSortKey;
 use crate::ThreadStoreError;
@@ -100,12 +101,24 @@ pub(super) async fn list_threads(
         }
     }
     for thread in &mut items {
+        attach_prompt_profile_metadata(thread).await;
         if let Some(title) = names.get(&thread.thread_id).cloned() {
             set_thread_name_from_title(thread, title);
         }
     }
 
     Ok(ThreadPage { items, next_cursor })
+}
+
+async fn attach_prompt_profile_metadata(thread: &mut StoredThread) {
+    let Some(path) = thread.rollout_path.as_deref() else {
+        return;
+    };
+    let Ok(meta_line) = codex_rollout::read_session_meta_line(path).await else {
+        return;
+    };
+    thread.prompt_profile = meta_line.meta.prompt_profile;
+    thread.prompt_profile_path = meta_line.meta.prompt_profile_path;
 }
 
 pub(super) async fn list_rollout_threads(

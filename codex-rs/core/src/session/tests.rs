@@ -5200,7 +5200,6 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
         services,
         next_internal_sub_id: AtomicU64::new(0),
-        inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     };
 
     (session, turn_context)
@@ -7300,7 +7299,6 @@ where
         guardian_review_session: crate::guardian::GuardianReviewSessionManager::default(),
         services,
         next_internal_sub_id: AtomicU64::new(0),
-        inline_archive_running: std::sync::atomic::AtomicBool::new(false),
     });
 
     (session, turn_context, rx_event)
