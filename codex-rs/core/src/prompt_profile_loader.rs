@@ -17,7 +17,7 @@ pub enum PromptProfileOverride {
     Inherit,
     Clear,
     Set {
-        prompt_profile: PromptSource,
+        prompt_profile: Box<PromptSource>,
         prompt_profile_path: Option<PathBuf>,
     },
 }
@@ -26,14 +26,14 @@ impl PromptProfileOverride {
     pub fn from_prompt_profile(prompt_profile: PromptSource) -> Self {
         let prompt_profile_path = prompt_profile_path_from_source(&prompt_profile);
         Self::Set {
-            prompt_profile,
+            prompt_profile: Box::new(prompt_profile),
             prompt_profile_path,
         }
     }
 
     pub fn from_path(prompt_profile: PromptSource, path: &Path) -> Self {
         Self::Set {
-            prompt_profile,
+            prompt_profile: Box::new(prompt_profile),
             prompt_profile_path: Some(path.to_path_buf()),
         }
     }

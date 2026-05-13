@@ -111,6 +111,11 @@ async fn run_remote_compact_task_inner(
     phase: CompactionPhase,
 ) -> CodexResult<()> {
     let turn_context = &step_context.turn;
+    let history = sess.clone_history().await;
+    if !crate::compact::has_real_user_message(history.raw_items()) {
+        return Ok(());
+    }
+
     let compaction_metadata = CompactionTurnMetadata::new(
         trigger,
         reason,

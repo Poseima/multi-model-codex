@@ -462,6 +462,10 @@ pub struct StoredThread {
     pub agent_role: Option<String>,
     /// Optional canonical path for thread-spawn sub-agents.
     pub agent_path: Option<String>,
+    /// Prompt profile persisted in session metadata, when configured.
+    pub prompt_profile: Option<PromptSource>,
+    /// Source path for the prompt profile, when loaded from disk.
+    pub prompt_profile_path: Option<PathBuf>,
     /// Optional Git metadata captured for the thread.
     pub git_info: Option<GitInfo>,
     /// Approval mode captured for the thread.
