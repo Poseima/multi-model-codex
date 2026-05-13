@@ -140,8 +140,6 @@ pub enum Feature {
     MemoryTool,
     /// Enable the Chronicle sidecar for passive screen-context memories.
     Chronicle,
-    /// Enable the fork memory experiment (project-scoped file-based memories).
-    MemoryExperiment,
     /// Append additional AGENTS.md guidance to user instructions.
     ChildAgentsMd,
     /// Compress request bodies (zstd) when sending streaming requests to codex-backend.
@@ -818,12 +816,6 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::Chronicle,
         key: "chronicle",
-        stage: Stage::UnderDevelopment,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::MemoryExperiment,
-        key: "memory_experiment",
         stage: Stage::UnderDevelopment,
         default_enabled: false,
     },

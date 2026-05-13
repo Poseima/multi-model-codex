@@ -86,6 +86,7 @@ pub fn build_tool_registry_builder(
         config,
         &handlers,
         params.extension_tool_bundles,
+        &all_deferred_tools,
         config.search_tool && !all_deferred_tools.is_empty(),
     ) {
         builder.register_any_handler(handler);
@@ -146,6 +147,7 @@ fn build_code_mode_handlers(
     config: &ToolsConfig,
     handlers: &[Arc<dyn AnyToolHandler>],
     extension_tool_bundles: &[codex_tool_api::ToolBundle],
+    all_deferred_tools: &HashSet<ToolName>,
     deferred_tools_available: bool,
 ) -> Vec<Arc<dyn AnyToolHandler>> {
     if !config.code_mode_enabled {
@@ -161,9 +163,19 @@ fn build_code_mode_handlers(
             .iter()
             .filter_map(|bundle| extension_tool_spec(bundle.spec()).ok()),
     );
-    let namespace_descriptions = code_mode_namespace_descriptions(&code_mode_nested_tool_specs);
+    let mut code_mode_prompt_tool_specs = handlers
+        .iter()
+        .filter(|handler| !all_deferred_tools.contains(&handler.tool_name()))
+        .filter_map(|handler| handler.spec())
+        .collect::<Vec<_>>();
+    code_mode_prompt_tool_specs.extend(
+        extension_tool_bundles
+            .iter()
+            .filter_map(|bundle| extension_tool_spec(bundle.spec()).ok()),
+    );
+    let namespace_descriptions = code_mode_namespace_descriptions(&code_mode_prompt_tool_specs);
     let mut enabled_tools =
-        collect_code_mode_exec_prompt_tool_definitions(code_mode_nested_tool_specs.iter());
+        collect_code_mode_exec_prompt_tool_definitions(code_mode_prompt_tool_specs.iter());
     enabled_tools
         .sort_by(|left, right| compare_code_mode_tools(left, right, &namespace_descriptions));
 
@@ -362,7 +374,7 @@ fn collect_handler_tools(
             Some(codex_protocol::openai_models::ApplyPatchToolType::Structured)
         )
     {
-        builder.register_handler(Arc::new(StructuredEditHandler));
+        handlers.push(Arc::new(StructuredEditHandler));
     } else if config.environment_mode.has_environment() && config.apply_patch_tool_type.is_some() {
         let include_environment_id =
             matches!(config.environment_mode, ToolEnvironmentMode::Multiple);

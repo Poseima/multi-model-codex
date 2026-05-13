@@ -359,6 +359,8 @@ fn stored_thread_from_state(
         agent_nickname: metadata.and_then(|metadata| metadata.agent_nickname.clone().flatten()),
         agent_role: metadata.and_then(|metadata| metadata.agent_role.clone().flatten()),
         agent_path: metadata.and_then(|metadata| metadata.agent_path.clone().flatten()),
+        prompt_profile: created.prompt_profile.clone(),
+        prompt_profile_path: created.prompt_profile_path.clone(),
         git_info: metadata.and_then(git_info_from_patch),
         approval_mode: metadata
             .and_then(|metadata| metadata.approval_mode)

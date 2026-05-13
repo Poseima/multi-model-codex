@@ -365,8 +365,6 @@ async fn run_codex_tool_session_inner(
                     | EventMsg::ReasoningContentDelta(_)
                     | EventMsg::ReasoningRawContentDelta(_)
                     | EventMsg::ExitedReviewMode(_)
-                    | EventMsg::EnteredArchiveMode
-                    | EventMsg::ExitedArchiveMode
                     | EventMsg::RequestUserInput(_)
                     | EventMsg::RequestPermissions(_)
                     | EventMsg::DynamicToolCallRequest(_)

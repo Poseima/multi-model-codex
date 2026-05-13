@@ -1,4 +1,3 @@
-mod archive;
 mod compact;
 mod regular;
 mod review;
@@ -32,8 +31,6 @@ use crate::session::turn_context::TurnContext;
 use crate::state::ActiveTurn;
 use crate::state::RunningTask;
 use crate::state::TaskKind;
-pub(crate) use archive::ArchiveTask;
-pub(crate) use archive::spawn_inline_archive;
 use codex_analytics::TurnTokenUsageFact;
 use codex_features::Feature;
 use codex_login::AuthManager;

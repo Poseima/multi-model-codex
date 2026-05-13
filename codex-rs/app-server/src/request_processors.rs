@@ -264,6 +264,7 @@ use codex_core::CodexThreadTurnContextOverrides;
 use codex_core::ExternalGoalPreviousStatus;
 use codex_core::ExternalGoalSet;
 use codex_core::ForkSnapshot;
+use codex_core::ForkThreadHistoryOptions;
 use codex_core::NewThread;
 #[cfg(test)]
 use codex_core::SessionMeta;

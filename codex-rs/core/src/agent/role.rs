@@ -393,21 +393,6 @@ Rules:
                         nickname_candidates: None,
                     }
                 ),
-                // Awaiter is temp removed by upstream
-                (
-                    "memory_retriever".to_string(),
-                    AgentRoleConfig {
-                        description: Some(
-                            "Use `memory_retriever` when the task relates to past work, \
-                             project history, or previously discussed topics. The memory \
-                             retriever searches project-scoped memories (episodic and \
-                             semantic) to provide context from prior sessions."
-                                .to_string(),
-                        ),
-                        config_file: Some("memory_retriever.toml".to_string().parse().unwrap_or_default()),
-                        nickname_candidates: None,
-                    }
-                ),
             ])
         });
         &CONFIG
@@ -417,11 +402,9 @@ Rules:
     pub(super) fn config_file_contents(path: &Path) -> Option<&'static str> {
         const EXPLORER: &str = include_str!("builtins/explorer.toml");
         const AWAITER: &str = include_str!("builtins/awaiter.toml");
-        const MEMORY_RETRIEVER: &str = include_str!("builtins/memory_retriever.toml");
         match path.to_str()? {
             "explorer.toml" => Some(EXPLORER),
             "awaiter.toml" => Some(AWAITER),
-            "memory_retriever.toml" => Some(MEMORY_RETRIEVER),
             _ => None,
         }
     }

@@ -616,7 +616,7 @@ impl Codex {
             PromptProfileOverride::Set {
                 prompt_profile,
                 prompt_profile_path,
-            } => (Some(prompt_profile), prompt_profile_path),
+            } => (Some(*prompt_profile), prompt_profile_path),
         };
         let session_configuration = SessionConfiguration {
             provider: config.model_provider.clone(),
@@ -1091,22 +1091,6 @@ impl Session {
         format!("auto-compact-{id}")
     }
 
-    pub(crate) fn try_start_inline_archive(&self) -> bool {
-        self.inline_archive_running
-            .compare_exchange(
-                false,
-                true,
-                std::sync::atomic::Ordering::AcqRel,
-                std::sync::atomic::Ordering::Acquire,
-            )
-            .is_ok()
-    }
-
-    pub(crate) fn finish_inline_archive(&self) {
-        self.inline_archive_running
-            .store(false, std::sync::atomic::Ordering::Release);
-    }
-
     pub(crate) async fn route_realtime_text_input(self: &Arc<Self>, text: String) {
         handlers::user_input_or_turn_inner(
             self,
@@ -1176,25 +1160,6 @@ impl Session {
     pub(crate) async fn get_prompt_profile_path(&self) -> Option<PathBuf> {
         let state = self.state.lock().await;
         state.session_configuration.prompt_profile_path.clone()
-    }
-
-    /// Fork: returns base instructions with memory content appended when the
-    /// memory experiment is enabled.
-    pub(crate) async fn get_composed_base_instructions(
-        &self,
-        codex_home: &Path,
-        cwd: &Path,
-        features: &codex_features::Features,
-    ) -> BaseInstructions {
-        let base = {
-            let state = self.state.lock().await;
-            state.session_configuration.base_instructions.clone()
-        };
-        let text = crate::memory_experiment::compose_base_instructions_with_memory(
-            &base, codex_home, cwd, features,
-        )
-        .await;
-        BaseInstructions { text }
     }
 
     // Merges connector IDs into the session-level explicit connector selection.
@@ -2710,16 +2675,7 @@ impl Session {
         {
             developer_sections.push(developer_instructions.to_string());
         }
-        // Add developer instructions for memories. When the fork memory
-        // experiment is active, memory content is appended to base instructions
-        // instead so it stays in the system prompt prefix.
-        let memory_experiment_active = crate::memory_experiment::is_enabled(
-            &turn_context.config.codex_home,
-            &turn_context.cwd,
-            &turn_context.features,
-        );
-        if !memory_experiment_active
-            && turn_context.features.enabled(Feature::MemoryTool)
+        if turn_context.features.enabled(Feature::MemoryTool)
             && turn_context.config.memories.use_memories
             && let Some(memory_prompt) =
                 build_memory_tool_developer_instructions(&turn_context.config.codex_home).await
@@ -2975,13 +2931,7 @@ impl Session {
 
     pub(crate) async fn recompute_token_usage(&self, turn_context: &TurnContext) {
         let history = self.clone_history().await;
-        let base_instructions = self
-            .get_composed_base_instructions(
-                &turn_context.config.codex_home,
-                &turn_context.cwd,
-                &turn_context.features,
-            )
-            .await;
+        let base_instructions = self.get_base_instructions().await;
         let Some(estimated_total_tokens) =
             history.estimate_token_count_with_base_instructions(&base_instructions)
         else {
@@ -3167,11 +3117,6 @@ impl Session {
                 });
             }
             Some(crate::state::TaskKind::Compact) => {
-                return Err(SteerInputError::ActiveTurnNotSteerable {
-                    turn_kind: NonSteerableTurnKind::Compact,
-                });
-            }
-            Some(crate::state::TaskKind::Archive) => {
                 return Err(SteerInputError::ActiveTurnNotSteerable {
                     turn_kind: NonSteerableTurnKind::Compact,
                 });

@@ -812,8 +812,6 @@ async fn run_auto_compact(
     reason: CompactionReason,
     phase: CompactionPhase,
 ) -> CodexResult<bool> {
-    crate::tasks::spawn_inline_archive(Arc::clone(sess), Arc::clone(turn_context));
-
     if should_use_remote_compact_task(turn_context.provider.info()) {
         if turn_context.features.enabled(Feature::RemoteCompactionV2) {
             run_inline_remote_auto_compact_task_v2(
@@ -1024,13 +1022,7 @@ async fn run_sampling_request(
     )
     .await?;
 
-    let base_instructions = sess
-        .get_composed_base_instructions(
-            &turn_context.config.codex_home,
-            &turn_context.cwd,
-            &turn_context.features,
-        )
-        .await;
+    let base_instructions = sess.get_base_instructions().await;
 
     let tool_runtime = ToolCallRuntime::new(
         Arc::clone(&router),
@@ -1518,9 +1510,7 @@ pub(super) fn realtime_text_for_event(msg: &EventMsg) -> Option<String> {
         | EventMsg::CollabCloseBegin(_)
         | EventMsg::CollabCloseEnd(_)
         | EventMsg::CollabResumeBegin(_)
-        | EventMsg::CollabResumeEnd(_)
-        | EventMsg::EnteredArchiveMode
-        | EventMsg::ExitedArchiveMode => None,
+        | EventMsg::CollabResumeEnd(_) => None,
     }
 }
 

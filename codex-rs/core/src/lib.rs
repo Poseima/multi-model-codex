@@ -50,7 +50,6 @@ pub(crate) mod mcp;
 mod mcp_skill_dependencies;
 mod mcp_tool_approval_templates;
 mod mcp_tool_exposure;
-mod memory_experiment; // Fork: project-scoped memory system
 mod network_policy_decision;
 pub(crate) mod network_proxy_loader;
 pub use mcp::McpManager;
@@ -130,6 +129,7 @@ mod thread_manager;
 pub(crate) mod web_search;
 pub(crate) mod windows_sandbox_read_grants;
 pub use thread_manager::ForkSnapshot;
+pub use thread_manager::ForkThreadHistoryOptions;
 pub use thread_manager::NewThread;
 pub use thread_manager::StartThreadOptions;
 pub use thread_manager::ThreadManager;

@@ -3170,10 +3170,7 @@
         {
           "enum": [
             "review",
-            "compact",
-            "archive",
-            "memory_consolidation",
-            "memory_retrieval"
+            "compact"
           ],
           "type": "string"
         },

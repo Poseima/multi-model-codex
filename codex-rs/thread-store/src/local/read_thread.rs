@@ -281,6 +281,12 @@ async fn stored_thread_from_sqlite_metadata(
         .ok()
         .map(|meta_line| meta_line.meta);
     let forked_from_id = session_meta.as_ref().and_then(|meta| meta.forked_from_id);
+    let prompt_profile = session_meta
+        .as_ref()
+        .and_then(|meta| meta.prompt_profile.clone());
+    let prompt_profile_path = session_meta
+        .as_ref()
+        .and_then(|meta| meta.prompt_profile_path.clone());
     let preview = metadata
         .preview
         .clone()
@@ -309,6 +315,8 @@ async fn stored_thread_from_sqlite_metadata(
         agent_nickname: metadata.agent_nickname,
         agent_role: metadata.agent_role,
         agent_path: metadata.agent_path,
+        prompt_profile,
+        prompt_profile_path,
         git_info: git_info_from_parts(
             metadata.git_sha,
             metadata.git_branch,
@@ -375,6 +383,8 @@ fn stored_thread_from_meta_line(
         agent_nickname: meta_line.meta.agent_nickname,
         agent_role: meta_line.meta.agent_role,
         agent_path: meta_line.meta.agent_path,
+        prompt_profile: meta_line.meta.prompt_profile,
+        prompt_profile_path: meta_line.meta.prompt_profile_path,
         git_info: meta_line.git,
         approval_mode: AskForApproval::OnRequest,
         sandbox_policy: SandboxPolicy::new_read_only_policy(),
