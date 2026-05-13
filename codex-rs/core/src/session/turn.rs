@@ -1521,9 +1521,7 @@ pub(super) fn realtime_text_for_event(msg: &EventMsg) -> Option<String> {
         | EventMsg::CollabCloseBegin(_)
         | EventMsg::CollabCloseEnd(_)
         | EventMsg::CollabResumeBegin(_)
-        | EventMsg::CollabResumeEnd(_)
-        | EventMsg::EnteredArchiveMode
-        | EventMsg::ExitedArchiveMode => None,
+        | EventMsg::CollabResumeEnd(_) => None,
     }
 }
 

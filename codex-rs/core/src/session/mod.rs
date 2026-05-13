@@ -620,7 +620,7 @@ impl Codex {
             PromptProfileOverride::Set {
                 prompt_profile,
                 prompt_profile_path,
-            } => (Some(prompt_profile), prompt_profile_path),
+            } => (Some(*prompt_profile), prompt_profile_path),
         };
         let session_configuration = SessionConfiguration {
             provider: config.model_provider.clone(),
@@ -1101,22 +1101,6 @@ impl Session {
         format!("auto-compact-{id}")
     }
 
-    pub(crate) fn try_start_inline_archive(&self) -> bool {
-        self.inline_archive_running
-            .compare_exchange(
-                false,
-                true,
-                std::sync::atomic::Ordering::AcqRel,
-                std::sync::atomic::Ordering::Acquire,
-            )
-            .is_ok()
-    }
-
-    pub(crate) fn finish_inline_archive(&self) {
-        self.inline_archive_running
-            .store(false, std::sync::atomic::Ordering::Release);
-    }
-
     pub(crate) async fn route_realtime_text_input(self: &Arc<Self>, text: String) {
         handlers::user_input_or_turn_inner(
             self,
@@ -1187,6 +1171,7 @@ impl Session {
         let state = self.state.lock().await;
         state.session_configuration.prompt_profile_path.clone()
     }
+
     // Merges connector IDs into the session-level explicit connector selection.
     pub(crate) async fn merge_connector_selection(
         &self,
@@ -3227,11 +3212,6 @@ impl Session {
                 });
             }
             Some(crate::state::TaskKind::Compact) => {
-                return Err(SteerInputError::ActiveTurnNotSteerable {
-                    turn_kind: NonSteerableTurnKind::Compact,
-                });
-            }
-            Some(crate::state::TaskKind::Archive) => {
                 return Err(SteerInputError::ActiveTurnNotSteerable {
                     turn_kind: NonSteerableTurnKind::Compact,
                 });

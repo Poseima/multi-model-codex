@@ -89,6 +89,11 @@ async fn run_remote_compact_task_inner(
     reason: CompactionReason,
     phase: CompactionPhase,
 ) -> CodexResult<()> {
+    let history = sess.clone_history().await;
+    if !crate::compact::has_real_user_message(history.raw_items()) {
+        return Ok(());
+    }
+
     let attempt = CompactionAnalyticsAttempt::begin(
         sess.as_ref(),
         turn_context.as_ref(),

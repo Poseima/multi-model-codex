@@ -116,10 +116,6 @@ impl ToolHandler for StructuredEditHandler {
         Some(create_text_editor_tool())
     }
 
-    async fn is_mutating(&self, _invocation: &ToolInvocation) -> bool {
-        true
-    }
-
     async fn handle(
         &self,
         invocation: ToolInvocation,

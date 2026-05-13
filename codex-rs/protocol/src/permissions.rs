@@ -1739,15 +1739,23 @@ fn metadata_child_of_writable_root(
     target: &Path,
     cwd: &Path,
 ) -> Option<(AbsolutePathBuf, &'static str)> {
+    let target_candidates = normalized_and_canonical_candidates(target);
     policy
         .resolved_entries_with_cwd(cwd)
         .iter()
         .filter(|entry| entry.access.can_write())
         .filter_map(|entry| {
-            let relative_path = target.strip_prefix(entry.path.as_path()).ok()?;
-            let first_component = relative_path.components().next()?;
-            let metadata_name = metadata_path_name(first_component.as_os_str())?;
-            Some((entry.path.join(metadata_name), metadata_name))
+            normalized_and_canonical_candidates(entry.path.as_path())
+                .into_iter()
+                .filter_map(|entry_candidate| {
+                    target_candidates.iter().find_map(|target_candidate| {
+                        let relative_path = target_candidate.strip_prefix(&entry_candidate).ok()?;
+                        let first_component = relative_path.components().next()?;
+                        let metadata_name = metadata_path_name(first_component.as_os_str())?;
+                        Some((entry.path.join(metadata_name), metadata_name))
+                    })
+                })
+                .next()
         })
         .next()
 }
@@ -1813,13 +1821,24 @@ fn has_explicit_write_entry_for_metadata_path(
     target: &Path,
     cwd: &Path,
 ) -> bool {
+    let protected_metadata_candidates =
+        normalized_and_canonical_candidates(protected_metadata_path.as_path());
+    let target_candidates = normalized_and_canonical_candidates(target);
     policy.resolved_entries_with_cwd(cwd).iter().any(|entry| {
-        entry.access.can_write()
-            && target.starts_with(entry.path.as_path())
-            && entry
-                .path
-                .as_path()
-                .starts_with(protected_metadata_path.as_path())
+        if !entry.access.can_write() {
+            return false;
+        }
+
+        let entry_candidates = normalized_and_canonical_candidates(entry.path.as_path());
+        target_candidates.iter().any(|target_candidate| {
+            entry_candidates
+                .iter()
+                .any(|entry_candidate| target_candidate.starts_with(entry_candidate))
+        }) && entry_candidates.iter().any(|entry_candidate| {
+            protected_metadata_candidates
+                .iter()
+                .any(|metadata_candidate| entry_candidate.starts_with(metadata_candidate))
+        })
     })
 }
 

@@ -387,19 +387,23 @@ pub fn content_items_to_text(content: &[ContentItem]) -> Option<String> {
 }
 
 pub(crate) fn collect_user_messages(items: &[ResponseItem]) -> Vec<String> {
+    items.iter().filter_map(real_user_message_text).collect()
+}
+
+pub(crate) fn has_real_user_message(items: &[ResponseItem]) -> bool {
     items
         .iter()
-        .filter_map(|item| match crate::event_mapping::parse_turn_item(item) {
-            Some(TurnItem::UserMessage(user)) => {
-                if is_summary_message(&user.message()) {
-                    None
-                } else {
-                    Some(user.message())
-                }
-            }
-            _ => None,
-        })
-        .collect()
+        .any(|item| real_user_message_text(item).is_some())
+}
+
+fn real_user_message_text(item: &ResponseItem) -> Option<String> {
+    match crate::event_mapping::parse_turn_item(item) {
+        Some(TurnItem::UserMessage(user)) => {
+            let message = user.message();
+            (!is_summary_message(&message)).then_some(message)
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn is_summary_message(message: &str) -> bool {

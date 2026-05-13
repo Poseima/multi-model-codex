@@ -186,6 +186,24 @@ pub struct StartThreadOptions {
     pub environments: Vec<TurnEnvironmentSelection>,
 }
 
+pub struct ForkThreadHistoryOptions {
+    pub thread_source: Option<ThreadSource>,
+    pub prompt_profile_override: PromptProfileOverride,
+    pub persist_extended_history: bool,
+    pub parent_trace: Option<W3cTraceContext>,
+}
+
+impl Default for ForkThreadHistoryOptions {
+    fn default() -> Self {
+        Self {
+            thread_source: None,
+            prompt_profile_override: PromptProfileOverride::Inherit,
+            persist_extended_history: false,
+            parent_trace: None,
+        }
+    }
+}
+
 pub(crate) struct ResumeThreadWithHistoryOptions {
     pub(crate) config: Config,
     pub(crate) initial_history: InitialHistory,
@@ -875,10 +893,12 @@ impl ThreadManager {
             snapshot.into(),
             config,
             history,
-            thread_source,
-            PromptProfileOverride::Inherit,
-            persist_extended_history,
-            parent_trace,
+            ForkThreadHistoryOptions {
+                thread_source,
+                persist_extended_history,
+                parent_trace,
+                ..ForkThreadHistoryOptions::default()
+            },
         )
         .await
     }
@@ -888,23 +908,13 @@ impl ThreadManager {
         snapshot: S,
         config: Config,
         history: InitialHistory,
-        prompt_profile_override: PromptProfileOverride,
-        persist_extended_history: bool,
-        parent_trace: Option<W3cTraceContext>,
+        options: ForkThreadHistoryOptions,
     ) -> CodexResult<NewThread>
     where
         S: Into<ForkSnapshot>,
     {
-        self.fork_thread_with_initial_history(
-            snapshot.into(),
-            config,
-            history,
-            /*thread_source*/ None,
-            prompt_profile_override,
-            persist_extended_history,
-            parent_trace,
-        )
-        .await
+        self.fork_thread_with_initial_history(snapshot.into(), config, history, options)
+            .await
     }
 
     async fn fork_thread_with_initial_history(
@@ -912,10 +922,7 @@ impl ThreadManager {
         snapshot: ForkSnapshot,
         config: Config,
         history: InitialHistory,
-        thread_source: Option<ThreadSource>,
-        prompt_profile_override: PromptProfileOverride,
-        persist_extended_history: bool,
-        parent_trace: Option<W3cTraceContext>,
+        options: ForkThreadHistoryOptions,
     ) -> CodexResult<NewThread> {
         let interrupted_marker = InterruptedTurnHistoryMarker::from_config(&config);
         let history = fork_history_from_snapshot(snapshot, history, interrupted_marker);
@@ -928,12 +935,12 @@ impl ThreadManager {
             history,
             Arc::clone(&self.state.auth_manager),
             self.agent_control(),
-            thread_source,
+            options.thread_source,
             Vec::new(),
-            prompt_profile_override,
-            persist_extended_history,
+            options.prompt_profile_override,
+            options.persist_extended_history,
             /*metrics_service_name*/ None,
-            parent_trace,
+            options.parent_trace,
             environments,
             /*user_shell_override*/ None,
         ))

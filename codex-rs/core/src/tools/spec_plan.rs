@@ -428,7 +428,7 @@ fn collect_tool_executors(
             Some(codex_protocol::openai_models::ApplyPatchToolType::Structured)
         )
     {
-        builder.register_handler(Arc::new(StructuredEditHandler));
+        handlers.push(Arc::new(StructuredEditHandler));
     } else if config.environment_mode.has_environment() && config.apply_patch_tool_type.is_some() {
         let include_environment_id =
             matches!(config.environment_mode, ToolEnvironmentMode::Multiple);
