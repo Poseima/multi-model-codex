@@ -1,3 +1,7 @@
+use crate::bottom_pane::SelectionAction;
+use crate::bottom_pane::SelectionItem;
+use crate::bottom_pane::SelectionViewParams;
+use crate::bottom_pane::popup_consts::standard_popup_hint_line;
 use codex_app_server_protocol::AuthMode;
 use codex_login::AuthDotJson;
 use std::ffi::OsStr;
@@ -9,6 +13,8 @@ use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::path::PathBuf;
+
+use super::ChatWidget;
 
 const AUTH_JSON_FILENAME: &str = "auth.json";
 const MULTI_AUTHS_DIRNAME: &str = "multi_auths";
@@ -82,6 +88,72 @@ pub(crate) fn switch_account_auth(codex_home: &Path, selected_auth_path: &Path) 
     }
 
     atomic_write_auth_json(codex_home, &auth_json_path, selected_contents.as_bytes())
+}
+
+impl ChatWidget {
+    pub(crate) fn open_switch_account_popup(&mut self) {
+        let candidates = match discover_switch_account_candidates(&self.config.codex_home) {
+            Ok(candidates) => candidates,
+            Err(err) => {
+                self.add_error_message(format!("Failed to list switchable accounts: {err}"));
+                return;
+            }
+        };
+
+        if candidates.is_empty() {
+            self.add_info_message(
+                "No saved accounts found in CODEX_HOME/multi_auths.".to_string(),
+                /*hint*/ None,
+            );
+            return;
+        }
+
+        let codex_home = self.config.codex_home.clone();
+        let items = candidates
+            .into_iter()
+            .map(|candidate| {
+                let is_disabled = candidate.disabled_reason.is_some();
+                let actions: Vec<SelectionAction> = if is_disabled {
+                    Vec::new()
+                } else {
+                    let selected_path = candidate.path.clone();
+                    let selected_name = candidate.name.clone();
+                    let codex_home = codex_home.clone();
+                    vec![Box::new(move |_tx| {
+                        if let Err(err) =
+                            switch_account_auth(codex_home.as_path(), selected_path.as_path())
+                        {
+                            tracing::error!(
+                                account = %selected_name,
+                                error = %err,
+                                "failed to switch account"
+                            );
+                        } else {
+                            tracing::info!(account = %selected_name, "switched account");
+                        }
+                    })]
+                };
+
+                SelectionItem {
+                    name: candidate.name,
+                    description: candidate.description,
+                    disabled_reason: candidate.disabled_reason,
+                    is_disabled,
+                    actions,
+                    dismiss_on_select: true,
+                    ..Default::default()
+                }
+            })
+            .collect();
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            title: Some("Switch Account".to_string()),
+            subtitle: Some("Use an auth.json from CODEX_HOME/multi_auths.".to_string()),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            ..Default::default()
+        });
+    }
 }
 
 fn read_auth_dot_json(path: &Path) -> io::Result<AuthDotJson> {

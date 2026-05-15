@@ -16,6 +16,7 @@ use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_custom_tool_call;
 use core_test_support::responses::ev_function_call;
+use core_test_support::responses::ev_local_shell_call;
 use core_test_support::responses::ev_message_item_added;
 use core_test_support::responses::ev_output_text_delta;
 use core_test_support::responses::ev_reasoning_item;
