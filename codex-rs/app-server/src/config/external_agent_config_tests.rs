@@ -2569,6 +2569,41 @@ async fn import_plugins_infers_external_official_marketplace_when_missing_from_s
     let (_root, external_agent_home, codex_home) = fixture_paths();
     fs::create_dir_all(&external_agent_home).expect("create external agent home");
     fs::create_dir_all(&codex_home).expect("create codex home");
+    // Seed the inferred remote marketplace as already installed so the test
+    // exercises plugin import deterministically without cloning from GitHub.
+    let marketplace_root = codex_home
+        .join(".tmp")
+        .join("marketplaces")
+        .join(EXTERNAL_OFFICIAL_MARKETPLACE_NAME);
+    fs::create_dir_all(marketplace_root.join(EXTERNAL_AGENT_PLUGIN_MANIFEST_DIR))
+        .expect("create installed marketplace manifest dir");
+    fs::write(
+        marketplace_root
+            .join(EXTERNAL_AGENT_PLUGIN_MANIFEST_DIR)
+            .join("marketplace.json"),
+        format!(
+            r#"{{
+          "name": "{EXTERNAL_OFFICIAL_MARKETPLACE_NAME}",
+          "plugins": []
+        }}"#
+        ),
+    )
+    .expect("write installed marketplace manifest");
+    let official_marketplace_source =
+        format!("https://github.com/{EXTERNAL_OFFICIAL_MARKETPLACE_SOURCE}.git");
+    codex_config::record_user_marketplace(
+        &codex_home,
+        EXTERNAL_OFFICIAL_MARKETPLACE_NAME,
+        &codex_config::MarketplaceConfigUpdate {
+            last_updated: "2026-05-15T00:00:00Z",
+            last_revision: None,
+            source_type: "git",
+            source: &official_marketplace_source,
+            ref_name: None,
+            sparse_paths: &[],
+        },
+    )
+    .expect("record existing marketplace config");
 
     fs::write(
         external_agent_home.join("settings.json"),

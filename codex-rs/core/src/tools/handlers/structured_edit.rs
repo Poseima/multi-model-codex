@@ -110,7 +110,6 @@ const CONTEXT_LINES: usize = 3;
 
 #[async_trait::async_trait]
 impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
-
     fn tool_name(&self) -> ToolName {
         ToolName::plain("text_editor")
     }
@@ -299,6 +298,7 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
         }
     }
 }
+
 
 // ---------------------------------------------------------------------------
 // Patch string generation

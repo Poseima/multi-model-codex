@@ -6,6 +6,68 @@
 use super::*;
 
 impl ChatWidget {
+    pub(crate) fn open_provider_popup(&mut self) {
+        if !self.is_session_configured() {
+            self.add_info_message(
+                "Provider selection is disabled until startup completes.".to_string(),
+                /*hint*/ None,
+            );
+            return;
+        }
+
+        let mut providers: Vec<(String, ModelProviderInfo)> = self
+            .config
+            .model_providers
+            .iter()
+            .map(|(id, info)| (id.clone(), info.clone()))
+            .collect();
+        providers.sort_by(|(left_id, left), (right_id, right)| {
+            provider_display_name(left_id, left).cmp(&provider_display_name(right_id, right))
+        });
+
+        if providers.is_empty() {
+            self.add_info_message(
+                "No model providers are configured right now.".to_string(),
+                /*hint*/ None,
+            );
+            return;
+        }
+
+        let current_provider = self.config.model_provider_id.as_str();
+        let items = providers
+            .into_iter()
+            .map(|(provider_id, provider_info)| {
+                let name = provider_display_name(&provider_id, &provider_info);
+                let description = provider_description(&provider_info);
+                let selected_provider = provider_id.clone();
+                let actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
+                    tx.send(AppEvent::UpdateProvider(selected_provider.clone()));
+                    tx.send(AppEvent::PersistProviderSelection {
+                        provider: selected_provider.clone(),
+                    });
+                })];
+
+                SelectionItem {
+                    name,
+                    description,
+                    is_current: provider_id == current_provider,
+                    actions,
+                    dismiss_on_select: true,
+                    search_value: Some(provider_id),
+                    ..Default::default()
+                }
+            })
+            .collect();
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            title: Some("Select Provider".to_string()),
+            subtitle: Some("Choose the model provider for new turns.".to_string()),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            ..Default::default()
+        });
+    }
+
     /// Open a popup to choose a quick auto model. Selecting "All models"
     /// opens the full picker with every available preset.
     pub(crate) fn open_model_popup(&mut self) {
@@ -533,4 +595,22 @@ impl ChatWidget {
         self.app_event_tx
             .send(AppEvent::PersistModelSelection { model, effort });
     }
+}
+
+fn provider_display_name(provider_id: &str, provider_info: &ModelProviderInfo) -> String {
+    if provider_info.name.trim().is_empty() {
+        provider_id.to_string()
+    } else {
+        provider_info.name.clone()
+    }
+}
+
+fn provider_description(provider_info: &ModelProviderInfo) -> Option<String> {
+    let mut parts = vec![provider_info.wire_api.to_string()];
+    if let Some(base_url) = provider_info.base_url.as_deref()
+        && !base_url.trim().is_empty()
+    {
+        parts.push(base_url.to_string());
+    }
+    Some(parts.join(" | "))
 }

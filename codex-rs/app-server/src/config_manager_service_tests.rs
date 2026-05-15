@@ -375,7 +375,8 @@ async fn read_includes_origins_and_layers() {
         assert_eq!(
             layers.first().unwrap().name,
             ApiConfigLayerSource::User {
-                file: user_file.clone()
+                file: user_file.clone(),
+                profile: None,
             }
         );
         assert!(matches!(

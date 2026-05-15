@@ -1022,9 +1022,6 @@ impl App {
                     ));
                 }
             }
-            AppEvent::UpdateCollaborationMode(mask) => {
-                self.chat_widget.set_collaboration_mask(mask);
-            }
             AppEvent::UpdatePersonality(personality) => {
                 self.on_update_personality(personality);
                 self.sync_active_thread_personality_setting(app_server, personality)
