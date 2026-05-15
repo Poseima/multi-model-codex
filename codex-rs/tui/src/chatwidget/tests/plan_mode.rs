@@ -154,7 +154,7 @@ async fn plan_mode_nudge_dismissal_is_scoped_to_current_thread() {
 }
 
 #[tokio::test]
-async fn plan_mode_nudge_shift_tab_uses_existing_mode_cycle_path() {
+async fn plan_mode_nudge_shift_tab_selects_plan_mode() {
     let (mut chat, _rx, _op_rx) = make_chatwidget_manual(Some("gpt-5")).await;
     set_composer_text(&mut chat, "make a plan");
     chat.pre_draw_tick();
