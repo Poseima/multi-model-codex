@@ -12,6 +12,7 @@ use crate::tools::events::ToolEventCtx;
 use crate::tools::handlers::apply_patch::effective_patch_permissions;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::orchestrator::ToolOrchestrator;
+use crate::tools::registry::ToolExecutor;
 use crate::tools::registry::ToolHandler;
 use crate::tools::runtimes::apply_patch::ApplyPatchRequest;
 use crate::tools::runtimes::apply_patch::ApplyPatchRuntime;
@@ -105,7 +106,8 @@ struct StructuredEditArgs {
 /// Number of context lines to include before and after a change in generated patches.
 const CONTEXT_LINES: usize = 3;
 
-impl ToolHandler for StructuredEditHandler {
+#[async_trait::async_trait]
+impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
     type Output = FunctionToolOutput;
 
     fn tool_name(&self) -> ToolName {
@@ -146,8 +148,7 @@ impl ToolHandler for StructuredEditHandler {
         };
         let cwd = turn_environment.cwd.clone();
         let fs = turn_environment.environment.get_filesystem();
-        let mut sandbox = turn.file_system_sandbox_context(/*additional_permissions*/ None);
-        sandbox.cwd = Some(cwd.clone());
+        let sandbox = turn.file_system_sandbox_context(/*additional_permissions*/ None, &cwd);
 
         let patch_string = match args.command.as_str() {
             "create" => {
@@ -280,6 +281,12 @@ impl ToolHandler for StructuredEditHandler {
                 ))
             }
         }
+    }
+}
+
+impl ToolHandler for StructuredEditHandler {
+    fn matches_kind(&self, payload: &ToolPayload) -> bool {
+        matches!(payload, ToolPayload::Function { .. })
     }
 }
 

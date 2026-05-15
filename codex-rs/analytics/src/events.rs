@@ -1052,6 +1052,7 @@ pub(crate) fn subagent_source_name(subagent_source: &SubAgentSource) -> String {
     match subagent_source {
         SubAgentSource::Review => "review".to_string(),
         SubAgentSource::Compact => "compact".to_string(),
+        SubAgentSource::MemoryConsolidation => "memory_consolidation".to_string(),
         SubAgentSource::ThreadSpawn { .. } => "thread_spawn".to_string(),
         SubAgentSource::Other(other) => other.clone(),
     }

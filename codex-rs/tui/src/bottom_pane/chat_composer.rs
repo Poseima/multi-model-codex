@@ -5468,7 +5468,11 @@ mod tests {
 
     #[test]
     fn zellij_empty_composer_snapshot() {
-        snapshot_zellij_composer_state("zellij_empty_composer", |_composer| {});
+        snapshot_composer_state(
+            "zellij_empty_composer",
+            /*enhanced_keys_supported*/ false,
+            |_composer| {},
+        );
     }
 
     #[test]
@@ -7830,7 +7834,7 @@ mod tests {
         );
         type_chars_humanlike(&mut composer, &['/', 'p', 'r', 'o', 'f', 'i', 'l', 'e']);
 
-        match &composer.active_popup {
+        match &composer.popups.active {
             ActivePopup::Command(popup) => match popup.selected_item() {
                 Some(CommandItem::Builtin(cmd)) => {
                     assert_eq!(cmd.command(), "profile");

@@ -2427,6 +2427,31 @@ fn subagent_thread_started_review_serializes_expected_shape() {
 }
 
 #[test]
+fn subagent_thread_started_memory_consolidation_serializes_expected_shape() {
+    let event = TrackEventRequest::ThreadInitialized(subagent_thread_started_event_request(
+        SubAgentThreadStartedInput {
+            thread_id: "thread-memory".to_string(),
+            parent_thread_id: None,
+            product_client_id: "codex-tui".to_string(),
+            client_name: "codex-tui".to_string(),
+            client_version: "1.0.0".to_string(),
+            model: "gpt-5".to_string(),
+            ephemeral: false,
+            subagent_source: SubAgentSource::MemoryConsolidation,
+            created_at: 125,
+        },
+    ));
+
+    let payload = serde_json::to_value(&event).expect("serialize memory subagent event");
+    assert_eq!(payload["event_params"]["thread_source"], "subagent");
+    assert_eq!(
+        payload["event_params"]["subagent_source"],
+        "memory_consolidation"
+    );
+    assert_eq!(payload["event_params"]["parent_thread_id"], json!(null));
+}
+
+#[test]
 fn subagent_thread_started_thread_spawn_serializes_parent_thread_id() {
     let parent_thread_id =
         codex_protocol::ThreadId::from_string("11111111-1111-1111-1111-111111111111")
