@@ -374,7 +374,8 @@ async fn read_includes_origins_and_layers() {
         assert_eq!(
             layers.first().unwrap().name,
             ConfigLayerSource::User {
-                file: user_file.clone()
+                file: user_file.clone(),
+                profile: None,
             }
         );
         assert!(matches!(
@@ -527,7 +528,10 @@ async fn write_value_reports_override() {
                 .get("approval_policy")
                 .expect("origin")
                 .name,
-            ConfigLayerSource::User { file: user_file }
+            ConfigLayerSource::User {
+                file: user_file,
+                profile: None,
+            }
         );
     } else {
         assert_eq!(
@@ -822,7 +826,10 @@ async fn read_reports_managed_overrides_user_and_session_flags() {
         );
         assert_eq!(
             layers.get(1).unwrap().name,
-            ConfigLayerSource::User { file: user_file }
+            ConfigLayerSource::User {
+                file: user_file,
+                profile: None,
+            }
         );
         return;
     }

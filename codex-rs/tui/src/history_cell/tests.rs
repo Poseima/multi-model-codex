@@ -497,6 +497,8 @@ fn session_configured_event(model: &str) -> ThreadSessionState {
         thread_name: None,
         model: model.to_string(),
         model_provider_id: "test-provider".to_string(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         service_tier: None,
         approval_policy: AskForApproval::Never,
         approvals_reviewer: codex_protocol::config_types::ApprovalsReviewer::User,
