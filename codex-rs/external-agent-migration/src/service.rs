@@ -33,6 +33,8 @@ use crate::sessions::SessionMetadataMode;
 use crate::source_cla::KNOWN_MARKETPLACES_PATH as EXTERNAL_AGENT_KNOWN_MARKETPLACES_PATH;
 #[cfg(test)]
 use crate::source_cla::OFFICIAL_MARKETPLACE_NAME as EXTERNAL_OFFICIAL_MARKETPLACE_NAME;
+#[cfg(test)]
+use crate::source_cla::OFFICIAL_MARKETPLACE_SOURCE as EXTERNAL_OFFICIAL_MARKETPLACE_SOURCE;
 use crate::utils::copy_dir_recursive;
 use crate::utils::display_source_paths;
 use crate::utils::invalid_data_error;
