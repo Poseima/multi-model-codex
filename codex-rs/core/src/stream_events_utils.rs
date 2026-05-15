@@ -383,42 +383,6 @@ pub(crate) async fn handle_output_item_done(
 
             output.last_agent_message = finalized_facts.and_then(|facts| facts.last_agent_message);
         }
-        // Guardrail: the model issued a LocalShellCall without an id; surface the error back into history.
-        Err(FunctionCallError::MissingLocalShellCallId) => {
-            ctx.sess
-                .services
-                .executed_tool_calls
-                .observe_non_dispatched_call(&item);
-            let msg = "LocalShellCall without call_id or id";
-            ctx.step_context
-                .turn
-                .session_telemetry
-                .log_tool_failed("local_shell", msg);
-            tracing::error!(msg);
-
-            record_completed_response_item(ctx.sess.as_ref(), ctx.step_context.as_ref(), &item)
-                .await;
-            if let Some(call_id) = response_item_call_id(&item) {
-                let response = ResponseInputItem::FunctionCallOutput {
-                    call_id,
-                    output: FunctionCallOutputPayload {
-                        body: FunctionCallOutputBody::Text(msg.to_string()),
-                        ..Default::default()
-                    },
-                };
-                if let Some(response_item) = response_input_to_response_item(&response) {
-                    ctx.sess
-                        .record_conversation_items(
-                            &ctx.step_context.turn,
-                            &ctx.step_context.settings.model_info,
-                            std::slice::from_ref(&response_item),
-                        )
-                        .await;
-                }
-            }
-
-            output.needs_follow_up = true;
-        }
         // The tool request should be answered directly (or was denied); push that response into the transcript.
         Err(FunctionCallError::RespondToModel(message)) => {
             ctx.sess
