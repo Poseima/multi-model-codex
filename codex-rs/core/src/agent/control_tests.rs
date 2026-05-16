@@ -139,6 +139,26 @@ fn user_message(text: &str) -> ResponseItem {
     }
 }
 
+fn run_stack_heavy_async_test<F, Fut>(name: &'static str, test: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("create tokio runtime");
+            runtime.block_on(test());
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread should complete");
+}
+
 fn assistant_message(text: &str, phase: Option<MessagePhase>) -> ResponseItem {
     ResponseItem::Message {
         id: None,
@@ -1603,8 +1623,15 @@ async fn spawn_agent_numeric_fork_from_compacted_paginated_parent_clamps_to_prov
         .expect("parent shutdown should submit");
 }
 
-#[tokio::test]
-async fn spawn_agent_can_fork_parent_thread_history_with_sanitized_items() {
+#[test]
+fn spawn_agent_can_fork_parent_thread_history_with_sanitized_items() {
+    run_stack_heavy_async_test(
+        "spawn-agent-fork-parent-history",
+        spawn_agent_can_fork_parent_thread_history_with_sanitized_items_inner,
+    );
+}
+
+async fn spawn_agent_can_fork_parent_thread_history_with_sanitized_items_inner() {
     let managed_fragment = "<managed_developer_instructions>\nParent developer instructions.\n</managed_developer_instructions>";
     let persistent_fragment =
         "<persistent_mode>\nParent developer instructions.\n</persistent_mode>";
@@ -2550,8 +2577,15 @@ async fn spawn_agent_full_fork_legacy_compaction_rebuilds_child_instructions_onc
     }
 }
 
-#[tokio::test]
-async fn spawn_agent_fork_flushes_parent_rollout_before_loading_history() {
+#[test]
+fn spawn_agent_fork_flushes_parent_rollout_before_loading_history() {
+    run_stack_heavy_async_test(
+        "spawn-agent-fork-flushes-parent-rollout",
+        spawn_agent_fork_flushes_parent_rollout_before_loading_history_inner,
+    );
+}
+
+async fn spawn_agent_fork_flushes_parent_rollout_before_loading_history_inner() {
     let harness = AgentControlHarness::new().await;
     let (parent_thread_id, parent_thread) = harness.start_thread().await;
     let turn_context = parent_thread.session.new_default_turn().await;
