@@ -6,14 +6,16 @@ use crate::apply_patch::convert_apply_patch_to_protocol;
 use crate::function_tool::FunctionCallError;
 use crate::tools::context::FunctionToolOutput;
 use crate::tools::context::ToolInvocation;
+use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
+use crate::tools::context::boxed_tool_output;
 use crate::tools::events::ToolEmitter;
 use crate::tools::events::ToolEventCtx;
 use crate::tools::handlers::apply_patch::effective_patch_permissions;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::orchestrator::ToolOrchestrator;
+use crate::tools::registry::CoreToolRuntime;
 use crate::tools::registry::ToolExecutor;
-use crate::tools::registry::ToolHandler;
 use crate::tools::runtimes::apply_patch::ApplyPatchRequest;
 use crate::tools::runtimes::apply_patch::ApplyPatchRuntime;
 use crate::tools::sandboxing::ToolCtx;
@@ -108,8 +110,6 @@ const CONTEXT_LINES: usize = 3;
 
 #[async_trait::async_trait]
 impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
-    type Output = FunctionToolOutput;
-
     fn tool_name(&self) -> ToolName {
         ToolName::plain("text_editor")
     }
@@ -121,7 +121,7 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
     async fn handle(
         &self,
         invocation: ToolInvocation,
-    ) -> Result<FunctionToolOutput, FunctionCallError> {
+    ) -> Result<Box<dyn ToolOutput>, FunctionCallError> {
         let ToolInvocation {
             session,
             turn,
@@ -205,7 +205,10 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
                 {
                     InternalApplyPatchInvocation::Output(item) => {
                         let content = item?;
-                        Ok(FunctionToolOutput::from_text(content, Some(true)))
+                        Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                            content,
+                            Some(true),
+                        )))
                     }
                     InternalApplyPatchInvocation::DelegateToRuntime(apply) => {
                         let changes = convert_apply_patch_to_protocol(&apply.action);
@@ -260,7 +263,10 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
                             Some(&tracker),
                         );
                         let content = emitter.finish(event_ctx, out, delta.as_ref()).await?;
-                        Ok(FunctionToolOutput::from_text(content, Some(true)))
+                        Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                            content,
+                            Some(true),
+                        )))
                     }
                 }
             }
@@ -284,7 +290,7 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
     }
 }
 
-impl ToolHandler for StructuredEditHandler {
+impl CoreToolRuntime for StructuredEditHandler {
     fn matches_kind(&self, payload: &ToolPayload) -> bool {
         matches!(payload, ToolPayload::Function { .. })
     }

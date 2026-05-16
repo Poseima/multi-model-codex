@@ -4442,7 +4442,7 @@ impl ChatComposer {
                     let available_width =
                         hint_rect.width.saturating_sub(FOOTER_INDENT_COLS as u16) as usize;
                     let has_side_conversation_context_label =
-                        self.side_conversation_context_label.is_some();
+                        self.footer.side_conversation_context_label.is_some();
                     let passive_footer_status_active =
                         uses_passive_footer_status_layout(&footer_props);
                     let status_line_active = passive_footer_status_active
