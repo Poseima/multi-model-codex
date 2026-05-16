@@ -80,6 +80,7 @@ impl<'a> ChatRequestBuilder<'a> {
                 ResponseItem::WebSearchCall { .. } => {}
                 ResponseItem::Compaction { .. } => {}
                 ResponseItem::ContextCompaction { .. } => {}
+                ResponseItem::CompactionTrigger => {}
             }
         }
 
@@ -336,7 +337,8 @@ impl<'a> ChatRequestBuilder<'a> {
                 | ResponseItem::ImageGenerationCall { .. }
                 | ResponseItem::Other
                 | ResponseItem::Compaction { .. }
-                | ResponseItem::ContextCompaction { .. } => {
+                | ResponseItem::ContextCompaction { .. }
+                | ResponseItem::CompactionTrigger => {
                     continue;
                 }
             }
@@ -536,7 +538,11 @@ mod tests {
             .expect("request");
 
         assert_eq!(
-            req.headers.get("session_id"),
+            req.headers.get("session-id"),
+            Some(&HeaderValue::from_static("conv-1"))
+        );
+        assert_eq!(
+            req.headers.get("thread-id"),
             Some(&HeaderValue::from_static("conv-1"))
         );
         assert_eq!(
@@ -644,8 +650,10 @@ mod tests {
             }],
             phase: None,
         }];
+        let mut provider = provider_with("minimax", "https://api.minimax.chat/v1");
+        provider.system_role = Some("user".to_string());
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
-            .build(&provider_with("minimax", "https://api.minimax.chat/v1"))
+            .build(&provider)
             .expect("request");
 
         let messages = req
