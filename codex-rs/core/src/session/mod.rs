@@ -2030,6 +2030,16 @@ impl Session {
             .map(|task| Arc::clone(&task.turn_context))
     }
 
+    pub(crate) async fn turn_state_for_sub_id(
+        &self,
+        sub_id: &str,
+    ) -> Option<Arc<Mutex<crate::state::TurnState>>> {
+        let active = self.active_turn.lock().await;
+        let active = active.as_ref()?;
+        (active.tasks.contains_key(sub_id) || active.tasks.is_empty())
+            .then(|| Arc::clone(&active.turn_state))
+    }
+
     async fn active_turn_context_and_cancellation_token(
         &self,
     ) -> Option<(Arc<TurnContext>, CancellationToken)> {
