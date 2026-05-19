@@ -1185,6 +1185,7 @@ async fn handle_response_item_records_tool_result_for_local_shell_missing_ids() 
             }],
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
+            thread_settings: Default::default(),
         })
         .await
         .unwrap();
@@ -1255,6 +1256,7 @@ async fn handle_response_item_records_tool_result_for_local_shell_call() {
             }],
             final_output_json_schema: None,
             responsesapi_client_metadata: None,
+            thread_settings: Default::default(),
         })
         .await
         .unwrap();
