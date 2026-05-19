@@ -236,6 +236,7 @@ mod platform_actions;
 mod plugin_mentions;
 mod rate_limit_refresh;
 mod recap;
+mod prompt_profile_support;
 mod reconnect;
 mod replay_filter;
 mod resize_reflow;
