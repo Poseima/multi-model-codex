@@ -238,6 +238,7 @@ mod realtime_delivery;
 mod realtime_settings;
 mod reasoning_replay;
 mod recap;
+mod prompt_profile_support;
 mod reconnect;
 mod replay_filter;
 mod resize_reflow;

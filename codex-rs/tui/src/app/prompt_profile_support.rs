@@ -176,7 +176,7 @@ impl App {
                             if let Some(usage_line) = summary.usage_line.clone() {
                                 lines.push(usage_line.into());
                             }
-                            if let Some(command) = summary.resume_command {
+                            if let Some(command) = summary.resume_hint {
                                 let spans =
                                     vec!["To continue this session, run ".into(), command.cyan()];
                                 lines.push(spans.into());
@@ -235,7 +235,7 @@ impl App {
                         if let Some(usage_line) = summary.usage_line.clone() {
                             lines.push(usage_line.into());
                         }
-                        if let Some(command) = summary.resume_command {
+                        if let Some(command) = summary.resume_hint {
                             let spans =
                                 vec!["To continue this session, run ".into(), command.cyan()];
                             lines.push(spans.into());
@@ -340,7 +340,7 @@ impl App {
                                     if let Some(usage_line) = summary.usage_line.clone() {
                                         lines.push(usage_line.into());
                                     }
-                                    if let Some(command) = summary.resume_command {
+                                    if let Some(command) = summary.resume_hint {
                                         let spans = vec![
                                             "To continue this session, run ".into(),
                                             command.cyan(),
@@ -397,7 +397,7 @@ impl App {
                                     if let Some(usage_line) = summary.usage_line.clone() {
                                         lines.push(usage_line.into());
                                     }
-                                    if let Some(command) = summary.resume_command {
+                                    if let Some(command) = summary.resume_hint {
                                         let spans = vec![
                                             "To continue this session, run ".into(),
                                             command.cyan(),
