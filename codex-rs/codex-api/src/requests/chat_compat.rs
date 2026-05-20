@@ -279,6 +279,11 @@ impl<'a> ChatRequestBuilder<'a> {
                                     } => {
                                         json!({"type":"image_url","image_url": {"url": image_url}})
                                     }
+                                    FunctionCallOutputContentItem::EncryptedContent {
+                                        encrypted_content,
+                                    } => {
+                                        json!({"type":"encrypted_content","encrypted_content": encrypted_content})
+                                    }
                                 })
                                 .collect();
                             json!(mapped)
@@ -706,6 +711,74 @@ mod tests {
             .expect("messages array");
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0]["role"], "system");
+    }
+
+    #[test]
+    fn preserves_encrypted_function_output_content_items() {
+        let prompt_input = vec![
+            ResponseItem::Message {
+                id: None,
+                role: "user".to_string(),
+                content: vec![ContentItem::InputText {
+                    text: "run the tool".to_string(),
+                }],
+                phase: None,
+            },
+            ResponseItem::FunctionCall {
+                id: None,
+                name: "shell".to_string(),
+                arguments: r#"{"command":["echo","secret"]}"#.to_string(),
+                call_id: "call-1".to_string(),
+                namespace: None,
+            },
+            ResponseItem::FunctionCallOutput {
+                call_id: "call-1".to_string(),
+                output: FunctionCallOutputPayload {
+                    body: FunctionCallOutputBody::ContentItems(vec![
+                        FunctionCallOutputContentItem::EncryptedContent {
+                            encrypted_content: "enc_opaque".to_string(),
+                        },
+                    ]),
+                    success: None,
+                },
+            },
+        ];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider())
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(
+            messages,
+            &vec![
+                json!({"role":"system","content":"inst"}),
+                json!({"role":"user","content":"run the tool"}),
+                json!({
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {
+                            "name": "shell",
+                            "arguments": "{\"command\":[\"echo\",\"secret\"]}",
+                        },
+                    }],
+                }),
+                json!({
+                    "role": "tool",
+                    "tool_call_id": "call-1",
+                    "content": [{
+                        "type": "encrypted_content",
+                        "encrypted_content": "enc_opaque",
+                    }],
+                }),
+            ]
+        );
     }
 
     #[test]
