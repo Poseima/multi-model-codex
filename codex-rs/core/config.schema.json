@@ -5246,14 +5246,6 @@
       "format": "int64",
       "type": "integer"
     },
-    "model_auto_compact_token_limits": {
-      "additionalProperties": {
-        "format": "int64",
-        "type": "integer"
-      },
-      "description": "Per-model token thresholds triggering auto-compaction, keyed by exact model slug.",
-      "type": "object"
-    },
     "model_auto_compact_token_limit_scope": {
       "allOf": [
         {
@@ -5261,6 +5253,14 @@
         }
       ],
       "description": "Controls whether the auto-compaction limit applies to the full context or only to tokens after the carried prefix in the current compaction window."
+    },
+    "model_auto_compact_token_limits": {
+      "additionalProperties": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "description": "Per-model token thresholds triggering auto-compaction, keyed by exact model slug.",
+      "type": "object"
     },
     "model_catalog_json": {
       "allOf": [
