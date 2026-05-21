@@ -379,7 +379,12 @@ impl App {
                         }
                     }
                     self.config = config.clone();
-                    match app_server.start_thread(&config).await {
+                    match app_server
+                        .start_thread_with_session_start_source(
+                            &config, /*session_start_source*/ None,
+                        )
+                        .await
+                    {
                         Ok(started) => {
                             if let Err(err) = self
                                 .replace_chat_widget_with_app_server_thread(

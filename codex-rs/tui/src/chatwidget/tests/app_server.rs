@@ -44,6 +44,8 @@ fn configured_thread_session(thread_id: ThreadId) -> crate::session_state::Threa
         thread_name: None,
         model: "gpt-5.3-codex".to_string(),
         model_provider_id: "openai".to_string(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         service_tier: None,
         approval_policy: AskForApproval::Never,
         approvals_reviewer: ApprovalsReviewer::User,

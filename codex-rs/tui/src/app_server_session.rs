@@ -1261,6 +1261,7 @@ pub(crate) async fn start_thread_with_request_handle(
                 thread_params_mode,
                 remote_cwd_override.as_deref(),
                 /*session_start_source*/ None,
+                /*prompt_profile*/ None,
             ),
         })
         .await
