@@ -6,6 +6,7 @@ use crate::config::AgentRoleConfig;
 use crate::config::DEFAULT_AGENT_MAX_DEPTH;
 use crate::function_tool::FunctionCallError;
 use crate::init_state_db;
+use crate::session::TurnInput;
 use crate::session::tests::make_session_and_context;
 use crate::session_prefix::format_inter_agent_completion_message;
 use crate::state::TaskKind;
@@ -253,7 +254,7 @@ impl SessionTask for NeverEndingTask {
         self: Arc<Self>,
         _session: Arc<SessionTaskContext>,
         _ctx: Arc<TurnContext>,
-        _input: Vec<UserInput>,
+        _input: Vec<TurnInput>,
         cancellation_token: CancellationToken,
     ) -> Option<String> {
         cancellation_token.cancelled().await;

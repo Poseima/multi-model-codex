@@ -1779,9 +1779,7 @@ impl App {
                 }
             }
             AppEvent::PersistProviderSelection { provider } => {
-                let profile = self.active_profile.as_deref();
-                match ConfigEditsBuilder::new(&self.config.codex_home)
-                    .with_profile(profile)
+                match ConfigEditsBuilder::for_config(&self.config)
                     .set_model_provider(Some(provider.as_str()))
                     .apply()
                     .await
@@ -1793,20 +1791,15 @@ impl App {
                             .get(&provider)
                             .map(|provider| provider.name.as_str())
                             .unwrap_or(&provider);
-                        let mut message = format!("Provider changed to {provider_name}");
-                        if let Some(profile) = profile {
-                            message.push_str(&format!(" for profile `{profile}`"));
-                        }
-                        self.chat_widget.add_info_message(message, /*hint*/ None);
+                        self.chat_widget.add_info_message(
+                            format!("Provider changed to {provider_name}"),
+                            /*hint*/ None,
+                        );
                     }
                     Err(err) => {
                         tracing::error!(error = %err, "failed to persist provider selection");
-                        let message = if let Some(profile) = profile {
-                            format!("Failed to save provider for profile `{profile}`: {err}")
-                        } else {
-                            format!("Failed to save default provider: {err}")
-                        };
-                        self.chat_widget.add_error_message(message);
+                        self.chat_widget
+                            .add_error_message(format!("Failed to save default provider: {err}"));
                     }
                 }
             }
