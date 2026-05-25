@@ -81,7 +81,6 @@ pub struct ProfileTui {
     pub session_picker_view: Option<SessionPickerViewMode>,
 }
 
-
 /// Built-in default profile list.
 pub fn built_in_profiles() -> std::collections::HashMap<String, ConfigProfile> {
     [
