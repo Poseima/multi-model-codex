@@ -141,6 +141,7 @@ mod tests {
                 retry_5xx: true,
                 retry_transport: true,
             },
+            system_role: None,
             stream_idle_timeout: Duration::from_secs(1),
         }
     }
