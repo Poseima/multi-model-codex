@@ -2036,7 +2036,10 @@ impl Session {
     ) -> Option<Arc<Mutex<crate::state::TurnState>>> {
         let active = self.active_turn.lock().await;
         let active = active.as_ref()?;
-        (active.tasks.contains_key(sub_id) || active.tasks.is_empty())
+        active
+            .task
+            .as_ref()
+            .is_none_or(|task| task.turn_context.sub_id == sub_id)
             .then(|| Arc::clone(&active.turn_state))
     }
 
