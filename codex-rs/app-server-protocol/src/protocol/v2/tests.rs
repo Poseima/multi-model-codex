@@ -198,6 +198,8 @@ fn thread_resume_response_round_trips_initial_turns_page() {
             thread_source: None,
             agent_nickname: None,
             agent_role: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             git_info: None,
             name: None,
             turns: Vec::new(),
