@@ -508,6 +508,8 @@ async fn required_windows_sandbox_setup_defers_configured_initial_prompt() {
         thread_name: None,
         model: "gpt-test".to_string(),
         model_provider_id: "test-provider".to_string(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         service_tier: None,
         approval_policy: AskForApproval::OnRequest,
         approvals_reviewer: ApprovalsReviewer::User,
