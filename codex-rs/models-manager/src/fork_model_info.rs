@@ -47,6 +47,7 @@ macro_rules! fork_model_info {
             support_verbosity: false,
             default_verbosity: None,
             apply_patch_tool_type: None,
+            tool_mode: None,
             web_search_tool_type: WebSearchToolType::Text,
             truncation_policy: TruncationPolicyConfig::bytes(10_000),
             supports_parallel_tool_calls: false,
