@@ -1477,21 +1477,21 @@ async fn multi_agent_v2_list_agents_returns_completed_status() {
     let _ = config.features.enable(Feature::MultiAgentV2);
     set_turn_config(&mut turn, config);
 
-        let session = Arc::new(session);
-        let turn = Arc::new(turn);
-        let spawn_output = SpawnAgentHandlerV2::default()
-            .handle(invocation(
-                session.clone(),
-                turn.clone(),
-                "spawn_agent",
-                function_payload(json!({
-                    "message": "inspect this repo",
-                    "task_name": "worker"
-                })),
-            ))
-            .await
-            .expect("spawn_agent should succeed");
-        let _ = expect_text_output(spawn_output);
+    let session = Arc::new(session);
+    let turn = Arc::new(turn);
+    let spawn_output = SpawnAgentHandlerV2::default()
+        .handle(invocation(
+            session.clone(),
+            turn.clone(),
+            "spawn_agent",
+            function_payload(json!({
+                "message": "inspect this repo",
+                "task_name": "worker"
+            })),
+        ))
+        .await
+        .expect("spawn_agent should succeed");
+    let _ = expect_text_output(spawn_output);
 
     let agent_id = session
         .services
@@ -1520,18 +1520,18 @@ async fn multi_agent_v2_list_agents_returns_completed_status() {
         )
         .await;
 
-        let output = ListAgentsHandlerV2
-            .handle(invocation(
-                session,
-                turn,
-                "list_agents",
-                function_payload(json!({})),
-            ))
-            .await
-            .expect("list_agents should succeed");
-        let (content, success) = expect_text_output(output);
-        let result: ListAgentsResult =
-            serde_json::from_str(&content).expect("list_agents result should be json");
+    let output = ListAgentsHandlerV2
+        .handle(invocation(
+            session,
+            turn,
+            "list_agents",
+            function_payload(json!({})),
+        ))
+        .await
+        .expect("list_agents should succeed");
+    let (content, success) = expect_text_output(output);
+    let result: ListAgentsResult =
+        serde_json::from_str(&content).expect("list_agents result should be json");
 
     let agent_names = result
         .agents
