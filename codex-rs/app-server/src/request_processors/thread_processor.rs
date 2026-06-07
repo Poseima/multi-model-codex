@@ -4560,7 +4560,6 @@ fn build_thread_from_snapshot(
     }
 }
 
-<<<<<<< HEAD
 fn paginate_background_terminals(
     terminals: &[ThreadBackgroundTerminal],
     cursor: Option<String>,
@@ -4587,11 +4586,11 @@ fn paginate_background_terminals(
     let end = start.saturating_add(effective_limit).min(terminals.len());
     let next_cursor = (end < terminals.len()).then(|| terminals[end - 1].process_id.clone());
     Ok((terminals[start..end].to_vec(), next_cursor))
-=======
+}
+
 async fn apply_prompt_profile_from_loaded_thread(thread: &mut Thread, loaded_thread: &CodexThread) {
     thread.prompt_profile = loaded_thread.prompt_profile().await;
     thread.prompt_profile_path = loaded_thread.prompt_profile_path().await;
->>>>>>> f6da89c64f (fix: remove fork memory experiment after upstream sync)
 }
 
 fn build_thread_from_loaded_snapshot(

@@ -173,6 +173,8 @@ fn write_rollout_with_user_message(
                     agent_path: None,
                     model_provider: Some("test-provider".to_string()),
                     base_instructions: None,
+                    prompt_profile: None,
+                    prompt_profile_path: None,
                     dynamic_tools: None,
                     selected_capability_roots: Vec::new(),
                     memory_mode: None,

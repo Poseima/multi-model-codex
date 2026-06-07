@@ -89,6 +89,9 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         input_modalities: vec![InputModality::Text],
         used_fallback_model_metadata: false,
         supports_search_tool: false,
+        use_responses_lite: false,
+        auto_review_model_override: None,
+        multi_agent_version: None,
     }
 }
 
@@ -128,6 +131,9 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         input_modalities: vec![InputModality::Text],
         used_fallback_model_metadata: false,
         supports_search_tool: false,
+        use_responses_lite: false,
+        auto_review_model_override: None,
+        multi_agent_version: None,
     }
 }
 
