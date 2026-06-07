@@ -299,7 +299,6 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Patch string generation
 // ---------------------------------------------------------------------------
@@ -424,7 +423,7 @@ mod tests {
     use codex_apply_patch::ApplyPatchFileChange;
     use codex_apply_patch::MaybeApplyPatchVerified;
     use codex_exec_server::LOCAL_FS;
-        use tempfile::TempDir;
+    use tempfile::TempDir;
 
     fn parse_patch(patch: &str, cwd: &Path) -> MaybeApplyPatchVerified {
         let argv = vec!["apply_patch".to_string(), patch.to_string()];
