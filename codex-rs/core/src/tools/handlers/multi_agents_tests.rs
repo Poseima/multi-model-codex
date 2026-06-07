@@ -1682,21 +1682,21 @@ async fn multi_agent_v2_list_agents_returns_completed_status_without_encrypted_s
     let _ = config.features.enable(Feature::MultiAgentV2);
     set_turn_config(&mut turn, config);
 
-        let session = Arc::new(session);
-        let turn = Arc::new(turn);
-        let spawn_output = SpawnAgentHandlerV2::default()
-            .handle(invocation(
-                session.clone(),
-                turn.clone(),
-                "spawn_agent",
-                function_payload(json!({
-                    "message": "inspect this repo",
-                    "task_name": "worker"
-                })),
-            ))
-            .await
-            .expect("spawn_agent should succeed");
-        let _ = expect_text_output(spawn_output);
+    let session = Arc::new(session);
+    let turn = Arc::new(turn);
+    let spawn_output = SpawnAgentHandlerV2::default()
+        .handle(invocation(
+            session.clone(),
+            turn.clone(),
+            "spawn_agent",
+            function_payload(json!({
+                "message": "inspect this repo",
+                "task_name": "worker"
+            })),
+        ))
+        .await
+        .expect("spawn_agent should succeed");
+    let _ = expect_text_output(spawn_output);
 
     let agent_id = session
         .services
@@ -1724,18 +1724,18 @@ async fn multi_agent_v2_list_agents_returns_completed_status_without_encrypted_s
         )
         .await;
 
-        let output = ListAgentsHandlerV2
-            .handle(invocation(
-                session,
-                turn,
-                "list_agents",
-                function_payload(json!({})),
-            ))
-            .await
-            .expect("list_agents should succeed");
-        let (content, success) = expect_text_output(output);
-        let result: ListAgentsResult =
-            serde_json::from_str(&content).expect("list_agents result should be json");
+    let output = ListAgentsHandlerV2
+        .handle(invocation(
+            session,
+            turn,
+            "list_agents",
+            function_payload(json!({})),
+        ))
+        .await
+        .expect("list_agents should succeed");
+    let (content, success) = expect_text_output(output);
+    let result: ListAgentsResult =
+        serde_json::from_str(&content).expect("list_agents result should be json");
 
     let agent_names = result
         .agents
@@ -2474,47 +2474,41 @@ async fn multi_agent_v2_interrupted_turn_does_not_notify_parent() {
         .await
         .expect("worker thread should exist");
 
-                let aborted_turn = thread.codex.session.new_default_turn().await;
-                thread
-                    .codex
-                    .session
-                    .send_event(
-                        aborted_turn.as_ref(),
-                        EventMsg::TurnAborted(TurnAbortedEvent {
-                            turn_id: Some(aborted_turn.sub_id.clone()),
-                            reason: TurnAbortReason::Interrupted,
-                            completed_at: None,
-                            duration_ms: None,
-                        }),
-                    )
-                    .await;
+    let aborted_turn = thread.codex.session.new_default_turn().await;
+    thread
+        .codex
+        .session
+        .send_event(
+            aborted_turn.as_ref(),
+            EventMsg::TurnAborted(TurnAbortedEvent {
+                turn_id: Some(aborted_turn.sub_id.clone()),
+                reason: TurnAbortReason::Interrupted,
+                completed_at: None,
+                duration_ms: None,
+            }),
+        )
+        .await;
 
-                let notifications = manager
-                    .captured_ops()
-                    .into_iter()
-                    .filter_map(|(id, op)| {
-                        (id == root.thread_id)
-                            .then_some(op)
-                            .and_then(|op| match op {
-                                Op::InterAgentCommunication { communication }
-                                    if communication.author.as_str() == "/root/worker"
-                                        && communication.recipient == AgentPath::root()
-                                        && communication.other_recipients.is_empty()
-                                        && !communication.trigger_turn =>
-                                {
-                                    Some(communication.content)
-                                }
-                                _ => None,
-                            })
-                    })
-                    .collect::<Vec<_>>();
-
-                assert_eq!(notifications, Vec::<String>::new());
-            });
+    let notifications = manager
+        .captured_ops()
+        .into_iter()
+        .filter_map(|(id, op)| {
+            (id == root.thread_id)
+                .then_some(op)
+                .and_then(|op| match op {
+                    Op::InterAgentCommunication { communication }
+                        if communication.author.as_str() == "/root/worker"
+                            && communication.recipient == AgentPath::root()
+                            && communication.other_recipients.is_empty()
+                            && !communication.trigger_turn =>
+                    {
+                        Some(communication.content)
+                    }
+                    _ => None,
+                })
         })
-        .expect("spawn test thread")
-        .join()
-        .expect("test thread should complete");
+        .collect::<Vec<_>>();
+    assert_eq!(notifications, Vec::<String>::new());
 }
 
 #[tokio::test]

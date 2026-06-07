@@ -167,7 +167,6 @@ pub fn should_persist_event_msg(ev: &EventMsg) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::EventPersistenceMode;
     use super::should_persist_event_msg;
     use codex_protocol::ThreadId;
     use codex_protocol::protocol::EventMsg;
@@ -186,10 +185,7 @@ mod tests {
             saved_path: None,
         });
 
-        assert!(should_persist_event_msg(
-            &event,
-            EventPersistenceMode::Limited
-        ));
+        assert!(should_persist_event_msg(&event));
     }
 
     #[test]
@@ -210,9 +206,6 @@ mod tests {
             },
         });
 
-        assert!(should_persist_event_msg(
-            &event,
-            EventPersistenceMode::Limited
-        ));
+        assert!(should_persist_event_msg(&event));
     }
 }

@@ -60,6 +60,9 @@ macro_rules! fork_model_info {
             input_modalities: vec![InputModality::Text],
             used_fallback_model_metadata: false,
             supports_search_tool: false,
+            use_responses_lite: false,
+            auto_review_model_override: None,
+            multi_agent_version: None,
         };
 
         $(

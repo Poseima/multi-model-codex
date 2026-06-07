@@ -472,6 +472,8 @@ fn write_rollout(path: &std::path::Path, thread_id: ThreadId, message: &str) -> 
             base_instructions: None,
             dynamic_tools: None,
             memory_mode: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             multi_agent_version: None,
         },
         git: None,

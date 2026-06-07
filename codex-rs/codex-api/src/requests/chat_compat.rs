@@ -74,7 +74,9 @@ impl<'a> ChatRequestBuilder<'a> {
                     last_emitted_role = Some("tool")
                 }
                 ResponseItem::ImageGenerationCall { .. } => last_emitted_role = Some("assistant"),
-                ResponseItem::Reasoning { .. } | ResponseItem::Other => {}
+                ResponseItem::AgentMessage { .. }
+                | ResponseItem::Reasoning { .. }
+                | ResponseItem::Other => {}
                 ResponseItem::CustomToolCall { .. } => {}
                 ResponseItem::CustomToolCallOutput { .. } => {}
                 ResponseItem::WebSearchCall { .. } => {}
@@ -337,7 +339,8 @@ impl<'a> ChatRequestBuilder<'a> {
                         "content": output,
                     }));
                 }
-                ResponseItem::Reasoning { .. }
+                ResponseItem::AgentMessage { .. }
+                | ResponseItem::Reasoning { .. }
                 | ResponseItem::WebSearchCall { .. }
                 | ResponseItem::ImageGenerationCall { .. }
                 | ResponseItem::Other
@@ -494,6 +497,7 @@ fn ensure_tool_results_follow_tool_calls(messages: &mut Vec<Value>) {
 mod tests {
     use super::*;
     use crate::provider::RetryConfig;
+    use codex_protocol::models::AgentMessageInputContent;
     use codex_protocol::models::FunctionCallOutputPayload;
     use codex_protocol::protocol::SessionSource;
     use codex_protocol::protocol::SubAgentSource;
@@ -711,6 +715,43 @@ mod tests {
             .expect("messages array");
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0]["role"], "system");
+    }
+
+    #[test]
+    fn skips_encrypted_agent_message_items() {
+        let prompt_input = vec![
+            ResponseItem::Message {
+                id: None,
+                role: "user".to_string(),
+                content: vec![ContentItem::InputText {
+                    text: "hi".to_string(),
+                }],
+                phase: None,
+            },
+            ResponseItem::AgentMessage {
+                author: "agent-a".to_string(),
+                recipient: "agent-b".to_string(),
+                content: vec![AgentMessageInputContent::EncryptedContent {
+                    encrypted_content: "enc_agent".to_string(),
+                }],
+            },
+        ];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider())
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(
+            messages,
+            &vec![
+                json!({"role":"system","content":"inst"}),
+                json!({"role":"user","content":"hi"}),
+            ]
+        );
     }
 
     #[test]
