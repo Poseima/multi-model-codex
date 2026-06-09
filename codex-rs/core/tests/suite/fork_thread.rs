@@ -234,6 +234,7 @@ async fn assert_copied_fork_persists_inherited_history(history_mode: ThreadHisto
                 rollout_path: None,
             }),
             /*thread_source*/ None,
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
             /*reserved_thread_id*/ None,

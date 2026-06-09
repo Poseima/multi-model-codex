@@ -2036,7 +2036,7 @@ impl Session {
         let model_client = ModelClient::new(
             Some(Arc::clone(&self.services.auth_manager)),
             self.services.agent_control.session_id(),
-            self.conversation_id,
+            self.thread_id,
             installation_id,
             provider,
             session_source,
@@ -3279,7 +3279,7 @@ impl Session {
     ) -> Option<AdditionalPermissionProfile> {
         let turn_state = self.turn_state_for_sub_id(sub_id).await?;
         let ts = turn_state.lock().await;
-        ts.granted_permissions()
+        ts.granted_permissions(codex_exec_server::LOCAL_ENVIRONMENT_ID)
     }
 
     pub(crate) async fn strict_auto_review_enabled_for_sub_id(&self, sub_id: &str) -> bool {
