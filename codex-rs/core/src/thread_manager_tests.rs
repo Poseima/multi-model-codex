@@ -1503,6 +1503,7 @@ async fn rollout_path_resume_and_fork_read_history_through_thread_store() {
                 rollout_path: Some(rollout_path.clone()),
             }),
             auth_manager.clone(),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
@@ -1891,6 +1892,7 @@ async fn interrupted_fork_snapshot_does_not_synthesize_turn_id_for_legacy_histor
                 RolloutItem::ResponseItem(assistant_msg("partial")),
             ]),
             auth_manager,
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
@@ -2011,6 +2013,7 @@ async fn interrupted_fork_snapshot_preserves_explicit_turn_id() {
                 RolloutItem::ResponseItem(assistant_msg("partial")),
             ]),
             auth_manager,
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
@@ -2107,6 +2110,7 @@ async fn interrupted_fork_snapshot_uses_persisted_mid_turn_history_without_live_
                 RolloutItem::ResponseItem(assistant_msg("partial")),
             ]),
             auth_manager,
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
