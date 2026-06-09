@@ -1161,7 +1161,7 @@ async fn multi_agent_feature_selects_one_agent_tool_family() {
     ]);
     v2.assert_visible_lacks(&["send_input", "resume_agent", "assign_task", "close_agent"]);
     assert!(!has_parameter(v2.visible_spec("send_message"), "interrupt"));
-    assert!(has_parameter(v2.visible_spec("assign_task"), "interrupt"));
+    assert!(has_parameter(v2.visible_spec("followup_task"), "interrupt"));
     let spawn_agent_description = match v2.visible_spec("spawn_agent") {
         ToolSpec::Function(tool) => tool.description.as_str(),
         other => panic!("expected spawn_agent function spec, got {other:?}"),

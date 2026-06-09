@@ -2116,111 +2116,120 @@ async fn multi_agent_v2_send_message_rejects_interrupt_parameter() {
     )));
 }
 
-#[tokio::test]
-async fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
-    let (mut session, mut turn) = make_session_and_context().await;
-    let manager = thread_manager();
-    let root = manager
-        .start_thread((*turn.config).clone())
-        .await
-        .expect("root thread should start");
-    session.services.agent_control = manager.agent_control();
-    session.thread_id = root.thread_id;
-    let mut config = turn.config.as_ref().clone();
-    let _ = config.features.enable(Feature::MultiAgentV2);
-    set_turn_config(&mut turn, config);
-    let session = Arc::new(session);
-    let turn = Arc::new(turn);
+#[test]
+fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
+    run_stack_heavy_async_test(
+        "multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message",
+        || async {
+            let (mut session, mut turn) = make_session_and_context().await;
+            let manager = thread_manager();
+            let root = manager
+                .start_thread((*turn.config).clone())
+                .await
+                .expect("root thread should start");
+            session.services.agent_control = manager.agent_control();
+            session.thread_id = root.thread_id;
+            let mut config = turn.config.as_ref().clone();
+            let _ = config.features.enable(Feature::MultiAgentV2);
+            set_turn_config(&mut turn, config);
+            let session = Arc::new(session);
+            let turn = Arc::new(turn);
 
-    let worker_path = AgentPath::try_from("/root/worker").expect("worker path");
-    let agent_id = session
-        .services
-        .agent_control
-        .spawn_agent_with_metadata(
-            (*turn.config).clone(),
-            Op::CleanBackgroundTerminals,
-            Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
-                parent_thread_id: root.thread_id,
-                depth: 1,
-                agent_path: Some(worker_path.clone()),
-                agent_nickname: None,
-                agent_role: None,
-            })),
-            crate::agent::control::SpawnAgentOptions::default(),
-        )
-        .await
-        .expect("worker spawn should succeed")
-        .thread_id;
-    let thread = manager
-        .get_thread(agent_id)
-        .await
-        .expect("worker thread should exist");
+            let worker_path = AgentPath::try_from("/root/worker").expect("worker path");
+            let agent_id = session
+                .services
+                .agent_control
+                .spawn_agent_with_metadata(
+                    (*turn.config).clone(),
+                    Op::CleanBackgroundTerminals,
+                    Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+                        parent_thread_id: root.thread_id,
+                        depth: 1,
+                        agent_path: Some(worker_path.clone()),
+                        agent_nickname: None,
+                        agent_role: None,
+                    })),
+                    crate::agent::control::SpawnAgentOptions::default(),
+                )
+                .await
+                .expect("worker spawn should succeed")
+                .thread_id;
+            let thread = manager
+                .get_thread(agent_id)
+                .await
+                .expect("worker thread should exist");
 
-    let active_turn = thread.codex.session.new_default_turn().await;
-    let interrupted_turn_id = active_turn.sub_id.clone();
-    thread
-        .codex
-        .session
-        .spawn_task(
-            Arc::clone(&active_turn),
-            vec![UserInput::Text {
-                text: "working".to_string(),
-                text_elements: Vec::new(),
-            }],
-            NeverEndingTask,
-        )
-        .await;
+            let active_turn = thread.codex.session.new_default_turn().await;
+            let interrupted_turn_id = active_turn.sub_id.clone();
+            thread
+                .codex
+                .session
+                .spawn_task(
+                    Arc::clone(&active_turn),
+                    vec![TurnInput::UserInput {
+                        content: vec![UserInput::Text {
+                            text: "working".to_string(),
+                            text_elements: Vec::new(),
+                        }],
+                        client_id: None,
+                    }],
+                    NeverEndingTask,
+                )
+                .await;
 
-    FollowupTaskHandlerV2
-        .handle(invocation(
-            session,
-            turn,
-            "followup_task",
-            function_payload(json!({
-                "target": agent_id.to_string(),
-                "message": "continue",
-                "interrupt": true
-            })),
-        ))
-        .await
-        .expect("interrupting v2 followup_task should succeed");
+            FollowupTaskHandlerV2
+                .handle(invocation(
+                    session,
+                    turn,
+                    "followup_task",
+                    function_payload(json!({
+                        "target": agent_id.to_string(),
+                        "message": "continue",
+                        "interrupt": true
+                    })),
+                ))
+                .await
+                .expect("interrupting v2 followup_task should succeed");
 
-    let ops = manager.captured_ops();
-    let ops_for_agent: Vec<&Op> = ops
-        .iter()
-        .filter_map(|(id, op)| (*id == agent_id).then_some(op))
-        .collect();
-    assert!(ops_for_agent.iter().any(|op| matches!(op, Op::Interrupt)));
-    assert!(ops_for_agent.iter().any(|op| {
-        matches!(
-            op,
-            Op::InterAgentCommunication { communication }
-                if communication.author == AgentPath::root()
-                    && communication.recipient.as_str() == "/root/worker"
-                    && communication.other_recipients.is_empty()
-                    && communication.content.is_empty()
-                    && communication.encrypted_content.as_deref() == Some("continue")
-                    && communication.trigger_turn
-        )
-    }));
+            let ops = manager.captured_ops();
+            let ops_for_agent: Vec<&Op> = ops
+                .iter()
+                .filter_map(|(id, op)| (*id == agent_id).then_some(op))
+                .collect();
+            assert!(ops_for_agent.iter().any(|op| matches!(op, Op::Interrupt)));
+            assert!(ops_for_agent.iter().any(|op| {
+                matches!(
+                    op,
+                    Op::InterAgentCommunication { communication }
+                        if communication.author == AgentPath::root()
+                            && communication.recipient.as_str() == "/root/worker"
+                            && communication.other_recipients.is_empty()
+                            && communication.content.is_empty()
+                            && communication.encrypted_content.as_deref() == Some("continue")
+                            && communication.trigger_turn
+                )
+            }));
 
-    wait_for_turn_aborted(&thread, &interrupted_turn_id, TurnAbortReason::Interrupted).await;
-    wait_for_redirected_envelope_in_history(
-        &thread,
-        &InterAgentCommunication::new_encrypted(
-            AgentPath::root(),
-            worker_path,
-            Vec::new(),
-            "continue".to_string(),
-            /*trigger_turn*/ true,
-        ),
-    )
-    .await;
+            wait_for_turn_aborted(&thread, &interrupted_turn_id, TurnAbortReason::Interrupted)
+                .await;
+            wait_for_redirected_envelope_in_history(
+                &thread,
+                &InterAgentCommunication::new_encrypted(
+                    AgentPath::root(),
+                    worker_path,
+                    Vec::new(),
+                    "continue".to_string(),
+                    /*trigger_turn*/ true,
+                ),
+            )
+            .await;
 
-    let _ = thread
-        .submit(Op::Shutdown {})
-        .await
-        .expect("shutdown should submit");
+            let _ = thread
+                .submit(Op::Shutdown {})
+                .await
+                .expect("shutdown should submit");
+        },
+    );
 }
 
 #[tokio::test]
@@ -3088,6 +3097,7 @@ async fn resume_agent_restores_closed_agent_and_accepts_send_input() {
                 metadata: None,
             })]),
             AuthManager::from_auth_for_testing(CodexAuth::from_api_key("dummy")),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             /*supports_openai_form_elicitation*/ false,
         )
