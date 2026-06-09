@@ -423,6 +423,7 @@ mod tests {
     use codex_apply_patch::ApplyPatchFileChange;
     use codex_apply_patch::MaybeApplyPatchVerified;
     use codex_exec_server::LOCAL_FS;
+    use codex_utils_absolute_path::AbsolutePathBuf;
     use tempfile::TempDir;
 
     fn parse_patch(patch: &str, cwd: &Path) -> MaybeApplyPatchVerified {
