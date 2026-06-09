@@ -9,7 +9,6 @@ use crate::environment_selection::TurnEnvironmentSnapshot;
 use crate::environment_selection::default_thread_environment_selections;
 use crate::mcp::McpManager;
 use crate::prompt_profile_loader::PromptProfileOverride;
-use crate::rollout::RolloutRecorder;
 use crate::rollout::truncation;
 use crate::session::Codex;
 use crate::session::CodexSpawnArgs;

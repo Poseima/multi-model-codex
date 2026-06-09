@@ -6018,7 +6018,10 @@ async fn turn_state_lookup_falls_back_to_active_turn_without_registered_tasks() 
     };
     {
         let mut turn_state = turn_state.lock().await;
-        turn_state.record_granted_permissions(requested_permissions.clone().into());
+        turn_state.record_granted_permissions(
+            codex_exec_server::LOCAL_ENVIRONMENT_ID,
+            requested_permissions.clone().into(),
+        );
         turn_state.enable_strict_auto_review();
     }
 

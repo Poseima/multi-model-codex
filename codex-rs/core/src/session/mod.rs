@@ -40,7 +40,6 @@ use crate::environment_selection::TurnEnvironmentSnapshot;
 use crate::exec_policy::ExecPolicyManager;
 use crate::image_preparation::prepare_response_items;
 use crate::parse_turn_item;
-use crate::path_utils::normalize_for_native_workdir;
 use crate::prompt_profile_loader::PromptProfileOverride;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::session::step_context::StepContext;
@@ -528,7 +527,7 @@ impl Codex {
             agent_control,
             dynamic_tools,
             prompt_profile_override,
-            persist_extended_history,
+            persist_extended_history: _,
             metrics_service_name,
             user_shell_override,
             inherited_exec_policy,
@@ -1689,7 +1688,7 @@ impl Session {
         let model_client = ModelClient::new(
             Some(Arc::clone(&self.services.auth_manager)),
             self.services.agent_control.session_id(),
-            self.conversation_id,
+            self.thread_id,
             installation_id,
             provider,
             session_source,
@@ -2728,7 +2727,7 @@ impl Session {
     ) -> Option<AdditionalPermissionProfile> {
         let turn_state = self.turn_state_for_sub_id(sub_id).await?;
         let ts = turn_state.lock().await;
-        ts.granted_permissions()
+        ts.granted_permissions(codex_exec_server::LOCAL_ENVIRONMENT_ID)
     }
 
     pub(crate) async fn strict_auto_review_enabled_for_sub_id(&self, sub_id: &str) -> bool {
