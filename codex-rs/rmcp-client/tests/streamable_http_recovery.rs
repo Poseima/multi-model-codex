@@ -19,9 +19,9 @@ use pretty_assertions::assert_eq;
 use rmcp::model::CallToolResult;
 use rmcp::model::ContentBlock;
 use rmcp::model::MetaObject;
-use serial_test::serial;
 use serde_json::Value;
 use serde_json::json;
+use serial_test::serial;
 
 use streamable_http_test_support::arm_initialize_post_failure;
 use streamable_http_test_support::arm_initialize_post_json_rpc_failure;
