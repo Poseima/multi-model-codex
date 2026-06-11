@@ -16,8 +16,8 @@ use codex_exec_server::HttpResponseBodyStream;
 use futures::FutureExt as _;
 use futures::future::BoxFuture;
 use pretty_assertions::assert_eq;
-use serial_test::serial;
 use serde_json::Value;
+use serial_test::serial;
 
 use streamable_http_test_support::arm_initialize_post_failure;
 use streamable_http_test_support::arm_initialize_post_json_rpc_failure;
