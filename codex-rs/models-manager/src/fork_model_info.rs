@@ -55,6 +55,7 @@ macro_rules! fork_model_info {
             context_window: Some(CONTEXT_WINDOW_272K),
             max_context_window: Some(CONTEXT_WINDOW_272K),
             auto_compact_token_limit: None,
+            comp_hash: None,
             effective_context_window_percent: 95,
             experimental_supported_tools: Vec::new(),
             input_modalities: vec![InputModality::Text],
