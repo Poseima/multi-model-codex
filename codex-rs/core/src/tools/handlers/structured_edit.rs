@@ -108,7 +108,6 @@ struct StructuredEditArgs {
 /// Number of context lines to include before and after a change in generated patches.
 const CONTEXT_LINES: usize = 3;
 
-#[async_trait::async_trait]
 impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
     fn tool_name(&self) -> ToolName {
         ToolName::plain("text_editor")
@@ -118,7 +117,13 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
         create_text_editor_tool()
     }
 
-    async fn handle(
+    fn handle(&self, invocation: ToolInvocation) -> codex_tools::ToolExecutorFuture<'_> {
+        Box::pin(self.handle_call(invocation))
+    }
+}
+
+impl StructuredEditHandler {
+    async fn handle_call(
         &self,
         invocation: ToolInvocation,
     ) -> Result<Box<dyn ToolOutput>, FunctionCallError> {
@@ -146,9 +151,11 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
                 "text_editor is unavailable in this session".to_string(),
             ));
         };
-        let cwd = turn_environment.cwd.clone();
+        let cwd = turn_environment.cwd().clone();
+        let cwd_uri = turn_environment.cwd_uri().clone();
         let fs = turn_environment.environment.get_filesystem();
-        let sandbox = turn.file_system_sandbox_context(/*additional_permissions*/ None, &cwd);
+        let sandbox =
+            turn.file_system_sandbox_context(/*additional_permissions*/ None, &cwd_uri);
 
         let patch_string = match args.command.as_str() {
             "create" => {
@@ -166,7 +173,12 @@ impl ToolExecutor<ToolInvocation> for StructuredEditHandler {
                     )
                 })?;
                 let new_str = args.new_str.unwrap_or_default();
-                let file_path = cwd.join(&args.path);
+                let file_path = cwd_uri.join(&args.path).map_err(|e| {
+                    FunctionCallError::RespondToModel(format!(
+                        "invalid text_editor path '{}': {e}",
+                        args.path
+                    ))
+                })?;
                 let file_content = fs
                     .read_file_text(&file_path, Some(&sandbox))
                     .await
