@@ -1643,28 +1643,23 @@ impl Session {
                 Arc::clone(&state.session_configuration.original_config_do_not_use),
             )
         };
-        let installation_id = match resolve_installation_id(&config.codex_home).await {
-            Ok(installation_id) => installation_id,
-            Err(err) => {
-                warn!("failed to resolve installation id while switching providers: {err}");
-                return;
-            }
-        };
-
+        let prompt_cache_key_override =
+            crate::guardian::prompt_cache_key_override_for_review_session(
+                &session_source,
+                parent_thread_id,
+            );
         let model_client = ModelClient::new(
             Some(Arc::clone(&self.services.auth_manager)),
-            self.services.agent_control.session_id(),
             self.thread_id,
-            installation_id,
             provider,
             session_source,
-            parent_thread_id,
             config.model_verbosity,
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Self::build_model_client_beta_features_header(config.as_ref()),
             self.services.attestation_provider.clone(),
-        );
+        )
+        .with_prompt_cache_key_override(prompt_cache_key_override);
         self.services.model_client.replace(model_client);
     }
 

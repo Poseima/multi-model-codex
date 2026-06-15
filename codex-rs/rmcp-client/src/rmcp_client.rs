@@ -13,7 +13,7 @@ use std::time::Instant;
 use anyhow::Result;
 use anyhow::anyhow;
 use codex_api::SharedAuthProvider;
-use codex_client::build_reqwest_client_with_custom_ca;
+use codex_client::maybe_build_rustls_client_config_with_custom_ca;
 use codex_config::types::AuthKeyringBackendKind;
 use codex_config::types::McpServerEnvVar;
 use codex_exec_server::HttpClient;
@@ -185,7 +185,10 @@ fn build_http_client(url: &str, default_headers: &HeaderMap) -> Result<reqwest::
     if streamable_http_url_uses_loopback_host(url) {
         builder = builder.no_proxy();
     }
-    Ok(build_reqwest_client_with_custom_ca(builder)?)
+    if let Some(tls_config) = maybe_build_rustls_client_config_with_custom_ca()? {
+        builder = builder.tls_backend_preconfigured(tls_config.as_ref().clone());
+    }
+    Ok(builder.build()?)
 }
 
 fn streamable_http_url_uses_loopback_host(url: &str) -> bool {
