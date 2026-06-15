@@ -20,8 +20,8 @@ use crate::client::CompactConversationRequestSettings;
 use crate::client::ModelClient;
 use crate::client::ModelClientSession;
 use crate::client_common::Prompt;
-use crate::error::Result;
 use crate::responses_metadata::CodexResponsesMetadata;
+use codex_protocol::error::Result;
 
 pub(crate) struct SwappableModelClient {
     inner: RwLock<ModelClient>,
