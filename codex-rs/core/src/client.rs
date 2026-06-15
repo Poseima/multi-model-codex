@@ -609,8 +609,8 @@ impl ModelClient {
         // Create the media call over HTTP first, then retain matching auth so realtime can attach
         // the server-side control WebSocket to the call id from that HTTP response.
         let client_setup = self.current_client_setup().await?;
-        let api_provider =
-            api_provider_override.unwrap_or_else(|| realtime_call_provider(client_setup.api_provider));
+        let api_provider = api_provider_override
+            .unwrap_or_else(|| realtime_call_provider(client_setup.api_provider));
         if let Some(header_value) = self.generate_attestation_header_for().await {
             extra_headers.insert(X_OAI_ATTESTATION_HEADER, header_value);
         }
