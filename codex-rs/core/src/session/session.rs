@@ -614,9 +614,7 @@ impl Session {
                                 text: session_configuration.base_instructions.clone(),
                             },
                             prompt_profile: session_configuration.prompt_profile.clone(),
-                            prompt_profile_path: session_configuration
-                                .prompt_profile_path
-                                .clone(),
+                            prompt_profile_path: session_configuration.prompt_profile_path.clone(),
                             dynamic_tools: session_configuration.dynamic_tools.clone(),
                             selected_capability_roots: selected_capability_roots.clone(),
                             multi_agent_version: initial_multi_agent_version,
