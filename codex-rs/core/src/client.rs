@@ -1497,7 +1497,7 @@ impl ModelClientSession {
 
         let auth_manager = self.client.state.provider.auth_manager();
         let instructions = prompt.base_instructions.text.clone();
-        let input = prompt.get_formatted_input();
+        let input = prompt.get_formatted_input_for_request(model_info.use_responses_lite);
         let tools_json = create_tools_json_for_responses_api(&prompt.tools)?
             .into_iter()
             .filter_map(|mut tool| {
@@ -1518,7 +1518,7 @@ impl ModelClientSession {
                 }))
             })
             .collect::<Vec<_>>();
-        let conversation_id = self.client.state.session_id.to_string();
+        let conversation_id = self.client.state.thread_id.to_string();
         let session_source = self.client.state.session_source.clone();
 
         let mut auth_recovery = auth_manager

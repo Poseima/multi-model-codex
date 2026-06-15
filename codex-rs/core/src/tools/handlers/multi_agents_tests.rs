@@ -1,6 +1,5 @@
 use super::*;
 use crate::CodexThread;
-use crate::LoadedAgentsMd;
 use crate::ThreadManager;
 use crate::config::AgentRoleConfig;
 use crate::config::DEFAULT_AGENT_MAX_DEPTH;
@@ -34,6 +33,7 @@ use codex_protocol::ThreadId;
 use codex_protocol::config_types::ApprovalsReviewer;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::config_types::ShellEnvironmentPolicy;
+use codex_protocol::models::AgentMessageInputContent;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::FunctionCallOutputBody;
@@ -154,22 +154,40 @@ fn history_contains_inter_agent_communication(
     history_items: &[ResponseItem],
     expected: &InterAgentCommunication,
 ) -> bool {
-    history_items.iter().any(|item| {
-        let ResponseItem::Message { role, content, .. } = item else {
-            return false;
-        };
-        if role != "assistant" {
-            return false;
+    let expected_author = expected.author.to_string();
+    let expected_recipient = expected.recipient.to_string();
+    let expected_content = match expected.encrypted_content.as_ref() {
+        Some(encrypted_content) => AgentMessageInputContent::EncryptedContent {
+            encrypted_content: encrypted_content.clone(),
+        },
+        None => AgentMessageInputContent::InputText {
+            text: expected.content.clone(),
+        },
+    };
+    history_items.iter().any(|item| match item {
+        ResponseItem::AgentMessage {
+            author,
+            recipient,
+            content,
+        } => {
+            author == &expected_author
+                && recipient == &expected_recipient
+                && expected.other_recipients.is_empty()
+                && content.len() == 1
+                && content.first() == Some(&expected_content)
         }
-        content.iter().any(|content_item| match content_item {
-            ContentItem::OutputText { text } => {
-                serde_json::from_str::<InterAgentCommunication>(text)
-                    .ok()
-                    .as_ref()
-                    == Some(expected)
-            }
-            ContentItem::InputText { .. } | ContentItem::InputImage { .. } => false,
-        })
+        ResponseItem::Message { role, content, .. } if role == "assistant" => {
+            content.iter().any(|content_item| match content_item {
+                ContentItem::OutputText { text } => {
+                    serde_json::from_str::<InterAgentCommunication>(text)
+                        .ok()
+                        .as_ref()
+                        == Some(expected)
+                }
+                ContentItem::InputText { .. } | ContentItem::InputImage { .. } => false,
+            })
+        }
+        _ => false,
     })
 }
 
@@ -205,6 +223,10 @@ async fn wait_for_redirected_envelope_in_history(
     expected: &InterAgentCommunication,
 ) {
     timeout(Duration::from_secs(5), async {
+        let visible_message_content = expected
+            .encrypted_content
+            .as_deref()
+            .unwrap_or(&expected.content);
         loop {
             let history_items = thread
                 .codex
@@ -215,18 +237,19 @@ async fn wait_for_redirected_envelope_in_history(
                 .to_vec();
             let saw_envelope =
                 history_contains_inter_agent_communication(&history_items, expected);
-            let saw_user_message = history_items.iter().any(|item| {
-                matches!(
-                    item,
-                    ResponseItem::Message { role, content, .. }
-                        if role == "user"
-                            && content.iter().any(|content_item| matches!(
-                                content_item,
-                                ContentItem::InputText { text }
-                                    if text == &expected.content
-                            ))
-                )
-            });
+            let saw_user_message = !visible_message_content.is_empty()
+                && history_items.iter().any(|item| {
+                    matches!(
+                        item,
+                        ResponseItem::Message { role, content, .. }
+                            if role == "user"
+                                && content.iter().any(|content_item| matches!(
+                                    content_item,
+                                    ContentItem::InputText { text }
+                                        if text == visible_message_content
+                                ))
+                    )
+                });
             if saw_envelope {
                 assert!(
                     !saw_user_message,

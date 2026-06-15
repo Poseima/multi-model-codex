@@ -492,6 +492,7 @@ async fn loads_user_instructions_without_a_primary_environment() -> Result<()> {
             session_source: None,
             thread_source: None,
             dynamic_tools: Vec::new(),
+            persist_extended_history: false,
             metrics_service_name: None,
             parent_trace: None,
             environments: Vec::new(),
@@ -699,6 +700,7 @@ async fn multi_environment_thread_loads_every_project_and_keeps_creation_snapsho
             session_source: None,
             thread_source: None,
             dynamic_tools: Vec::new(),
+            persist_extended_history: false,
             metrics_service_name: None,
             parent_trace: None,
             environments: vec![
