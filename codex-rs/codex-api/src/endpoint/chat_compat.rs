@@ -7,6 +7,7 @@ use crate::requests::chat_compat::ChatRequestBuilder;
 use crate::sse::chat_compat::ChatReasoningFormat;
 use crate::sse::chat_compat::spawn_chat_stream;
 use crate::telemetry::SseTelemetry;
+use codex_client::EncodedJsonBody;
 use codex_client::HttpTransport;
 use codex_client::RequestCompression;
 use codex_client::RequestTelemetry;
@@ -64,13 +65,17 @@ impl<T: HttpTransport> ChatCompatClient<T> {
             inject_zhipu_params(&mut request.body);
         }
 
+        let body = EncodedJsonBody::encode(&request.body).map_err(|e| {
+            ApiError::Stream(format!("failed to encode chat completions request: {e}"))
+        })?;
+
         let stream_response = self
             .session
-            .stream_with(
+            .stream_encoded_json_with(
                 Method::POST,
                 "chat/completions",
                 request.headers,
-                Some(request.body),
+                Some(body),
                 |req| {
                     req.headers.insert(
                         http::header::ACCEPT,
