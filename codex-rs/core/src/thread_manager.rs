@@ -1064,6 +1064,7 @@ impl ThreadManager {
             .initial_history
             .get_resumed_session_sources()
             .unwrap_or_else(|| (self.state.session_source.clone(), None));
+        self.validate_environment_selections(&options.environments)?;
         options.session_source = Some(
             options
                 .session_source
