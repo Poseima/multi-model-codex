@@ -736,6 +736,7 @@ impl ThreadManager {
             .unwrap_or_else(|| (self.state.session_source.clone(), None));
         let session_source = options.session_source.unwrap_or(resumed_session_source);
         let thread_source = options.thread_source.or(resumed_thread_source);
+        self.validate_environment_selections(&options.environments)?;
         Box::pin(self.state.spawn_thread_with_source(
             options.config,
             options.initial_history,

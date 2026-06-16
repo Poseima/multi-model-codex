@@ -43,7 +43,6 @@ use crate::parse_turn_item;
 use crate::prompt_profile_loader::PromptProfileOverride;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::session::step_context::StepContext;
-use crate::resolve_installation_id;
 use crate::session::turn_context::TurnEnvironment;
 use crate::session_prefix::format_inter_agent_completion_message;
 use crate::skills::SkillRenderSideEffects;

@@ -169,6 +169,7 @@ fn history_contains_inter_agent_communication(
             author,
             recipient,
             content,
+            ..
         } => {
             author == &expected_author
                 && recipient == &expected_recipient

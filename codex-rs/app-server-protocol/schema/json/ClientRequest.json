@@ -2154,13 +2154,6 @@
       ],
       "type": "object"
     },
-    "RealtimeConversationVersion": {
-      "enum": [
-        "v1",
-        "v2"
-      ],
-      "type": "string"
-    },
     "PromptDepthPrompt": {
       "properties": {
         "content": {
@@ -2475,6 +2468,20 @@
     "ProviderListParams": {
       "description": "List configured model providers.",
       "type": "object"
+    },
+    "RealtimeConversationArchitecture": {
+      "enum": [
+        "realtimeapi",
+        "avas"
+      ],
+      "type": "string"
+    },
+    "RealtimeConversationVersion": {
+      "enum": [
+        "v1",
+        "v2"
+      ],
+      "type": "string"
     },
     "RealtimeOutputModality": {
       "enum": [
