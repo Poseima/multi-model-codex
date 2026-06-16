@@ -2988,6 +2988,21 @@
       "description": "List configured model providers.",
       "type": "object"
     },
+    "RealtimeConversationArchitecture": {
+      "enum": [
+        "realtimeapi",
+        "avas"
+      ],
+      "type": "string"
+    },
+    "RealtimeConversationVersion": {
+      "enum": [
+        "v1",
+        "v2",
+        "v3"
+      ],
+      "type": "string"
+    },
     "RealtimeOutputModality": {
       "enum": [
         "text",
