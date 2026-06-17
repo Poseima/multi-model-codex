@@ -151,8 +151,12 @@ impl StructuredEditHandler {
                 "text_editor is unavailable in this session".to_string(),
             ));
         };
-        let cwd = turn_environment.cwd().clone();
-        let cwd_uri = turn_environment.cwd_uri().clone();
+        let cwd_uri = turn_environment.cwd().clone();
+        let cwd = cwd_uri.to_abs_path().map_err(|err| {
+            FunctionCallError::RespondToModel(format!(
+                "text_editor cwd `{cwd_uri}` is not native to the Codex host: {err}"
+            ))
+        })?;
         let fs = turn_environment.environment.get_filesystem();
         let sandbox =
             turn.file_system_sandbox_context(/*additional_permissions*/ None, &cwd_uri);
