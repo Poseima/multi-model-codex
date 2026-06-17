@@ -32,7 +32,6 @@ use codex_protocol::config_types::ApprovalsReviewer;
 use codex_protocol::config_types::MultiAgentMode;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::config_types::ShellEnvironmentPolicy;
-use codex_protocol::models::AgentMessageInputContent;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::FunctionCallOutputBody;
@@ -147,48 +146,6 @@ fn set_turn_config(turn: &mut TurnContext, config: crate::config::Config) {
     turn.config = Arc::new(config);
 }
 
-fn history_contains_inter_agent_communication(
-    history_items: &[ResponseItem],
-    expected: &InterAgentCommunication,
-) -> bool {
-    let expected_author = expected.author.to_string();
-    let expected_recipient = expected.recipient.to_string();
-    let expected_content = match expected.encrypted_content.as_ref() {
-        Some(encrypted_content) => AgentMessageInputContent::EncryptedContent {
-            encrypted_content: encrypted_content.clone(),
-        },
-        None => AgentMessageInputContent::InputText {
-            text: expected.content.clone(),
-        },
-    };
-    history_items.iter().any(|item| match item {
-        ResponseItem::AgentMessage {
-            author,
-            recipient,
-            content,
-            ..
-        } => {
-            author == &expected_author
-                && recipient == &expected_recipient
-                && expected.other_recipients.is_empty()
-                && content.len() == 1
-                && content.first() == Some(&expected_content)
-        }
-        ResponseItem::Message { role, content, .. } if role == "assistant" => {
-            content.iter().any(|content_item| match content_item {
-                ContentItem::OutputText { text } => {
-                    serde_json::from_str::<InterAgentCommunication>(text)
-                        .ok()
-                        .as_ref()
-                        == Some(expected)
-                }
-                ContentItem::InputText { .. } | ContentItem::InputImage { .. } => false,
-            })
-        }
-        _ => false,
-    })
-}
-
 async fn wait_for_turn_aborted(
     thread: &Arc<CodexThread>,
     expected_turn_id: &str,
@@ -216,50 +173,51 @@ async fn wait_for_turn_aborted(
     .expect("expected child turn to be interrupted");
 }
 
-async fn wait_for_redirected_envelope_in_history(
+async fn assert_followup_pending_in_mailbox_without_plain_user_history(
     thread: &Arc<CodexThread>,
     expected: &InterAgentCommunication,
 ) {
-    timeout(Duration::from_secs(5), async {
-        let visible_message_content = expected
-            .encrypted_content
-            .as_deref()
-            .unwrap_or(&expected.content);
-        loop {
-            let history_items = thread
-                .codex
-                .session
-                .clone_history()
-                .await
-                .raw_items()
-                .to_vec();
-            let saw_envelope =
-                history_contains_inter_agent_communication(&history_items, expected);
-            let saw_user_message = !visible_message_content.is_empty()
-                && history_items.iter().any(|item| {
-                    matches!(
-                        item,
-                        ResponseItem::Message { role, content, .. }
-                            if role == "user"
-                                && content.iter().any(|content_item| matches!(
-                                    content_item,
-                                    ContentItem::InputText { text }
-                                        if text == visible_message_content
-                                ))
-                    )
-                });
-            if saw_envelope {
-                assert!(
-                    !saw_user_message,
-                    "redirected followup should be stored as an assistant envelope, not a plain user message"
-                );
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("redirected followup envelope should appear in history");
+    let pending_items = thread
+        .codex
+        .session
+        .input_queue
+        .drain_mailbox_input_items()
+        .await;
+    assert!(
+        pending_items.iter().any(|item| matches!(
+            item,
+            TurnInput::InterAgentCommunication(communication) if communication == expected
+        )),
+        "redirected followup should remain queued as inter-agent mailbox input"
+    );
+
+    let visible_message_content = expected
+        .encrypted_content
+        .as_deref()
+        .unwrap_or(&expected.content);
+    let history_items = thread
+        .codex
+        .session
+        .clone_history()
+        .await
+        .raw_items()
+        .to_vec();
+    let saw_user_message = !visible_message_content.is_empty()
+        && history_items.iter().any(|item| {
+            matches!(
+                item,
+                ResponseItem::Message { role, content, .. }
+                    if role == "user"
+                        && content.iter().any(|content_item| matches!(
+                            content_item,
+                            ContentItem::InputText { text } if text == visible_message_content
+                        ))
+            )
+        });
+    assert!(
+        !saw_user_message,
+        "redirected followup should not be stored as a plain user message"
+    );
 }
 
 #[derive(Clone, Copy)]
@@ -2236,7 +2194,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
 
             wait_for_turn_aborted(&thread, &interrupted_turn_id, TurnAbortReason::Interrupted)
                 .await;
-            wait_for_redirected_envelope_in_history(
+            assert_followup_pending_in_mailbox_without_plain_user_history(
                 &thread,
                 &InterAgentCommunication::new_encrypted(
                     AgentPath::root(),
