@@ -600,6 +600,7 @@ mod tests {
                 metadata: None,
             },
             ResponseItem::FunctionCallOutput {
+                id: None,
                 call_id: "call-a".to_string(),
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("A".to_string()),
@@ -608,6 +609,7 @@ mod tests {
                 metadata: None,
             },
             ResponseItem::FunctionCallOutput {
+                id: None,
                 call_id: "call-b".to_string(),
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("B".to_string()),
@@ -616,6 +618,7 @@ mod tests {
                 metadata: None,
             },
             ResponseItem::FunctionCallOutput {
+                id: None,
                 call_id: "call-c".to_string(),
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("C".to_string()),
@@ -711,7 +714,7 @@ mod tests {
     #[test]
     fn ignores_image_generation_response_items() {
         let prompt_input = vec![ResponseItem::ImageGenerationCall {
-            id: "ig_123".to_string(),
+            id: Some("ig_123".to_string()),
             status: "completed".to_string(),
             revised_prompt: None,
             result: "base64-image".to_string(),
@@ -743,6 +746,7 @@ mod tests {
                 metadata: None,
             },
             ResponseItem::AgentMessage {
+                id: None,
                 author: "agent-a".to_string(),
                 recipient: "agent-b".to_string(),
                 content: vec![AgentMessageInputContent::EncryptedContent {
@@ -790,6 +794,7 @@ mod tests {
                 metadata: None,
             },
             ResponseItem::FunctionCallOutput {
+                id: None,
                 call_id: "call-1".to_string(),
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::ContentItems(vec![
@@ -873,6 +878,7 @@ mod tests {
                 metadata: None,
             },
             ResponseItem::FunctionCallOutput {
+                id: None,
                 call_id: "call-1".to_string(),
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("file.txt".to_string()),
