@@ -176,51 +176,76 @@ async fn wait_for_turn_aborted(
     .expect("expected child turn to be interrupted");
 }
 
-async fn assert_followup_pending_in_mailbox_without_plain_user_history(
+async fn wait_for_redirected_followup_delivery(
     thread: &Arc<CodexThread>,
     expected: &InterAgentCommunication,
+    interrupted_turn_id: &str,
 ) {
-    let pending_items = thread
-        .codex
-        .session
-        .input_queue
-        .drain_mailbox_input_items()
-        .await;
-    assert!(
-        pending_items.iter().any(|item| matches!(
-            item,
-            TurnInput::InterAgentCommunication(communication) if communication == expected
-        )),
-        "redirected followup should remain queued as inter-agent mailbox input"
-    );
-
     let visible_message_content = expected
         .encrypted_content
         .as_deref()
         .unwrap_or(&expected.content);
-    let history_items = thread
-        .codex
-        .session
-        .clone_history()
-        .await
-        .raw_items()
-        .to_vec();
-    let saw_user_message = !visible_message_content.is_empty()
-        && history_items.iter().any(|item| {
-            matches!(
-                item,
-                ResponseItem::Message { role, content, .. }
-                    if role == "user"
-                        && content.iter().any(|content_item| matches!(
-                            content_item,
-                            ContentItem::InputText { text } if text == visible_message_content
-                        ))
-            )
-        });
-    assert!(
-        !saw_user_message,
-        "redirected followup should not be stored as a plain user message"
-    );
+    timeout(Duration::from_secs(5), async {
+        loop {
+            let history_items = thread
+                .codex
+                .session
+                .clone_history()
+                .await
+                .raw_items()
+                .to_vec();
+            let saw_user_message = !visible_message_content.is_empty()
+                && history_items.iter().any(|item| {
+                    matches!(
+                        item,
+                        ResponseItem::Message { role, content, .. }
+                            if role == "user"
+                                && content.iter().any(|content_item| matches!(
+                                    content_item,
+                                    ContentItem::InputText { text } if text == visible_message_content
+                                ))
+                    )
+                });
+            assert!(
+                !saw_user_message,
+                "redirected followup should not be stored as a plain user message"
+            );
+            let saw_envelope = history_items.iter().any(|item| {
+                let ResponseItem::Message { role, content, .. } = item else {
+                    return false;
+                };
+                if role != "assistant" {
+                    return false;
+                }
+                content.iter().any(|content_item| match content_item {
+                    ContentItem::OutputText { text } => {
+                        serde_json::from_str::<InterAgentCommunication>(text)
+                            .ok()
+                            .as_ref()
+                            == Some(expected)
+                    }
+                    ContentItem::InputText { .. } | ContentItem::InputImage { .. } => false,
+                })
+            });
+            if saw_envelope {
+                break;
+            }
+            let started_followup_turn = {
+                let active_turn = thread.codex.session.active_turn.lock().await;
+                active_turn.as_ref().is_some_and(|active_turn| {
+                    active_turn.task.as_ref().is_some_and(|task| {
+                        task.turn_context.sub_id.as_str() != interrupted_turn_id
+                    })
+                })
+            };
+            if started_followup_turn {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("redirected followup should be delivered without becoming plain user history");
 }
 
 #[derive(Clone, Copy)]
@@ -2174,7 +2199,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
 
             wait_for_turn_aborted(&thread, &interrupted_turn_id, TurnAbortReason::Interrupted)
                 .await;
-            assert_followup_pending_in_mailbox_without_plain_user_history(
+            wait_for_redirected_followup_delivery(
                 &thread,
                 &InterAgentCommunication::new_encrypted(
                     AgentPath::root(),
@@ -2183,6 +2208,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
                     "continue".to_string(),
                     /*trigger_turn*/ true,
                 ),
+                &interrupted_turn_id,
             )
             .await;
 

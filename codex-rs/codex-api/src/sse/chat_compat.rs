@@ -482,7 +482,7 @@ async fn append_reasoning_text(
 ) {
     if reasoning_item.is_none() {
         let item = ResponseItem::Reasoning {
-            id: String::new(),
+            id: None,
             summary: Vec::new(),
             content: Some(vec![]),
             encrypted_content: None,
