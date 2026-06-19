@@ -67,7 +67,6 @@ export type { PromptKnowledgeEntry } from "./PromptKnowledgeEntry";
 export type { PromptKnowledgeSource } from "./PromptKnowledgeSource";
 export type { PromptSource } from "./PromptSource";
 export type { PromptSourceOrigin } from "./PromptSourceOrigin";
-export type { RealtimeConversationArchitecture } from "./RealtimeConversationArchitecture";
 export type { RealtimeConversationVersion } from "./RealtimeConversationVersion";
 export type { RealtimeOutputModality } from "./RealtimeOutputModality";
 export type { RealtimeVoice } from "./RealtimeVoice";

@@ -664,6 +664,7 @@ impl TestCodexBuilder {
                         session_source: None,
                         thread_source: None,
                         dynamic_tools: Vec::new(),
+                        persist_extended_history: false,
                         metrics_service_name: None,
                         parent_trace: None,
                         environments,

@@ -219,6 +219,8 @@ impl ExternalAgentSessionImporter {
                     .clone()
                     .unwrap_or_else(|| model_info.get_model_instructions(config.personality)),
             },
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             selected_capability_roots: Vec::new(),
             multi_agent_version: Some(MultiAgentVersion::V1),
