@@ -2000,7 +2000,7 @@ async fn thread_resume_surfaces_prompt_profile_metadata() -> Result<()> {
         prompt_profile.clone(),
     )?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let resume_id = mcp

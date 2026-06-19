@@ -154,6 +154,8 @@ async fn thread_delete_with_non_local_thread_store_does_not_create_local_persist
             source: SessionSource::Cli,
             thread_source: None,
             base_instructions: BaseInstructions::default(),
+            prompt_profile: None,
+            prompt_profile_path: None,
             dynamic_tools: Vec::new(),
             multi_agent_version: None,
             metadata: ThreadPersistenceMetadata {

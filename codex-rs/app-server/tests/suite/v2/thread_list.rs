@@ -282,6 +282,7 @@ async fn thread_list_surfaces_prompt_profile_metadata() -> Result<()> {
             cwd: None,
             use_state_db_only: false,
             search_term: None,
+            parent_thread_id: None,
         })
         .await?;
     let resp: JSONRPCResponse = timeout(

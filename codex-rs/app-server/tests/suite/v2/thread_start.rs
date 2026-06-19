@@ -722,7 +722,7 @@ async fn thread_start_persists_prompt_profile_after_first_turn() -> Result<()> {
         ..Default::default()
     };
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -787,7 +787,7 @@ async fn thread_start_imports_prompt_profile_from_path() -> Result<()> {
     )?;
     let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -848,7 +848,7 @@ async fn thread_start_imports_plain_json_prompt_profile_from_path() -> Result<()
     )?;
     let expected_prompt_profile = load_prompt_profile_from_path(prompt_profile_path.as_path())?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -899,7 +899,7 @@ async fn thread_start_rejects_invalid_prompt_profile_path() -> Result<()> {
     let codex_home = TempDir::new()?;
     create_config_toml(codex_home.path(), &server.uri())?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -934,7 +934,7 @@ async fn thread_start_rejects_malformed_prompt_profile_json() -> Result<()> {
     let invalid_prompt_profile_path = codex_home.path().join("invalid-profile.json");
     std::fs::write(&invalid_prompt_profile_path, br#"{"foo":"bar"}"#)?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -1540,7 +1540,7 @@ stream_max_retries = 0
     )
 }
 
-async fn materialize_thread_rollout(mcp: &mut McpProcess, thread_id: &str) -> Result<()> {
+async fn materialize_thread_rollout(mcp: &mut TestAppServer, thread_id: &str) -> Result<()> {
     let turn_req = mcp
         .send_turn_start_request(TurnStartParams {
             thread_id: thread_id.to_string(),

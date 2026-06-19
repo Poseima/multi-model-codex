@@ -1656,6 +1656,7 @@ impl Session {
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Self::build_model_client_beta_features_header(config.as_ref()),
+            config.features.enabled(Feature::ItemIds),
             self.services.attestation_provider.clone(),
         )
         .with_prompt_cache_key_override(prompt_cache_key_override);

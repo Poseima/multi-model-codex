@@ -1181,6 +1181,7 @@ impl TurnRequestProcessor {
                     rollout_path: parent_thread.rollout_path(),
                 }),
                 /*thread_source*/ None,
+                /*persist_extended_history*/ false,
                 self.request_trace_context(request_id).await,
                 /*supports_openai_form_elicitation*/ false,
             )

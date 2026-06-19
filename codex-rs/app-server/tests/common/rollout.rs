@@ -286,6 +286,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         prompt_profile_path,
         dynamic_tools: None,
         memory_mode: None,
+        multi_agent_version: None,
     };
     let payload = serde_json::to_value(SessionMetaLine {
         meta,
