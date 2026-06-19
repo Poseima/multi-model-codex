@@ -395,6 +395,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
         /*enable_request_compression*/ false,
         /*include_timing_metrics*/ false,
         /*beta_features_header*/ None,
+        /*item_ids_enabled*/ false,
         /*attestation_provider*/ None,
     );
     let mut client_session = client.new_session();
@@ -409,6 +410,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
             text: "hello".into(),
         }],
         phase: None,
+        metadata: None,
     }];
 
     let mut stream = client_session
