@@ -327,7 +327,7 @@ pub(super) async fn effective_patch_permissions(
     ))
 }
 
-fn patch_permissions_without_path_matching(
+pub(super) fn patch_permissions_without_path_matching(
     action: &ApplyPatchAction,
 ) -> (
     Vec<PathUri>,
