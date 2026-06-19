@@ -1154,7 +1154,6 @@ impl ThreadRequestProcessor {
             thread_source,
             project_id,
             environments,
-            persist_extended_history,
             prompt_profile,
             prompt_profile_path,
         } = params;
@@ -1246,7 +1245,7 @@ impl ThreadRequestProcessor {
                 selected_capability_roots.unwrap_or_default(),
                 history_mode.map(Into::into),
                 prompt_profile_override,
-                persist_extended_history,
+                /*persist_extended_history*/ false,
                 session_start_source,
                 thread_source.map(Into::into),
                 project_id,
@@ -1499,7 +1498,7 @@ impl ThreadRequestProcessor {
                     },
                     history_mode,
                     thread_source,
-                    dynamic_tools: core_dynamic_tools,
+                    dynamic_tools,
                     persist_extended_history,
                     metrics_service_name: service_name,
                     parent_trace: request_trace,
@@ -3917,6 +3916,7 @@ impl ThreadRequestProcessor {
                 config,
                 thread_history,
                 self.auth_manager.clone(),
+                /*persist_extended_history*/ false,
                 match target {
                     ThreadResumeTarget::Client(request_id) => {
                         self.request_trace_context(request_id).await
@@ -4822,7 +4822,6 @@ impl ThreadRequestProcessor {
             thread_source,
             exclude_turns,
             defer_goal_continuation,
-            persist_extended_history,
             prompt_profile,
             prompt_profile_path,
             clear_prompt_profile,
