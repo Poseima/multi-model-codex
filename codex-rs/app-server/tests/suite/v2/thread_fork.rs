@@ -1343,7 +1343,7 @@ async fn thread_fork_persists_override_prompt_profile() -> Result<()> {
         ..Default::default()
     };
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -1406,7 +1406,7 @@ async fn thread_fork_imports_prompt_profile_from_path() -> Result<()> {
     )?;
     let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -2234,7 +2234,7 @@ async fn thread_fork_rejects_clear_prompt_profile_with_override_inputs() -> Resu
         b"{\"spec\":\"chara_card_v2\",\"spec_version\":\"2.0\",\"data\":{\"name\":\"Rei\"}}",
     )?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let invalid_direct_id = mcp
@@ -2319,7 +2319,7 @@ async fn thread_fork_clear_prompt_profile_removes_inherited_profile() -> Result<
         prompt_profile,
     )?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -2368,7 +2368,7 @@ async fn thread_fork_can_clear_prompt_profile() -> Result<()> {
         ..Default::default()
     };
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let start_id = mcp
@@ -2428,7 +2428,7 @@ async fn thread_fork_rejects_clear_prompt_profile_with_override() -> Result<()> 
         None,
     )?;
 
-    let mut mcp = McpProcess::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::new(codex_home.path()).await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -2917,7 +2917,7 @@ async fn pathless_ephemeral_thread_rejects_codex_home_path_after_reload() -> Res
     Ok(())
 }
 
-async fn materialize_thread_rollout(mcp: &mut McpProcess, thread_id: &str) -> Result<()> {
+async fn materialize_thread_rollout(mcp: &mut TestAppServer, thread_id: &str) -> Result<()> {
     let turn_req = mcp
         .send_turn_start_request(TurnStartParams {
             thread_id: thread_id.to_string(),
