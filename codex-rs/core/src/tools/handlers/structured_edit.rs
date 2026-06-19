@@ -152,11 +152,6 @@ impl StructuredEditHandler {
             ));
         };
         let cwd_uri = turn_environment.cwd().clone();
-        let cwd = cwd_uri.to_abs_path().map_err(|err| {
-            FunctionCallError::RespondToModel(format!(
-                "text_editor cwd `{cwd_uri}` is not native to the Codex host: {err}"
-            ))
-        })?;
         let fs = turn_environment.environment.get_filesystem();
         let sandbox =
             turn.file_system_sandbox_context(/*additional_permissions*/ None, &cwd_uri);
@@ -206,7 +201,7 @@ impl StructuredEditHandler {
         let command = vec!["apply_patch".to_string(), patch_string];
         match codex_apply_patch::maybe_parse_apply_patch_verified(
             &command,
-            &cwd,
+            &cwd_uri,
             fs.as_ref(),
             Some(&sandbox),
         )
@@ -219,9 +214,14 @@ impl StructuredEditHandler {
                         turn.as_ref(),
                         &turn_environment.environment_id,
                         &action,
-                        &cwd,
+                        &cwd_uri,
                     )
-                    .await;
+                    .await
+                    .unwrap_or_else(|_| {
+                        crate::tools::handlers::apply_patch::patch_permissions_without_path_matching(
+                            &action,
+                        )
+                    });
                 match apply_patch::apply_patch(turn.as_ref(), &file_system_sandbox_policy, action)
                     .await
                 {
@@ -439,12 +439,12 @@ mod tests {
     use codex_apply_patch::ApplyPatchFileChange;
     use codex_apply_patch::MaybeApplyPatchVerified;
     use codex_exec_server::LOCAL_FS;
-    use codex_utils_absolute_path::AbsolutePathBuf;
+    use codex_utils_path_uri::PathUri;
     use tempfile::TempDir;
 
     fn parse_patch(patch: &str, cwd: &Path) -> MaybeApplyPatchVerified {
         let argv = vec!["apply_patch".to_string(), patch.to_string()];
-        let cwd = AbsolutePathBuf::try_from(cwd.to_path_buf()).expect("cwd should be absolute");
+        let cwd = PathUri::from_path(cwd).expect("cwd should be absolute");
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()

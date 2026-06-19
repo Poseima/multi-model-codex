@@ -339,6 +339,26 @@ pub(super) async fn effective_patch_permissions(
     )
 }
 
+pub(super) fn patch_permissions_without_path_matching(
+    action: &ApplyPatchAction,
+) -> (
+    Vec<PathUri>,
+    crate::tools::handlers::EffectiveAdditionalPermissions,
+    codex_protocol::permissions::FileSystemSandboxPolicy,
+) {
+    // TODO(anp): Make permission matching operate on PathUri. Until then, foreign paths skip
+    // permission matching; a managed turn still fails closed at the platform sandbox boundary.
+    (
+        file_paths_for_action(action),
+        crate::tools::handlers::EffectiveAdditionalPermissions {
+            sandbox_permissions: crate::sandboxing::SandboxPermissions::UseDefault,
+            additional_permissions: None,
+            permissions_preapproved: false,
+        },
+        codex_protocol::permissions::FileSystemSandboxPolicy::unrestricted(),
+    )
+}
+
 impl ToolExecutor<ToolInvocation> for ApplyPatchHandler {
     fn tool_name(&self) -> ToolName {
         ToolName::plain("apply_patch")
