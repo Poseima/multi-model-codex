@@ -1473,7 +1473,6 @@ fn thread_start_params_from_config(
             config, /*control_instructions*/ None,
         ),
         prompt_profile,
-        persist_extended_history: true,
         ..ThreadStartParams::default()
     }
 }
@@ -1561,7 +1560,6 @@ fn thread_fork_params_from_config(
         thread_source: Some(ThreadSource::User),
         prompt_profile,
         clear_prompt_profile,
-        persist_extended_history: true,
         ..ThreadForkParams::default()
     }
 }
@@ -2355,6 +2353,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let control_resume = thread_resume_params_from_config(
             config.clone(),
@@ -2367,6 +2366,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(control_start.developer_instructions, None);
@@ -2384,6 +2385,7 @@ mod tests {
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         let treatment_resume = thread_resume_params_from_config(
             config.clone(),
@@ -2396,6 +2398,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Embedded,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
         let expected = format!(
             "Developer override.\n\n{}",

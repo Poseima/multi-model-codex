@@ -334,6 +334,7 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
             dynamic_tools: Vec::new(),
             persist_extended_history: false,
             metrics_service_name: None,
+            multi_agent_mode: None,
             parent_trace: None,
             environments: vec![TurnEnvironmentSelection {
                 environment_id: "local".to_string(),
