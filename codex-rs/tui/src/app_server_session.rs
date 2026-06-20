@@ -1804,7 +1804,6 @@ fn thread_start_params_from_config(
             config, /*control_instructions*/ None,
         ),
         prompt_profile,
-        persist_extended_history: true,
         ..ThreadStartParams::default()
     }
 }
@@ -1909,7 +1908,6 @@ fn thread_fork_params_from_config(
         thread_source: Some(ThreadSource::User),
         prompt_profile,
         clear_prompt_profile,
-        persist_extended_history: true,
         ..ThreadForkParams::default()
     }
 }
