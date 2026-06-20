@@ -167,6 +167,8 @@ fn auth_profile_description(auth: &AuthDotJson) -> String {
         Some(AuthMode::Chatgpt) => "ChatGPT",
         Some(AuthMode::ChatgptAuthTokens) => "ChatGPT external tokens",
         Some(AuthMode::AgentIdentity) => "Agent identity",
+        Some(AuthMode::PersonalAccessToken) => "Personal access token",
+        Some(AuthMode::BedrockApiKey) => "Bedrock API key",
         None => {
             if auth.openai_api_key.is_some() {
                 "API key"
