@@ -1673,6 +1673,8 @@ mod tests {
                 quit_shortcut_key: key_hint::ctrl(KeyCode::Char('c')),
                 status_line_value: None,
                 status_line_enabled: false,
+                context_window_percent: None,
+                context_window_used_tokens: None,
                 key_hints: FooterKeyHints::default_bindings(),
                 active_agent_label: None,
             },
