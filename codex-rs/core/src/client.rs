@@ -1614,6 +1614,7 @@ impl ModelClientSession {
                         stream,
                         session_telemetry.clone(),
                         InferenceTraceAttempt::disabled(),
+                        Arc::clone(&self.client.state.provider),
                     );
                     return Ok(stream);
                 }
@@ -1625,12 +1626,13 @@ impl ModelClientSession {
                             unauthorized_transport,
                             &mut auth_recovery,
                             session_telemetry,
+                            &self.client.state.provider,
                         )
                         .await?,
                     );
                     continue;
                 }
-                Err(err) => return Err(map_api_error(err)),
+                Err(err) => return Err(self.client.state.provider.map_api_error(err)),
             }
         }
     }
