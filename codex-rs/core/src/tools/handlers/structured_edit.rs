@@ -444,7 +444,7 @@ mod tests {
 
     fn parse_patch(patch: &str, cwd: &Path) -> MaybeApplyPatchVerified {
         let argv = vec!["apply_patch".to_string(), patch.to_string()];
-        let cwd = PathUri::from_path(cwd).expect("cwd should be absolute");
+        let cwd = PathUri::from_host_native_path(cwd).expect("cwd should be absolute");
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
