@@ -74,7 +74,8 @@ impl<'a> ChatRequestBuilder<'a> {
                     last_emitted_role = Some("tool")
                 }
                 ResponseItem::ImageGenerationCall { .. } => last_emitted_role = Some("assistant"),
-                ResponseItem::AgentMessage { .. }
+                ResponseItem::AdditionalTools { .. }
+                | ResponseItem::AgentMessage { .. }
                 | ResponseItem::Reasoning { .. }
                 | ResponseItem::Other => {}
                 ResponseItem::CustomToolCall { .. } => {}
@@ -341,7 +342,8 @@ impl<'a> ChatRequestBuilder<'a> {
                         "content": output,
                     }));
                 }
-                ResponseItem::AgentMessage { .. }
+                ResponseItem::AdditionalTools { .. }
+                | ResponseItem::AgentMessage { .. }
                 | ResponseItem::Reasoning { .. }
                 | ResponseItem::WebSearchCall { .. }
                 | ResponseItem::ImageGenerationCall { .. }
@@ -541,7 +543,7 @@ mod tests {
                 text: "hi".to_string(),
             }],
             phase: None,
-            metadata: None,
+            internal_chat_message_metadata_passthrough: None,
         }];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
             .conversation_id(Some("conv-1".into()))
@@ -573,7 +575,7 @@ mod tests {
                     text: "read these".to_string(),
                 }],
                 phase: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
@@ -581,7 +583,7 @@ mod tests {
                 arguments: r#"{"path":"a.txt"}"#.to_string(),
                 call_id: "call-a".to_string(),
                 namespace: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
@@ -589,7 +591,7 @@ mod tests {
                 arguments: r#"{"path":"b.txt"}"#.to_string(),
                 call_id: "call-b".to_string(),
                 namespace: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
@@ -597,7 +599,7 @@ mod tests {
                 arguments: r#"{"path":"c.txt"}"#.to_string(),
                 call_id: "call-c".to_string(),
                 namespace: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
@@ -606,7 +608,7 @@ mod tests {
                     body: FunctionCallOutputBody::Text("A".to_string()),
                     success: None,
                 },
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
@@ -615,7 +617,7 @@ mod tests {
                     body: FunctionCallOutputBody::Text("B".to_string()),
                     success: None,
                 },
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
@@ -624,7 +626,7 @@ mod tests {
                     body: FunctionCallOutputBody::Text("C".to_string()),
                     success: None,
                 },
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
         ];
 
@@ -671,7 +673,7 @@ mod tests {
                 text: "developer instruction".to_string(),
             }],
             phase: None,
-            metadata: None,
+            internal_chat_message_metadata_passthrough: None,
         }];
         let mut provider = provider_with("minimax", "https://api.minimax.chat/v1");
         provider.system_role = Some("user".to_string());
@@ -697,7 +699,7 @@ mod tests {
                 text: "developer instruction".to_string(),
             }],
             phase: None,
-            metadata: None,
+            internal_chat_message_metadata_passthrough: None,
         }];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
             .build(&provider())
@@ -718,7 +720,7 @@ mod tests {
             status: "completed".to_string(),
             revised_prompt: None,
             result: "base64-image".to_string(),
-            metadata: None,
+            internal_chat_message_metadata_passthrough: None,
         }];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
             .build(&provider())
@@ -743,7 +745,7 @@ mod tests {
                     text: "hi".to_string(),
                 }],
                 phase: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::AgentMessage {
                 id: None,
@@ -752,7 +754,7 @@ mod tests {
                 content: vec![AgentMessageInputContent::EncryptedContent {
                     encrypted_content: "enc_agent".to_string(),
                 }],
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
         ];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
@@ -783,7 +785,7 @@ mod tests {
                     text: "run the tool".to_string(),
                 }],
                 phase: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
@@ -791,7 +793,7 @@ mod tests {
                 arguments: r#"{"command":["echo","secret"]}"#.to_string(),
                 call_id: "call-1".to_string(),
                 namespace: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
@@ -804,7 +806,7 @@ mod tests {
                     ]),
                     success: None,
                 },
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
         ];
         let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
@@ -857,7 +859,7 @@ mod tests {
                     text: "do something".to_string(),
                 }],
                 phase: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
                 id: None,
@@ -865,7 +867,7 @@ mod tests {
                 arguments: r#"{"command":["ls"]}"#.to_string(),
                 call_id: "call-1".to_string(),
                 namespace: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             // Assistant text that ended up between the tool call and its output.
             ResponseItem::Message {
@@ -875,7 +877,7 @@ mod tests {
                     text: "Let me check...".to_string(),
                 }],
                 phase: None,
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
@@ -884,7 +886,7 @@ mod tests {
                     body: FunctionCallOutputBody::Text("file.txt".to_string()),
                     success: None,
                 },
-                metadata: None,
+                internal_chat_message_metadata_passthrough: None,
             },
         ];
 
