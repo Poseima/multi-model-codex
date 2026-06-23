@@ -366,7 +366,7 @@ async fn process_chat_sse_with_format<S>(
                         namespace: None,
                         arguments,
                         call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
-                        metadata: None,
+                        internal_chat_message_metadata_passthrough: None,
                     };
                     let _ = tx_event.send(Ok(ResponseEvent::OutputItemDone(item))).await;
                 }
@@ -417,7 +417,7 @@ async fn process_chat_sse_with_format<S>(
                         namespace: None,
                         arguments,
                         call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
-                        metadata: None,
+                        internal_chat_message_metadata_passthrough: None,
                     };
                     let _ = tx_event.send(Ok(ResponseEvent::OutputItemDone(item))).await;
                 }
@@ -455,7 +455,7 @@ async fn append_assistant_text(
             role: "assistant".to_string(),
             content: vec![],
             phase: None,
-            metadata: None,
+            internal_chat_message_metadata_passthrough: None,
         };
         *assistant_item = Some(item.clone());
         let _ = tx_event
@@ -486,7 +486,7 @@ async fn append_reasoning_text(
             summary: Vec::new(),
             content: Some(vec![]),
             encrypted_content: None,
-            metadata: None,
+            internal_chat_message_metadata_passthrough: None,
         };
         *reasoning_item = Some(item.clone());
         let _ = tx_event
