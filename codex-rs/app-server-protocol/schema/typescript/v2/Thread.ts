@@ -30,8 +30,7 @@ preview: string, /**
 ephemeral: boolean, /**
  * Model provider used for this thread (for example, 'openai').
  */
-modelProvider: string,
-/**
+modelProvider: string, /**
  * Unix timestamp (in seconds) when the thread was created.
  */
 createdAt: number, /**
@@ -70,14 +69,7 @@ agentRole: string | null, /**
 gitInfo: GitInfo | null, /**
  * Optional user-facing thread title.
  */
-name: string | null, /**
- * Active prompt profile for this thread, if any.
- */
-promptProfile: PromptSource | null, /**
- * Source path recorded for the active prompt profile, if any.
- */
-promptProfilePath: string | null,
-/**
+name: string | null, promptProfile: PromptSource | null, promptProfilePath: string | null, /**
  * Only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read`
  * (when `includeTurns` is true) responses.
  * For all other responses and notifications returning a Thread,
