@@ -54,7 +54,6 @@ model: string | null, /**
  * Null when unset or unavailable. This is not per-turn execution telemetry.
  */
 reasoningEffort: ReasoningEffort | null, /**
-/**
  * Unix timestamp (in seconds) when the thread was created.
  */
 createdAt: number, /**
