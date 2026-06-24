@@ -278,6 +278,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         .and_then(|origin| origin.source_path.as_deref())
         .map(PathBuf::from);
     let meta = SessionMeta {
+        session_id: conversation_id.into(),
         id: conversation_id,
         forked_from_id: None,
         parent_thread_id: None,
@@ -297,6 +298,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         dynamic_tools: None,
         memory_mode: None,
         multi_agent_version: None,
+        context_window: None,
     };
     let payload = serde_json::to_value(SessionMetaLine {
         meta,

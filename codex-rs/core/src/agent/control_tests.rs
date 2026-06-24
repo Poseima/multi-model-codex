@@ -2302,6 +2302,7 @@ async fn spawn_thread_subagents_persist_parent_originator_across_new_and_truncat
             session_source: None,
             thread_source: None,
             dynamic_tools: Vec::new(),
+            persist_extended_history: false,
             metrics_service_name: Some("codex_work_desktop".to_string()),
             parent_trace: None,
             environments: Vec::new(),

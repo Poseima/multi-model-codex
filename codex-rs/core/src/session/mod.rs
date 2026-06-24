@@ -1667,12 +1667,13 @@ impl Session {
     }
 
     pub(crate) async fn rebuild_model_client_for_current_provider(&self) {
-        let (provider, session_source, parent_thread_id, config) = {
+        let (provider, session_source, parent_thread_id, originator, config) = {
             let state = self.state.lock().await;
             (
                 state.session_configuration.provider.clone(),
                 state.session_configuration.session_source.clone(),
                 state.session_configuration.parent_thread_id.clone(),
+                state.session_configuration.originator.clone(),
                 Arc::clone(&state.session_configuration.original_config_do_not_use),
             )
         };
@@ -1686,6 +1687,7 @@ impl Session {
             self.thread_id,
             provider,
             session_source,
+            originator,
             config.model_verbosity,
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
