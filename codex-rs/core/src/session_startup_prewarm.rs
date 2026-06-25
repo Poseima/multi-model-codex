@@ -185,7 +185,7 @@ impl Session {
         if !self.services.model_client.responses_websocket_enabled() {
             // Without websocket prewarm, resolve auth once so Agent Identity bootstrap can
             // register or engage this session's bearer fallback before the first user request.
-            let model_client = self.services.model_client.clone();
+            let model_client = self.services.model_client.clone_inner();
             tokio::spawn(async move {
                 if let Err(err) = model_client.prewarm_auth().await {
                     warn!("startup auth prewarm failed: {err:#}");

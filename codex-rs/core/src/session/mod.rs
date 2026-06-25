@@ -72,6 +72,7 @@ use codex_hooks::Hooks;
 use codex_hooks::HooksConfig;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
+use codex_login::auth::AgentIdentityAuthPolicy;
 use codex_login::auth_env_telemetry::collect_auth_env_telemetry;
 use codex_mcp::McpConnectionManager;
 use codex_mcp::McpResourceClient;
@@ -1684,6 +1685,11 @@ impl Session {
             );
         let model_client = ModelClient::new(
             Some(Arc::clone(&self.services.auth_manager)),
+            if config.features.enabled(Feature::UseAgentIdentity) {
+                AgentIdentityAuthPolicy::ChatGptAuth
+            } else {
+                AgentIdentityAuthPolicy::JwtOnly
+            },
             self.thread_id,
             provider,
             session_source,

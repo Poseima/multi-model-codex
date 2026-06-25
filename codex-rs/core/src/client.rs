@@ -1535,6 +1535,7 @@ impl ModelClientSession {
                 AuthRequestTelemetryContext::new(
                     client_setup.auth.as_ref().map(CodexAuth::auth_mode),
                     client_setup.api_auth.as_ref(),
+                    client_setup.agent_identity_telemetry.clone(),
                     pending_retry,
                 ),
                 RequestRouteTelemetry::for_endpoint(CHAT_COMPLETIONS_ENDPOINT),
