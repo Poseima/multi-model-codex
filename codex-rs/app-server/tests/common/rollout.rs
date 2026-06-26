@@ -296,6 +296,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         prompt_profile: Some(prompt_profile),
         prompt_profile_path,
         dynamic_tools: None,
+        selected_capability_roots: Vec::new(),
         memory_mode: None,
         multi_agent_version: None,
         context_window: None,
