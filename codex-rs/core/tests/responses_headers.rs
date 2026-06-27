@@ -384,9 +384,11 @@ async fn responses_stream_includes_thread_spawn_headers() {
 
     let client = ModelClient::new(
         /*auth_manager*/ None,
+        AgentIdentityAuthPolicy::JwtOnly,
         conversation_id,
         provider.clone(),
         session_source.clone(),
+        "test_originator".to_string(),
         config.model_verbosity,
         /*enable_request_compression*/ false,
         /*include_timing_metrics*/ false,
@@ -406,7 +408,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
             text: "hello".into(),
         }],
         phase: None,
-        metadata: None,
+        internal_chat_message_metadata_passthrough: None,
     }];
 
     let mut stream = client_session
