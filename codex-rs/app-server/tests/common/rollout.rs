@@ -298,6 +298,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         dynamic_tools: None,
         selected_capability_roots: Vec::new(),
         memory_mode: None,
+        history_mode: Default::default(),
         multi_agent_version: None,
         context_window: None,
     };
