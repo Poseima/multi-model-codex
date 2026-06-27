@@ -427,6 +427,7 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
             config: config.clone(),
             allow_provider_model_fallback: false,
             initial_history: InitialHistory::New,
+            history_mode: None,
             session_source: None,
             thread_source: None,
             dynamic_tools: Vec::new(),
