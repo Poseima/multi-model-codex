@@ -2129,7 +2129,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
                 .agent_control
                 .spawn_agent_with_metadata(
                     (*turn.config).clone(),
-                    Op::CleanBackgroundTerminals,
+                    Vec::new(),
                     Some(SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
                         parent_thread_id: root.thread_id,
                         depth: 1,
