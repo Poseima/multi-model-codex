@@ -1,5 +1,6 @@
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use codex_extension_api::ExtensionData;
 use codex_history::ResponseItemEnvelope;
@@ -23,6 +24,7 @@ use codex_protocol::error::Result;
 use codex_protocol::memory_citation::MemoryCitation;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputPayload;
+use codex_protocol::models::LocalShellAction;
 use codex_protocol::models::MessagePhase;
 use codex_protocol::models::ResponseInputItem;
 use codex_protocol::models::ResponseItem;
@@ -350,6 +352,7 @@ pub(crate) async fn handle_output_item_done(
                     .emit_turn_item_completed(&ctx.turn_context, finalized_turn_item.turn_item)
                     .await;
             }
+            record_local_shell_tool_result(ctx.sess.as_ref(), &item);
             record_completed_response_item_with_finalized_facts(
                 ctx.sess.as_ref(),
                 ctx.turn_context.as_ref(),
@@ -566,6 +569,40 @@ fn response_item_call_id(item: &ResponseItem) -> Option<String> {
         ResponseItem::ToolSearchCall { call_id, .. } => call_id.clone(),
         _ => None,
     }
+}
+
+fn record_local_shell_tool_result(sess: &Session, item: &ResponseItem) {
+    let ResponseItem::LocalShellCall {
+        call_id,
+        id,
+        status,
+        action,
+        ..
+    } = item
+    else {
+        return;
+    };
+
+    let call_id = call_id.as_deref().or(id.as_deref()).unwrap_or("");
+    let arguments = match action {
+        LocalShellAction::Exec(exec) => exec.command.join(" "),
+    };
+    let output = if call_id.is_empty() {
+        "LocalShellCall without call_id or id".to_string()
+    } else {
+        format!("LocalShellCall status={status:?}")
+    };
+
+    sess.services.session_telemetry.tool_result_with_tags(
+        "local_shell",
+        call_id,
+        &arguments,
+        Duration::ZERO,
+        false,
+        &output,
+        &[],
+        &[],
+    );
 }
 
 #[cfg(test)]
