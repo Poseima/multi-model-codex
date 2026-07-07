@@ -2047,8 +2047,13 @@ impl Session {
             config.features.enabled(Feature::EnableRequestCompression),
             config.features.enabled(Feature::RuntimeMetrics),
             Self::build_model_client_beta_features_header(config.as_ref()),
-            config.features.enabled(Feature::ItemIds),
+            /*item_ids_enabled*/ config.features.enabled(Feature::ItemIds),
+            /*concurrent_reasoning_summaries_enabled*/
+            config
+                .features
+                .enabled(Feature::ConcurrentReasoningSummaries),
             self.services.attestation_provider.clone(),
+            config.http_client_factory(),
         )
         .with_prompt_cache_key_override(prompt_cache_key_override);
         self.services.model_client.replace(model_client);

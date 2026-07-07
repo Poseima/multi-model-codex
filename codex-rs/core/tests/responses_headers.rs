@@ -42,6 +42,12 @@ fn test_turn_responses_metadata(
     session_source: &SessionSource,
 ) -> codex_core::CodexResponsesMetadata {
     let thread_id = thread_id.to_string();
+    let parent_thread_id = match session_source {
+        SessionSource::SubAgent(SubAgentSource::ThreadSpawn {
+            parent_thread_id, ..
+        }) => Some(*parent_thread_id),
+        _ => None,
+    };
     test_responses_metadata(
         TEST_INSTALLATION_ID,
         &thread_id,
@@ -49,7 +55,7 @@ fn test_turn_responses_metadata(
         /*turn_id*/ None,
         format!("{thread_id}:0"),
         session_source,
-        /*parent_thread_id*/ None,
+        parent_thread_id,
         TestCodexResponsesRequestKind::Turn,
     )
 }
@@ -401,7 +407,9 @@ async fn responses_stream_includes_thread_spawn_headers() {
         /*include_timing_metrics*/ false,
         /*beta_features_header*/ None,
         /*item_ids_enabled*/ false,
+        /*concurrent_reasoning_summaries_enabled*/ false,
         /*attestation_provider*/ None,
+        config.http_client_factory(),
     );
     let mut client_session = client.new_session();
     let responses_metadata =
