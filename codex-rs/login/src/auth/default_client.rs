@@ -211,9 +211,9 @@ pub fn create_client() -> HttpClient {
 /// Create an HTTP client tuned for the provided target URL.
 ///
 /// Loopback targets bypass proxies entirely instead of relying on env-driven `NO_PROXY` matching.
-pub fn create_client_for_url(url: &str) -> CodexHttpClient {
+pub fn create_client_for_url(url: &str) -> HttpClient {
     let inner = build_reqwest_client_for_url(url);
-    CodexHttpClient::new(inner)
+    HttpClient::new(inner)
 }
 
 /// Builds the default reqwest client used for ordinary Codex HTTP traffic.
