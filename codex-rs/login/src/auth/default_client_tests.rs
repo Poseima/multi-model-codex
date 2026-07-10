@@ -2,13 +2,13 @@ use super::sanitize_user_agent;
 use super::*;
 use core_test_support::skip_if_no_network;
 use pretty_assertions::assert_eq;
+use serial_test::serial;
+use std::env;
+use std::ffi::OsString;
 use std::io;
 use std::io::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
-use serial_test::serial;
-use std::env;
-use std::ffi::OsString;
 use tracing_subscriber::layer::SubscriberExt;
 
 #[derive(Clone)]

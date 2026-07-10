@@ -166,6 +166,7 @@ fn auth_profile_description(auth: &AuthDotJson) -> String {
         Some(AuthMode::ApiKey) => "API key",
         Some(AuthMode::Chatgpt) => "ChatGPT",
         Some(AuthMode::ChatgptAuthTokens) => "ChatGPT external tokens",
+        Some(AuthMode::Headers) => "Header authentication",
         Some(AuthMode::AgentIdentity) => "Agent identity",
         Some(AuthMode::PersonalAccessToken) => "Personal access token",
         Some(AuthMode::BedrockApiKey) => "Bedrock API key",
@@ -231,6 +232,21 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
+
+    #[test]
+    fn auth_profile_description_supports_header_authentication() {
+        let auth = AuthDotJson {
+            auth_mode: Some(AuthMode::Headers),
+            openai_api_key: None,
+            tokens: None,
+            last_refresh: None,
+            agent_identity: None,
+            personal_access_token: None,
+            bedrock_api_key: None,
+        };
+
+        assert_eq!(auth_profile_description(&auth), "Header authentication");
+    }
 
     #[test]
     fn discover_only_lists_json_candidates_sorted_and_skips_backup_file() {
