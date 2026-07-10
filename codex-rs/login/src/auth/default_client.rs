@@ -351,8 +351,25 @@ pub(crate) fn create_raw_auth_client(
     endpoint: &str,
     auth_route_config: Option<&AuthRouteConfig>,
 ) -> Result<HttpClient, BuildRouteAwareHttpClientError> {
-    auth_http_client_factory(auth_route_config)
-        .build_client_without_request_logging(endpoint, ClientRouteClass::Auth)
+    let http_client_factory = auth_http_client_factory(auth_route_config);
+    let builder = if matches!(
+        http_client_factory.outbound_proxy_policy(),
+        OutboundProxyPolicy::ReqwestDefault
+    ) {
+        let builder = reqwest::Client::builder();
+        if is_sandboxed() || url_uses_loopback_host(endpoint) {
+            builder.no_proxy()
+        } else {
+            apply_env_proxy_overrides(builder)
+        }
+    } else {
+        reqwest::Client::builder()
+    };
+    http_client_factory.build_client_without_request_logging_with_builder(
+        builder,
+        endpoint,
+        ClientRouteClass::Auth,
+    )
 }
 
 /// Builds the default Codex reqwest client for an auth endpoint.

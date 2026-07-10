@@ -175,7 +175,22 @@ impl HttpClientFactory {
         request_url: &str,
         route_class: ClientRouteClass,
     ) -> Result<HttpClient, BuildRouteAwareHttpClientError> {
-        self.build_reqwest_client(reqwest::Client::builder(), request_url, route_class)
+        self.build_client_without_request_logging_with_builder(
+            reqwest::Client::builder(),
+            request_url,
+            route_class,
+        )
+    }
+
+    /// Builds a route-aware client from a caller-configured builder without request URL or
+    /// response-header diagnostics.
+    pub fn build_client_without_request_logging_with_builder(
+        &self,
+        builder: reqwest::ClientBuilder,
+        request_url: &str,
+        route_class: ClientRouteClass,
+    ) -> Result<HttpClient, BuildRouteAwareHttpClientError> {
+        self.build_reqwest_client(builder, request_url, route_class)
             .map(HttpClient::new_without_request_logging)
     }
 

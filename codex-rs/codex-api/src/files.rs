@@ -263,11 +263,7 @@ fn build_reqwest_client(
     } else {
         reqwest::Client::builder()
     };
-    match http_client_factory.build_reqwest_client(
-        builder,
-        url,
-        ClientRouteClass::Api,
-    ) {
+    match http_client_factory.build_reqwest_client(builder, url, ClientRouteClass::Api) {
         Ok(client) => Ok(client),
         Err(error)
             if matches!(
