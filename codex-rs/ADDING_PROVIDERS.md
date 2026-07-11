@@ -132,7 +132,7 @@ The `model_info!` macro creates a `ModelInfo` with sensible defaults. Override o
 |-------|-------------|
 | `context_window` | Always — determines compaction threshold and footer display |
 | `base_instructions` | If the model needs a custom system prompt |
-| `supports_reasoning_summaries` | `true` if the model emits reasoning traces |
+| `supports_reasoning_summary_parameter` | `true` if the model supports the reasoning summary request parameter |
 | `apply_patch_tool_type` | `Some(ApplyPatchToolType::Freeform)` for models that support freeform apply-patch |
 | `shell_type` | `ConfigShellToolType::ShellCommand` for models that emit shell commands directly |
 | `truncation_policy` | `TruncationPolicyConfig::tokens(N)` or `::bytes(N)` |
