@@ -1341,7 +1341,10 @@ async fn thread_fork_persists_override_prompt_profile() -> Result<()> {
         ..Default::default()
     };
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -1404,7 +1407,10 @@ async fn thread_fork_imports_prompt_profile_from_path() -> Result<()> {
     )?;
     let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -2075,7 +2081,10 @@ async fn thread_fork_rejects_clear_prompt_profile_with_override_inputs() -> Resu
         b"{\"spec\":\"chara_card_v2\",\"spec_version\":\"2.0\",\"data\":{\"name\":\"Rei\"}}",
     )?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let invalid_direct_id = mcp
@@ -2160,7 +2169,10 @@ async fn thread_fork_clear_prompt_profile_removes_inherited_profile() -> Result<
         prompt_profile,
     )?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
@@ -2209,7 +2221,10 @@ async fn thread_fork_can_clear_prompt_profile() -> Result<()> {
         ..Default::default()
     };
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let start_id = mcp
@@ -2269,7 +2284,10 @@ async fn thread_fork_rejects_clear_prompt_profile_with_override() -> Result<()> 
         None,
     )?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let fork_id = mcp
