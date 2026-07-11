@@ -565,7 +565,9 @@ fn response_item_call_id(item: &ResponseItem) -> Option<String> {
     match item {
         ResponseItem::FunctionCall { call_id, .. } => Some(call_id.clone()),
         ResponseItem::CustomToolCall { call_id, .. } => Some(call_id.clone()),
-        ResponseItem::LocalShellCall { call_id, id, .. } => call_id.clone().or_else(|| id.clone()),
+        ResponseItem::LocalShellCall { call_id, id, .. } => call_id
+            .clone()
+            .or_else(|| id.as_ref().map(ToString::to_string)),
         ResponseItem::ToolSearchCall { call_id, .. } => call_id.clone(),
         _ => None,
     }

@@ -214,9 +214,10 @@ mod tests {
     use codex_protocol::protocol::ThreadGoal;
     use codex_protocol::protocol::ThreadGoalStatus;
     use codex_protocol::protocol::ThreadGoalUpdatedEvent;
+    use codex_protocol::protocol::ThreadHistoryMode;
 
     #[test]
-    fn persists_image_generation_end_events_in_limited_mode() {
+    fn persists_image_generation_end_events_in_legacy_mode() {
         let event = EventMsg::ImageGenerationEnd(ImageGenerationEndEvent {
             call_id: "ig_123".into(),
             status: "completed".into(),
@@ -225,11 +226,11 @@ mod tests {
             saved_path: None,
         });
 
-        assert!(should_persist_event_msg(&event));
+        assert!(should_persist_event_msg(&event, ThreadHistoryMode::Legacy));
     }
 
     #[test]
-    fn persists_thread_goal_updates_in_limited_mode() {
+    fn persists_thread_goal_updates_in_paginated_mode() {
         let thread_id = ThreadId::new();
         let event = EventMsg::ThreadGoalUpdated(ThreadGoalUpdatedEvent {
             thread_id,
@@ -246,6 +247,9 @@ mod tests {
             },
         });
 
-        assert!(should_persist_event_msg(&event));
+        assert!(should_persist_event_msg(
+            &event,
+            ThreadHistoryMode::Paginated
+        ));
     }
 }
