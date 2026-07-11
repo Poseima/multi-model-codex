@@ -1100,7 +1100,10 @@ async fn thread_start_persists_prompt_profile_after_first_turn() -> Result<()> {
         ..Default::default()
     };
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -1165,7 +1168,10 @@ async fn thread_start_imports_prompt_profile_from_path() -> Result<()> {
     )?;
     let expected_prompt_profile = load_prompt_profile_from_path(card_path.as_path())?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -1226,7 +1232,10 @@ async fn thread_start_imports_plain_json_prompt_profile_from_path() -> Result<()
     )?;
     let expected_prompt_profile = load_prompt_profile_from_path(prompt_profile_path.as_path())?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -1277,7 +1286,10 @@ async fn thread_start_rejects_invalid_prompt_profile_path() -> Result<()> {
     let codex_home = TempDir::new()?;
     create_config_toml(codex_home.path(), &server.uri())?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
@@ -1312,7 +1324,10 @@ async fn thread_start_rejects_malformed_prompt_profile_json() -> Result<()> {
     let invalid_prompt_profile_path = codex_home.path().join("invalid-profile.json");
     std::fs::write(&invalid_prompt_profile_path, br#"{"foo":"bar"}"#)?;
 
-    let mut mcp = TestAppServer::new(codex_home.path()).await?;
+    let mut mcp = TestAppServer::builder()
+        .with_codex_home(codex_home.path())
+        .build()
+        .await?;
     timeout(DEFAULT_READ_TIMEOUT, mcp.initialize()).await??;
 
     let req_id = mcp
