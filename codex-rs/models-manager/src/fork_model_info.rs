@@ -43,7 +43,7 @@ macro_rules! fork_model_info {
             base_instructions: BASE_INSTRUCTIONS.to_string(),
             model_messages: None,
             include_skills_usage_instructions: false,
-            supports_reasoning_summaries: false,
+            supports_reasoning_summary_parameter: false,
             default_reasoning_summary: ReasoningSummary::Auto,
             support_verbosity: false,
             default_verbosity: None,
@@ -83,7 +83,7 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
             base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
             apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
             shell_type: ConfigShellToolType::ShellCommand,
-            supports_reasoning_summaries: false,
+            supports_reasoning_summary_parameter: false,
             context_window: Some(200_000),
         ));
     }

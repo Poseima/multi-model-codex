@@ -501,6 +501,7 @@ fn ensure_tool_results_follow_tool_calls(messages: &mut Vec<Value>) {
 mod tests {
     use super::*;
     use crate::provider::RetryConfig;
+    use codex_protocol::ResponseItemId;
     use codex_protocol::models::AgentMessageInputContent;
     use codex_protocol::models::FunctionCallOutputPayload;
     use codex_protocol::protocol::SessionSource;
@@ -716,7 +717,7 @@ mod tests {
     #[test]
     fn ignores_image_generation_response_items() {
         let prompt_input = vec![ResponseItem::ImageGenerationCall {
-            id: Some("ig_123".to_string()),
+            id: Some(ResponseItemId::with_suffix("ig", "123")),
             status: "completed".to_string(),
             revised_prompt: None,
             result: "base64-image".to_string(),
