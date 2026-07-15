@@ -940,11 +940,11 @@ impl CodexThread {
     }
 
     pub async fn prompt_profile(&self) -> Option<PromptSource> {
-        self.codex.session.get_prompt_profile().await
+        self.session.get_prompt_profile().await
     }
 
     pub async fn prompt_profile_path(&self) -> Option<PathBuf> {
-        self.codex.session.get_prompt_profile_path().await
+        self.session.get_prompt_profile_path().await
     }
 
     pub fn enabled(&self, feature: Feature) -> bool {

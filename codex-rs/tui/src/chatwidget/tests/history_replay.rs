@@ -140,6 +140,8 @@ async fn restored_conversation_ultra_remains_selected_after_switching_to_plan() 
         thread_name: None,
         model: "gpt-5.4".to_string(),
         model_provider_id: "test-provider".to_string(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         service_tier: None,
         approval_policy: AskForApproval::Never,
         approvals_reviewer: ApprovalsReviewer::User,

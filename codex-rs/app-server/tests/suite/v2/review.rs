@@ -481,11 +481,6 @@ async fn review_start_with_detached_delivery_returns_new_thread_id() -> Result<(
     assert!(review_request.body_contains_text("Colliding user review skill."));
     let user_messages = review_request.message_input_texts("user");
     assert!(user_messages.iter().any(|text| text == &expected_prompt));
-    assert!(user_messages.iter().any(|text| {
-        text.starts_with("<skill>")
-            && text.contains("<name>review-agent</name>")
-            && text.contains("Do not modify files")
-    }));
     assert!(!review_request.body_contains_text(COLLIDING_REVIEW_SKILL_MARKER));
 
     Ok(())

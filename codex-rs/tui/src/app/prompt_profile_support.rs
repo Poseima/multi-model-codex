@@ -8,6 +8,7 @@ use ratatui::text::Line;
 
 use super::App;
 use super::AppRunControl;
+use super::session_lifecycle::ThreadAttachPresentation;
 use super::session_summary;
 use crate::legacy_core::load_prompt_profile_from_path;
 
@@ -163,7 +164,11 @@ impl App {
                     self.shutdown_current_thread(app_server).await;
                     if let Err(err) = self
                         .replace_chat_widget_with_app_server_thread(
-                            tui, app_server, forked, /*initial_user_message*/ None,
+                            tui,
+                            app_server,
+                            forked,
+                            ThreadAttachPresentation::SessionLineage,
+                            /*initial_user_message*/ None,
                         )
                         .await
                     {
@@ -222,7 +227,11 @@ impl App {
             Ok(started) => {
                 if let Err(err) = self
                     .replace_chat_widget_with_app_server_thread(
-                        tui, app_server, started, /*initial_user_message*/ None,
+                        tui,
+                        app_server,
+                        started,
+                        ThreadAttachPresentation::SessionLineage,
+                        /*initial_user_message*/ None,
                     )
                     .await
                 {
@@ -327,7 +336,11 @@ impl App {
                             self.shutdown_current_thread(app_server).await;
                             if let Err(err) = self
                                 .replace_chat_widget_with_app_server_thread(
-                                    tui, app_server, forked, /*initial_user_message*/ None,
+                                    tui,
+                                    app_server,
+                                    forked,
+                                    ThreadAttachPresentation::SessionLineage,
+                                    /*initial_user_message*/ None,
                                 )
                                 .await
                             {
@@ -389,7 +402,11 @@ impl App {
                         Ok(started) => {
                             if let Err(err) = self
                                 .replace_chat_widget_with_app_server_thread(
-                                    tui, app_server, started, /*initial_user_message*/ None,
+                                    tui,
+                                    app_server,
+                                    started,
+                                    ThreadAttachPresentation::SessionLineage,
+                                    /*initial_user_message*/ None,
                                 )
                                 .await
                             {
