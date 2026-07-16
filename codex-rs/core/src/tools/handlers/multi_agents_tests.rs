@@ -218,13 +218,7 @@ async fn wait_for_redirected_followup_delivery(
         .unwrap_or(&expected.content);
     timeout(Duration::from_secs(5), async {
         loop {
-            let history_items = thread
-                .codex
-                .session
-                .clone_history()
-                .await
-                .raw_items()
-                .to_vec();
+            let history_items = thread.session.clone_history().await.raw_items().to_vec();
             let saw_user_message = !visible_message_content.is_empty()
                 && history_items.iter().any(|item| {
                     matches!(
@@ -262,7 +256,7 @@ async fn wait_for_redirected_followup_delivery(
                 break;
             }
             let started_followup_turn = {
-                let active_turn = thread.codex.session.active_turn.lock().await;
+                let active_turn = thread.session.active_turn.lock().await;
                 active_turn.as_ref().is_some_and(|active_turn| {
                     active_turn.task.as_ref().is_some_and(|task| {
                         task.turn_context.sub_id.as_str() != interrupted_turn_id
@@ -1945,10 +1939,9 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
                 .await
                 .expect("worker thread should exist");
 
-            let active_turn = thread.codex.session.new_default_turn().await;
+            let active_turn = thread.session.new_default_turn().await;
             let interrupted_turn_id = active_turn.sub_id.clone();
             thread
-                .codex
                 .session
                 .spawn_task(
                     Arc::clone(&active_turn),

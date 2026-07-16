@@ -531,6 +531,7 @@ async fn append_reasoning_text(
 ///   "prompt_tokens": 10,
 ///   "completion_tokens": 20,
 ///   "total_tokens": 30,
+///   "prompt_tokens_details": { "cached_tokens": 2, "cache_write_tokens": 3 },
 ///   "completion_tokens_details": { "reasoning_tokens": 5 }
 /// }
 /// ```
@@ -551,9 +552,15 @@ fn parse_chat_usage(usage: &serde_json::Value) -> Option<TokenUsage> {
         .and_then(|d| d.get("cached_tokens"))
         .and_then(serde_json::Value::as_i64)
         .unwrap_or(0);
+    let cache_write_input_tokens = usage
+        .get("prompt_tokens_details")
+        .and_then(|d| d.get("cache_write_tokens"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
     Some(TokenUsage {
         input_tokens: prompt_tokens,
         cached_input_tokens,
+        cache_write_input_tokens,
         output_tokens: completion_tokens,
         reasoning_output_tokens,
         total_tokens,
@@ -1213,6 +1220,7 @@ mod tests {
             Some(TokenUsage {
                 input_tokens: 42,
                 cached_input_tokens: 5,
+                cache_write_input_tokens: 0,
                 output_tokens: 10,
                 reasoning_output_tokens: 3,
                 total_tokens: 52,
