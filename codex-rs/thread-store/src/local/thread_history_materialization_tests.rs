@@ -2587,6 +2587,8 @@ async fn create_paginated_subagent_thread(
             dynamic_tools: Vec::new(),
             selected_capability_roots: Vec::new(),
             multi_agent_version: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             history_mode: ThreadHistoryMode::Paginated,
             history_base,
             subagent_history_start_ordinal,
