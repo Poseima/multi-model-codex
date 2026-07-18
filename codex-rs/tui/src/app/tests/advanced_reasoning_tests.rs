@@ -83,6 +83,8 @@ async fn switching_from_ultra_thread_restores_configured_plan_effort() {
     );
     app.chat_widget
         .handle_key_event(KeyEvent::from(KeyCode::BackTab));
+    app.chat_widget
+        .handle_key_event(KeyEvent::from(KeyCode::BackTab));
 
     assert_eq!(
         app.chat_widget.active_collaboration_mode_kind(),
