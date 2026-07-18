@@ -1369,6 +1369,8 @@ mod tests {
         app.on_update_reasoning_effort(Some(ReasoningEffortConfig::Medium));
         app.chat_widget
             .handle_key_event(KeyEvent::from(KeyCode::BackTab));
+        app.chat_widget
+            .handle_key_event(KeyEvent::from(KeyCode::BackTab));
 
         assert_eq!(
             app.chat_widget.current_reasoning_effort(),
