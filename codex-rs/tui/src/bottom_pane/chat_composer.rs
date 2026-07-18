@@ -413,8 +413,6 @@ fn parent_owned_command_is_allowed(command: SlashCommand, args: &str) -> bool {
                 | SlashCommand::Pets
                 | SlashCommand::Ps
                 | SlashCommand::Stop
-                | SlashCommand::MemoryDrop
-                | SlashCommand::MemoryUpdate
                 | SlashCommand::Mcp
                 | SlashCommand::Apps
                 | SlashCommand::Plugins
