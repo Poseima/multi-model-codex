@@ -158,6 +158,7 @@ async fn restored_conversation_ultra_remains_selected_after_switching_to_plan() 
         rollout_path: None,
     });
     chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
+    chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
 
     assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Plan);
     assert_eq!(
