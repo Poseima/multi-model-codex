@@ -371,6 +371,8 @@ pub fn create_fake_rollout_with_prompt_profile(
         selected_capability_roots: Vec::new(),
         memory_mode: None,
         history_mode: Default::default(),
+        history_base: None,
+        subagent_history_start_ordinal: None,
         multi_agent_version: None,
         context_window: None,
     };

@@ -163,7 +163,7 @@ impl<'a> ChatRequestBuilder<'a> {
                 ResponseItem::Message { role, content, .. } => {
                     let mut text = String::new();
                     let mut items: Vec<Value> = Vec::new();
-                    let mut saw_image = false;
+                    let mut use_content_parts = false;
 
                     for c in content {
                         match c {
@@ -173,10 +173,14 @@ impl<'a> ChatRequestBuilder<'a> {
                                 items.push(json!({"type":"text","text": t}));
                             }
                             ContentItem::InputImage { image_url, .. } => {
-                                saw_image = true;
+                                use_content_parts = true;
                                 items.push(
                                     json!({"type":"image_url","image_url": {"url": image_url}}),
                                 );
+                            }
+                            ContentItem::InputAudio { audio_url } => {
+                                use_content_parts = true;
+                                items.push(json!({"type":"input_audio","audio_url": audio_url}));
                             }
                         }
                     }
@@ -192,7 +196,7 @@ impl<'a> ChatRequestBuilder<'a> {
 
                     let content_value = if role == "assistant" {
                         json!(text)
-                    } else if saw_image {
+                    } else if use_content_parts {
                         json!(items)
                     } else {
                         json!(text)
@@ -283,6 +287,9 @@ impl<'a> ChatRequestBuilder<'a> {
                                         image_url, ..
                                     } => {
                                         json!({"type":"image_url","image_url": {"url": image_url}})
+                                    }
+                                    FunctionCallOutputContentItem::InputAudio { audio_url } => {
+                                        json!({"type":"input_audio","audio_url": audio_url})
                                     }
                                     FunctionCallOutputContentItem::EncryptedContent {
                                         encrypted_content,
@@ -715,6 +722,40 @@ mod tests {
     }
 
     #[test]
+    fn preserves_audio_message_content_items() {
+        let prompt_input = vec![ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![
+                ContentItem::InputText {
+                    text: "transcribe this".to_string(),
+                },
+                ContentItem::InputAudio {
+                    audio_url: "data:audio/wav;base64,AAAA".to_string(),
+                },
+            ],
+            phase: None,
+            internal_chat_message_metadata_passthrough: None,
+        }];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider())
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(
+            messages[1]["content"],
+            json!([
+                {"type": "text", "text": "transcribe this"},
+                {"type": "input_audio", "audio_url": "data:audio/wav;base64,AAAA"},
+            ])
+        );
+    }
+
+    #[test]
     fn ignores_image_generation_response_items() {
         let prompt_input = vec![ResponseItem::ImageGenerationCall {
             id: Some(ResponseItemId::with_suffix("ig", "123")),
@@ -845,6 +886,58 @@ mod tests {
                     }],
                 }),
             ]
+        );
+    }
+
+    #[test]
+    fn preserves_audio_function_output_content_items() {
+        let prompt_input = vec![
+            ResponseItem::Message {
+                id: None,
+                role: "user".to_string(),
+                content: vec![ContentItem::InputText {
+                    text: "run the tool".to_string(),
+                }],
+                phase: None,
+                internal_chat_message_metadata_passthrough: None,
+            },
+            ResponseItem::FunctionCall {
+                id: None,
+                name: "capture_audio".to_string(),
+                arguments: "{}".to_string(),
+                call_id: "call-1".to_string(),
+                namespace: None,
+                internal_chat_message_metadata_passthrough: None,
+            },
+            ResponseItem::FunctionCallOutput {
+                id: None,
+                call_id: "call-1".to_string(),
+                output: FunctionCallOutputPayload {
+                    body: FunctionCallOutputBody::ContentItems(vec![
+                        FunctionCallOutputContentItem::InputAudio {
+                            audio_url: "data:audio/wav;base64,BBBB".to_string(),
+                        },
+                    ]),
+                    success: None,
+                },
+                internal_chat_message_metadata_passthrough: None,
+            },
+        ];
+        let req = ChatRequestBuilder::new("gpt-test", "inst", &prompt_input, &[])
+            .build(&provider())
+            .expect("request");
+
+        let messages = req
+            .body
+            .get("messages")
+            .and_then(Value::as_array)
+            .expect("messages array");
+        assert_eq!(
+            messages[3]["content"],
+            json!([{
+                "type": "input_audio",
+                "audio_url": "data:audio/wav;base64,BBBB",
+            }])
         );
     }
 
