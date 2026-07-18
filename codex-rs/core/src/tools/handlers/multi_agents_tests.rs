@@ -249,7 +249,9 @@ async fn wait_for_redirected_followup_delivery(
                             .as_ref()
                             == Some(expected)
                     }
-                    ContentItem::InputText { .. } | ContentItem::InputImage { .. } => false,
+                    ContentItem::InputText { .. }
+                    | ContentItem::InputImage { .. }
+                    | ContentItem::InputAudio { .. } => false,
                 })
             });
             if saw_envelope {
