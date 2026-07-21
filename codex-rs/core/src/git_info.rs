@@ -4,9 +4,9 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::util::resolve_path;
 use codex_app_server_protocol::GitSha;
 use codex_protocol::protocol::GitInfo;
+use codex_utils_absolute_path::AbsolutePathBuf;
 use futures::future::join_all;
 use serde::Deserialize;
 use serde::Serialize;
@@ -616,7 +616,10 @@ pub fn resolve_root_git_project_for_trust(cwd: &Path) -> Option<PathBuf> {
         return None;
     }
 
-    let git_dir_path = canonicalize_or_raw(resolve_path(&repo_root, &PathBuf::from(git_dir_rel)));
+    let git_dir_path = canonicalize_or_raw(
+        AbsolutePathBuf::resolve_path_against_base(Path::new(git_dir_rel), &repo_root)
+            .to_path_buf(),
+    );
     let worktrees_dir = git_dir_path.parent()?;
     if worktrees_dir.file_name() != Some(OsStr::new("worktrees")) {
         return None;
