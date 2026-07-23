@@ -2,11 +2,8 @@
 #![allow(clippy::unwrap_used)]
 
 use anyhow::Result;
-use codex_core::StartThreadOptions;
-use codex_core::ThreadManager;
 use codex_core::TurnInput;
 use codex_core::config::Config;
-use codex_core::thread_store_from_config;
 use codex_exec_server::CreateDirectoryOptions;
 use codex_exec_server::ExecutorFileSystem;
 use codex_extension_api::empty_extension_registry;
