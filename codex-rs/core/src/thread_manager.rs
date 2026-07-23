@@ -1137,6 +1137,7 @@ impl ThreadManager {
                 reserved_thread_id: None,
             },
             /*forked_from_thread_id*/ None,
+            /*startup*/ None,
         ))
         .await
     }
@@ -1145,7 +1146,12 @@ impl ThreadManager {
         &self,
         options: StartThreadOptions,
     ) -> CodexResult<NewThread> {
-        Box::pin(self.start_thread_inner(options, /*forked_from_thread_id*/ None)).await
+        Box::pin(self.start_thread_inner(
+            options,
+            /*forked_from_thread_id*/ None,
+            /*startup*/ None,
+        ))
+        .await
     }
 
     async fn start_thread_inner(
@@ -1158,7 +1164,15 @@ impl ThreadManager {
             .initial_history
             .get_resumed_session_sources()
             .unwrap_or_else(|| (self.state.session_source.clone(), None));
-        self.validate_environment_selections(&options.environments)?;
+        let environments = options.environments.take().unwrap_or_else(|| {
+            default_thread_environment_selections(
+                self.state.environment_manager.as_ref(),
+                &options.config.cwd,
+                &options.config.workspace_roots,
+            )
+        });
+        self.validate_environment_selections(&environments)?;
+        options.environments = Some(environments);
         options.session_source = Some(
             options
                 .session_source
