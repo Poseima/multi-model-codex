@@ -46,6 +46,7 @@ fn create_openrouter_provider() -> ModelProviderInfo {
         stream_idle_timeout_ms: None,
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_standalone_web_search: false,
         supports_websockets: false,
         system_role: None,
     }
@@ -71,6 +72,7 @@ fn create_zhipu_provider() -> ModelProviderInfo {
         stream_idle_timeout_ms: Some(300_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_standalone_web_search: false,
         supports_websockets: false,
         system_role: None,
     }
@@ -94,6 +96,7 @@ fn create_minimax_provider() -> ModelProviderInfo {
         stream_idle_timeout_ms: Some(300_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_standalone_web_search: false,
         supports_websockets: false,
         system_role: Some("user".to_string()),
     }
