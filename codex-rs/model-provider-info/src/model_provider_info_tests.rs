@@ -795,6 +795,7 @@ fn detects_azure_responses_base_urls() {
             stream_idle_timeout_ms: None,
             websocket_connect_timeout_ms: None,
             requires_openai_auth: false,
+            supports_standalone_web_search: false,
             supports_websockets: false,
             system_role: None,
         };
@@ -822,6 +823,7 @@ fn detects_azure_responses_base_urls() {
         stream_idle_timeout_ms: None,
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_standalone_web_search: false,
         supports_websockets: false,
         system_role: None,
     };
@@ -851,6 +853,7 @@ fn detects_azure_responses_base_urls() {
             stream_idle_timeout_ms: None,
             websocket_connect_timeout_ms: None,
             requires_openai_auth: false,
+            supports_standalone_web_search: false,
             supports_websockets: false,
             system_role: None,
         };

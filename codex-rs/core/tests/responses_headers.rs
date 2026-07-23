@@ -356,6 +356,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
         stream_idle_timeout_ms: Some(5_000),
         websocket_connect_timeout_ms: None,
         requires_openai_auth: false,
+        supports_standalone_web_search: false,
         supports_websockets: false,
         system_role: None,
     };
