@@ -719,11 +719,11 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
             persist_extended_history: false,
             metrics_service_name: None,
             parent_trace: None,
-            environments: vec![TurnEnvironmentSelection {
+            environments: Some(vec![TurnEnvironmentSelection {
                 environment_id: "local".to_string(),
                 cwd: PathUri::from_abs_path(&config.cwd),
                 workspace_roots: Vec::new(),
-            }],
+            }]),
             thread_extension_init: Default::default(),
             supports_openai_form_elicitation: false,
         })

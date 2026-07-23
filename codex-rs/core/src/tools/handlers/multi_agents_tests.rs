@@ -1,6 +1,6 @@
 use super::*;
-use crate::StartThreadOptions;
 use crate::CodexThread;
+use crate::StartThreadOptions;
 use crate::ThreadManager;
 use crate::config::AgentRoleConfig;
 use crate::config::DEFAULT_AGENT_MAX_DEPTH;
@@ -1906,7 +1906,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
             let (mut session, mut turn) = make_session_and_context().await;
             let manager = thread_manager();
             let root = manager
-                .start_thread((*turn.config).clone())
+                .start_thread(StartThreadOptions::new((*turn.config).clone()))
                 .await
                 .expect("root thread should start");
             session.services.agent_control = manager.agent_control();

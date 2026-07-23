@@ -1064,7 +1064,15 @@ impl ThreadManager {
             .initial_history
             .get_resumed_session_sources()
             .unwrap_or_else(|| (self.state.session_source.clone(), None));
-        self.validate_environment_selections(&options.environments)?;
+        let environments = options.environments.take().unwrap_or_else(|| {
+            default_thread_environment_selections(
+                self.state.environment_manager.as_ref(),
+                &options.config.cwd,
+                &options.config.workspace_roots,
+            )
+        });
+        self.validate_environment_selections(&environments)?;
+        options.environments = Some(environments);
         options.session_source = Some(
             options
                 .session_source
@@ -1111,7 +1119,7 @@ impl ThreadManager {
                 inherited_multi_agent_version,
             ),
         );
-        self.start_thread_inner(options, Some(forked_from_thread_id))
+        self.start_thread_with_options_and_fork_source(options, Some(forked_from_thread_id))
             .await
     }
 
