@@ -4022,7 +4022,7 @@ async fn thread_resume_token_usage_replay_can_belong_to_interrupted_turn() -> Re
 async fn thread_resume_surfaces_prompt_profile_metadata() -> Result<()> {
     let server = create_mock_responses_server_repeating_assistant("Done").await;
     let codex_home = TempDir::new()?;
-    create_config_toml(codex_home.path(), &server.uri())?;
+    mock_responses_config(&server.uri()).write(codex_home.path())?;
 
     let prompt_profile_path = codex_home.path().join("rei.json");
     let prompt_profile = PromptSource {
