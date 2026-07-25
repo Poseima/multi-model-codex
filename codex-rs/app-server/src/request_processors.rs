@@ -341,7 +341,6 @@ use codex_connectors::AppInfo;
 use codex_core::CodexThread;
 use codex_core::CodexThreadSettingsOverrides;
 use codex_core::ForkSnapshot;
-use codex_core::ForkThreadHistoryOptions;
 use codex_core::McpManager;
 use codex_core::NewThread;
 use codex_core::NotSubmittedReason;
