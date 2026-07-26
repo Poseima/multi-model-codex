@@ -21,7 +21,6 @@ use crate::AppServerEvent;
 use crate::RequestResult;
 use crate::SHUTDOWN_TIMEOUT;
 use crate::TypedRequestError;
-use crate::request_method_name;
 use crate::websocket_connect::connect_websocket_request;
 use codex_app_server_protocol::ClientInfo;
 use codex_app_server_protocol::ClientNotification;
