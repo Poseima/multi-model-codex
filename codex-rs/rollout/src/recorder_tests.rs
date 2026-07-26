@@ -29,6 +29,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 use tempfile::TempDir;
 use uuid::Uuid;
 
@@ -734,8 +735,8 @@ async fn referenced_paginated_rollout_starts_at_history_cutoff_and_resumes() -> 
             /*thread_source*/ None,
             "test_originator".to_string(),
             BaseInstructions::default(),
-            None,
-            /*prompt_profile_path*/ None,
+        /*prompt_profile*/ None,
+        /*prompt_profile_path*/ None,
             Vec::new(),
         )
         .with_history_mode(ThreadHistoryMode::Paginated)
