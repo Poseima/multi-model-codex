@@ -366,6 +366,7 @@ async fn process_chat_sse_with_format<S>(
                         namespace: None,
                         arguments,
                         call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
+                        encrypted_function_args: None,
                         internal_chat_message_metadata_passthrough: None,
                     };
                     let _ = tx_event.send(Ok(ResponseEvent::OutputItemDone(item))).await;
@@ -417,6 +418,7 @@ async fn process_chat_sse_with_format<S>(
                         namespace: None,
                         arguments,
                         call_id: id.unwrap_or_else(|| format!("tool-call-{index}")),
+                        encrypted_function_args: None,
                         internal_chat_message_metadata_passthrough: None,
                     };
                     let _ = tx_event.send(Ok(ResponseEvent::OutputItemDone(item))).await;
