@@ -591,6 +591,7 @@ mod tests {
                 arguments: r#"{"path":"a.txt"}"#.to_string(),
                 call_id: "call-a".to_string(),
                 namespace: None,
+                encrypted_function_args: None,
                 internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
@@ -599,6 +600,7 @@ mod tests {
                 arguments: r#"{"path":"b.txt"}"#.to_string(),
                 call_id: "call-b".to_string(),
                 namespace: None,
+                encrypted_function_args: None,
                 internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCall {
@@ -607,6 +609,7 @@ mod tests {
                 arguments: r#"{"path":"c.txt"}"#.to_string(),
                 call_id: "call-c".to_string(),
                 namespace: None,
+                encrypted_function_args: None,
                 internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
@@ -835,6 +838,7 @@ mod tests {
                 arguments: r#"{"command":["echo","secret"]}"#.to_string(),
                 call_id: "call-1".to_string(),
                 namespace: None,
+                encrypted_function_args: None,
                 internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
@@ -907,6 +911,7 @@ mod tests {
                 arguments: "{}".to_string(),
                 call_id: "call-1".to_string(),
                 namespace: None,
+                encrypted_function_args: None,
                 internal_chat_message_metadata_passthrough: None,
             },
             ResponseItem::FunctionCallOutput {
@@ -961,6 +966,7 @@ mod tests {
                 arguments: r#"{"command":["ls"]}"#.to_string(),
                 call_id: "call-1".to_string(),
                 namespace: None,
+                encrypted_function_args: None,
                 internal_chat_message_metadata_passthrough: None,
             },
             // Assistant text that ended up between the tool call and its output.
