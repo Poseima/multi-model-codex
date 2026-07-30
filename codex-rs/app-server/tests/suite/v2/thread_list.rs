@@ -305,7 +305,7 @@ async fn thread_list_surfaces_prompt_profile_metadata() -> Result<()> {
             model_providers: Some(vec!["mock_provider".to_string()]),
             source_kinds: None,
             archived: None,
-            is_pinned: None,
+            section_id: None,
             cwd: None,
             use_state_db_only: false,
             search_term: None,
