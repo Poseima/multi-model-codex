@@ -61,6 +61,7 @@ import type { PluginShareSaveParams } from "./v2/PluginShareSaveParams";
 import type { PluginShareUpdateTargetsParams } from "./v2/PluginShareUpdateTargetsParams";
 import type { PluginSkillReadParams } from "./v2/PluginSkillReadParams";
 import type { PluginUninstallParams } from "./v2/PluginUninstallParams";
+import type { ProviderListParams } from "./v2/ProviderListParams";
 import type { ReviewStartParams } from "./v2/ReviewStartParams";
 import type { SendAddCreditsNudgeEmailParams } from "./v2/SendAddCreditsNudgeEmailParams";
 import type { SkillsConfigWriteParams } from "./v2/SkillsConfigWriteParams";
