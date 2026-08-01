@@ -11,13 +11,13 @@ use crate::function_tool::FunctionCallError;
 use crate::init_state_db;
 use crate::local_agent_graph_store_from_state_db;
 use crate::session::TurnInput;
+use crate::session::session::Session;
 use crate::session::step_context::StepContext;
 use crate::session::tests::make_session_and_context;
 use crate::session::turn_context::TurnContext;
 use crate::session_prefix::format_inter_agent_completion_message;
 use crate::state::TaskKind;
 use crate::tasks::SessionTask;
-use crate::tasks::SessionTaskContext;
 use crate::tasks::SessionTaskResult;
 use crate::thread_manager::thread_store_from_config;
 use crate::tools::context::ToolOutput;
@@ -289,7 +289,7 @@ impl SessionTask for NeverEndingTask {
 
     async fn run(
         self: Arc<Self>,
-        _session: Arc<SessionTaskContext>,
+        _session: Arc<Session>,
         _ctx: Arc<TurnContext>,
         _input: Vec<TurnInput>,
         cancellation_token: CancellationToken,

@@ -136,6 +136,20 @@ fn missing_catalog_collaboration_message_uses_legacy_instructions() {
 }
 
 #[test]
+fn dawn_mode_uses_legacy_instructions_when_catalog_messages_exist() {
+    let messages = CollaborationModeMessages {
+        default: Some("catalog default instructions".to_string()),
+        plan: Some("catalog plan instructions".to_string()),
+    };
+    let state = CollaborationModeState::from_collaboration_mode(
+        &collaboration_mode(ModeKind::Dawn, Some("dawn instructions")),
+        Some(&messages),
+    );
+
+    assert_eq!(state.instructions.as_deref(), Some("dawn instructions"));
+}
+
+#[test]
 fn legacy_collaboration_mode_snapshots_refresh_catalog_messages_once() {
     for serialized in ["\"default\"", r#"{"mode":"default","model":"test-model"}"#] {
         let previous = serde_json::from_str::<CollaborationModeSnapshot>(serialized)
