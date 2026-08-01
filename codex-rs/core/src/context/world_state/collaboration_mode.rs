@@ -31,6 +31,7 @@ impl CollaborationModeState {
             catalog_messages.and_then(|messages| match collaboration_mode.mode {
                 ModeKind::Default => messages.default.as_ref(),
                 ModeKind::Plan => messages.plan.as_ref(),
+                ModeKind::Dawn | ModeKind::PairProgramming | ModeKind::Execute => None,
             });
 
         let instructions = catalog_instructions.cloned().or_else(|| {
