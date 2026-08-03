@@ -566,6 +566,7 @@ fn parse_chat_usage(usage: &serde_json::Value) -> Option<TokenUsage> {
         output_tokens: completion_tokens,
         reasoning_output_tokens,
         total_tokens,
+        codex_rollout_budget_units: None,
     })
 }
 
@@ -1226,6 +1227,7 @@ mod tests {
                 output_tokens: 10,
                 reasoning_output_tokens: 3,
                 total_tokens: 52,
+                codex_rollout_budget_units: None,
             })
         );
     }
