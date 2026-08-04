@@ -565,7 +565,7 @@ pub(crate) async fn intercept_apply_patch(
     }
 }
 
-async fn execute_verified_patch(
+pub(super) async fn execute_verified_patch(
     action: ApplyPatchAction,
     turn_environment: TurnEnvironment,
     tracker: Option<&SharedTurnDiffTracker>,
