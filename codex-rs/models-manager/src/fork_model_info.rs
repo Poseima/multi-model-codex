@@ -9,6 +9,7 @@ use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
 use codex_protocol::openai_models::InputModality;
 use codex_protocol::openai_models::ModelInfo;
+use codex_protocol::openai_models::ModelMessages;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::TruncationPolicyConfig;
 use codex_protocol::openai_models::WebSearchToolType;
@@ -19,6 +20,18 @@ const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
     include_str!("../../core/prompt_with_text_editor_instructions.md");
 
 const CONTEXT_WINDOW_272K: i64 = 272_000;
+
+fn model_messages(instructions_template: &str) -> Option<ModelMessages> {
+    Some(ModelMessages {
+        instructions_template: Some(instructions_template.to_string()),
+        instructions_variables: None,
+        approvals: None,
+        collaboration_modes: None,
+        auto_review: None,
+        permissions: None,
+        token_budget: None,
+    })
+}
 
 macro_rules! fork_model_info {
     (
@@ -40,9 +53,9 @@ macro_rules! fork_model_info {
             default_service_tier: None,
             availability_nux: None,
             upgrade: None,
-            base_instructions: BASE_INSTRUCTIONS.to_string(),
-            model_messages: None,
+            model_messages: model_messages(BASE_INSTRUCTIONS),
             include_skills_usage_instructions: false,
+            include_plugin_usage_instructions: false,
             supports_reasoning_summary_parameter: false,
             default_reasoning_summary: ReasoningSummary::Auto,
             support_verbosity: false,
@@ -80,7 +93,7 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
     if slug.starts_with("codex-MiniMax") || slug.starts_with("MiniMax-") {
         return Some(fork_model_info!(
             slug,
-            base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
+            model_messages: model_messages(BASE_INSTRUCTIONS_WITH_TEXT_EDITOR),
             apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
             shell_type: ConfigShellToolType::ShellCommand,
             supports_reasoning_summary_parameter: false,
@@ -97,7 +110,7 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
         };
         return Some(fork_model_info!(
             slug,
-            base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
+            model_messages: model_messages(BASE_INSTRUCTIONS_WITH_TEXT_EDITOR),
             apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
             shell_type: ConfigShellToolType::ShellCommand,
             context_window: Some(ctx),
