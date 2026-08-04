@@ -9,6 +9,7 @@ use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ConfigShellToolType;
 use codex_protocol::openai_models::InputModality;
 use codex_protocol::openai_models::ModelInfo;
+use codex_protocol::openai_models::ModelMessages;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::openai_models::ReasoningEffortPreset;
@@ -17,6 +18,18 @@ use codex_protocol::openai_models::WebSearchToolType;
 
 const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
     include_str!("../../core/prompt_with_text_editor_instructions.md");
+
+fn model_messages(instructions_template: &str) -> Option<ModelMessages> {
+    Some(ModelMessages {
+        instructions_template: Some(instructions_template.to_string()),
+        instructions_variables: None,
+        approvals: None,
+        collaboration_modes: None,
+        auto_review: None,
+        permissions: None,
+        token_budget: None,
+    })
+}
 
 pub(crate) fn merge_with_fork_models(mut models: Vec<ModelInfo>) -> Vec<ModelInfo> {
     for model in fork_models() {
@@ -69,9 +82,9 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         default_service_tier: None,
         availability_nux: None,
         upgrade: None,
-        base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
-        model_messages: None,
+        model_messages: model_messages(BASE_INSTRUCTIONS_WITH_TEXT_EDITOR),
         include_skills_usage_instructions: false,
+        include_plugin_usage_instructions: false,
         supports_reasoning_summary_parameter: false,
         default_reasoning_summary: ReasoningSummary::Auto,
         support_verbosity: false,
@@ -113,9 +126,9 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         default_service_tier: None,
         availability_nux: None,
         upgrade: None,
-        base_instructions: BASE_INSTRUCTIONS_WITH_TEXT_EDITOR.to_string(),
-        model_messages: None,
+        model_messages: model_messages(BASE_INSTRUCTIONS_WITH_TEXT_EDITOR),
         include_skills_usage_instructions: false,
+        include_plugin_usage_instructions: false,
         supports_reasoning_summary_parameter: false,
         default_reasoning_summary: ReasoningSummary::Auto,
         support_verbosity: false,
