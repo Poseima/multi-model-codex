@@ -192,22 +192,23 @@ pub fn model_info_from_slug(slug: &str) -> ModelInfo {
 
 fn local_model_messages_for_slug(slug: &str) -> ModelMessages {
     match slug {
-        "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality" | "gpt-5.3"
-        | "gpt-5.2" => ModelMessages {
-            instructions_template: Some(format!(
-                "{DEFAULT_PERSONALITY_HEADER}\n\n{PERSONALITY_PLACEHOLDER}\n\n{BASE_INSTRUCTIONS}"
-            )),
-            instructions_variables: Some(ModelInstructionsVariables {
-                personality_default: Some(String::new()),
-                personality_friendly: Some(LOCAL_FRIENDLY_TEMPLATE.to_string()),
-                personality_pragmatic: Some(LOCAL_PRAGMATIC_TEMPLATE.to_string()),
-            }),
-            approvals: None,
-            collaboration_modes: None,
-            auto_review: None,
-            permissions: None,
-            token_budget: None,
-        },
+        "gpt-5.3-codex" | "gpt-5.2-codex" | "exp-codex-personality" | "gpt-5.3" | "gpt-5.2" => {
+            ModelMessages {
+                instructions_template: Some(format!(
+                    "{DEFAULT_PERSONALITY_HEADER}\n\n{PERSONALITY_PLACEHOLDER}\n\n{BASE_INSTRUCTIONS}"
+                )),
+                instructions_variables: Some(ModelInstructionsVariables {
+                    personality_default: Some(String::new()),
+                    personality_friendly: Some(LOCAL_FRIENDLY_TEMPLATE.to_string()),
+                    personality_pragmatic: Some(LOCAL_PRAGMATIC_TEMPLATE.to_string()),
+                }),
+                approvals: None,
+                collaboration_modes: None,
+                auto_review: None,
+                permissions: None,
+                token_budget: None,
+            }
+        }
         _ => ModelMessages {
             instructions_template: Some(BASE_INSTRUCTIONS.to_string()),
             instructions_variables: None,

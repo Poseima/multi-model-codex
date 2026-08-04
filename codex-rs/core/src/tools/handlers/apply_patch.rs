@@ -521,7 +521,7 @@ pub(crate) async fn intercept_apply_patch(
     }
 }
 
-async fn execute_verified_patch(
+pub(super) async fn execute_verified_patch(
     action: ApplyPatchAction,
     cwd: &PathUri,
     turn_environment: TurnEnvironment,
