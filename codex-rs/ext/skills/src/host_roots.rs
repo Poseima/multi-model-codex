@@ -13,6 +13,7 @@ use codex_exec_server::LOCAL_FS;
 use codex_protocol::protocol::SkillScope;
 use codex_skills::system_cache_root_dir;
 use codex_utils_absolute_path::AbsolutePathBuf;
+use codex_utils_home_dir::is_embedded_mode;
 use codex_utils_path_uri::PathUri;
 use codex_utils_plugins::PluginSkillRoot;
 use dirs::home_dir;
@@ -100,7 +101,11 @@ fn roots_from_layer_stack(
                     SkillScope::User,
                 ));
 
-                if let Some(home_dir) = home_dir {
+                // Skipped in embedded mode to prevent leakage from a standalone
+                // Codex installation.
+                if let Some(home_dir) = home_dir
+                    && !is_embedded_mode()
+                {
                     roots.push(local_root(
                         home_dir.join(AGENTS_DIR_NAME).join(SKILLS_DIR_NAME),
                         SkillScope::User,
