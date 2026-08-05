@@ -125,8 +125,8 @@ async fn split_homes_support_backfill_listing_and_paginated_history() {
             /*thread_source*/ None,
             "test-originator".to_string(),
             BaseInstructions::default(),
-        /*prompt_profile*/ None,
-        /*prompt_profile_path*/ None,
+            /*prompt_profile*/ None,
+            /*prompt_profile_path*/ None,
             Vec::new(),
         )
         .with_history_mode(ThreadHistoryMode::Paginated)
