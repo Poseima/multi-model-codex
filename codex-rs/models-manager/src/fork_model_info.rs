@@ -56,6 +56,7 @@ macro_rules! fork_model_info {
             model_messages: model_messages(BASE_INSTRUCTIONS),
             include_skills_usage_instructions: false,
             include_plugin_usage_instructions: false,
+            include_apps_usage_instructions: false,
             supports_reasoning_summary_parameter: false,
             default_reasoning_summary: ReasoningSummary::Auto,
             support_verbosity: false,
@@ -77,6 +78,7 @@ macro_rules! fork_model_info {
             supports_search_tool: false,
             use_responses_lite: false,
             auto_review_model_override: None,
+            model_specialty: None,
             multi_agent_version: None,
         };
 
