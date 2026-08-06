@@ -279,6 +279,7 @@ fn apply_patch_payload_command(payload: &ToolPayload) -> Option<String> {
 
 pub(super) async fn effective_patch_permissions(
     session: &Session,
+    turn: &TurnContext,
     environment: &TurnEnvironment,
     action: &ApplyPatchAction,
     cwd: &PathUri,
@@ -557,9 +558,15 @@ pub(super) async fn execute_verified_patch(
     tool_ctx: ToolCtx,
 ) -> Result<String, FunctionCallError> {
     let (file_paths, effective_additional_permissions, file_system_sandbox_policy) =
-        effective_patch_permissions(tool_ctx.session.as_ref(), &turn_environment, &action, cwd)
-            .await
-            .unwrap_or_else(|_| patch_permissions_without_path_matching(&action));
+        effective_patch_permissions(
+            tool_ctx.session.as_ref(),
+            tool_ctx.turn.as_ref(),
+            &turn_environment,
+            &action,
+            cwd,
+        )
+        .await
+        .unwrap_or_else(|_| patch_permissions_without_path_matching(&action));
     let apply = apply_patch::prepare_apply_patch(
         tool_ctx.step_context.turn.as_ref(),
         turn_environment.permission_profile(),
