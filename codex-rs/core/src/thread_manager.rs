@@ -1119,8 +1119,7 @@ impl ThreadManager {
                 inherited_multi_agent_version,
             ),
         );
-        self.start_thread_with_options_and_fork_source(options, Some(forked_from_thread_id))
-            .await
+        Box::pin(self.start_thread_inner(options, Some(forked_from_thread_id))).await
     }
 
     pub async fn resume_thread_from_rollout(

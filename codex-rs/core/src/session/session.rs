@@ -495,7 +495,10 @@ impl SessionConfiguration {
                 .model_providers
                 .get(provider_id)
         {
-            next_configuration.provider = new_provider.clone();
+            next_configuration.provider = codex_model_provider::create_model_provider(
+                new_provider.clone(),
+                self.provider.auth_manager(),
+            );
         }
         let next_environments = updates
             .environments

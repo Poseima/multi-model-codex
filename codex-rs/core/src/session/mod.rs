@@ -2017,10 +2017,10 @@ impl Session {
     }
 
     pub(crate) async fn rebuild_model_client_for_current_provider(&self) {
-        let (provider, session_source, parent_thread_id, originator, config) = {
+        let (provider_info, session_source, parent_thread_id, originator, config) = {
             let state = self.state.lock().await;
             (
-                state.session_configuration.provider.clone(),
+                state.session_configuration.provider.info().clone(),
                 state.session_configuration.session_source.clone(),
                 state.session_configuration.parent_thread_id.clone(),
                 state.session_configuration.originator.clone(),
@@ -2040,7 +2040,7 @@ impl Session {
                 AgentIdentityAuthPolicy::JwtOnly
             },
             self.thread_id,
-            provider,
+            provider_info,
             session_source,
             originator,
             config.model_verbosity,
