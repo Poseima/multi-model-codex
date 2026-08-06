@@ -725,7 +725,8 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
                 workspace_roots: Vec::new(),
             }]),
             thread_extension_init: Default::default(),
-            supports_openai_form_elicitation: false,
+            prompt_profile_override: PromptProfileOverride::Inherit,
+            client_mcp_extensions: ClientMcpExtensions::default(),
         })
         .await;
     let err = match result {
