@@ -6,6 +6,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use codex_protocol::protocol::SkillScope;
 use codex_utils_plugins::PluginSkillRoot;
 use futures::StreamExt;
 use tokio::sync::Semaphore;
