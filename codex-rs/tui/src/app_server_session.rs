@@ -3432,6 +3432,8 @@ mod tests {
             thread_id,
             ThreadParamsMode::Remote,
             /*remote_cwd_override*/ None,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
         );
 
         assert_eq!(params.base_instructions, None);

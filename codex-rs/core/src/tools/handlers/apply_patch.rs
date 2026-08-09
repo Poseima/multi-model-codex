@@ -560,7 +560,7 @@ pub(super) async fn execute_verified_patch(
     let (file_paths, effective_additional_permissions, file_system_sandbox_policy) =
         effective_patch_permissions(
             tool_ctx.session.as_ref(),
-            tool_ctx.turn.as_ref(),
+            tool_ctx.step_context.turn.as_ref(),
             &turn_environment,
             &action,
             cwd,
