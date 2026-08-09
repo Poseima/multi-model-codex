@@ -122,6 +122,7 @@ impl StructuredEditHandler {
         let ToolInvocation {
             session,
             turn,
+            step_context,
             tracker,
             call_id,
             tool_name,
@@ -202,7 +203,7 @@ impl StructuredEditHandler {
             codex_apply_patch::MaybeApplyPatchVerified::Body(action) => {
                 let tool_ctx = ToolCtx {
                     session,
-                    turn,
+                    step_context,
                     call_id,
                     tool_name,
                 };
