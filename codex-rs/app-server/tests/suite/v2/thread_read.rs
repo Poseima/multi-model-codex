@@ -528,8 +528,6 @@ async fn thread_search_occurrences_reads_paginated_projection() -> Result<()> {
             dynamic_tools: Vec::new(),
             selected_capability_roots: Vec::new(),
             multi_agent_version: None,
-            prompt_profile: None,
-            prompt_profile_path: None,
             history_mode: codex_protocol::protocol::ThreadHistoryMode::Paginated,
             history_base: None,
             subagent_history_start_ordinal: None,
