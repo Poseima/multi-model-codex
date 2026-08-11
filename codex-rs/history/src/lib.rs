@@ -13,6 +13,7 @@ use codex_protocol::mcp::McpResourceOriginCheckpoint;
 use codex_protocol::models::BaseInstructions;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::ResponseItem;
+use codex_protocol::prompt_profile::PromptSource;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::InterAgentCommunication;
 use codex_protocol::protocol::MultiAgentVersion;
@@ -364,6 +365,16 @@ impl InitialHistory {
                 _ => None,
             }),
         }
+    }
+
+    pub fn get_prompt_profile(&self) -> Option<PromptSource> {
+        self.get_session_meta()
+            .and_then(|meta| meta.prompt_profile.clone())
+    }
+
+    pub fn get_prompt_profile_path(&self) -> Option<PathBuf> {
+        self.get_session_meta()
+            .and_then(|meta| meta.prompt_profile_path.clone())
     }
 
     pub fn get_selected_capability_roots(&self) -> Vec<SelectedCapabilityRoot> {
