@@ -218,7 +218,13 @@ async fn wait_for_redirected_followup_delivery(
         .unwrap_or(&expected.content);
     timeout(Duration::from_secs(5), async {
         loop {
-            let history_items = thread.session.clone_history().await.raw_items().to_vec();
+            let history_items = thread
+                .session
+                .clone_history()
+                .await
+                .raw_items()
+                .cloned()
+                .collect::<Vec<_>>();
             let saw_user_message = !visible_message_content.is_empty()
                 && history_items.iter().any(|item| {
                     matches!(
