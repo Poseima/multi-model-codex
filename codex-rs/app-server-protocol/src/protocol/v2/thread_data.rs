@@ -336,7 +336,12 @@ struct ThreadCompatibility {
     agent_role: Option<String>,
     git_info: Option<GitInfo>,
     name: Option<String>,
+    #[serde(default)]
     daybreak_enabled: Option<bool>,
+    #[serde(default)]
+    prompt_profile: Option<PromptSource>,
+    #[serde(default)]
+    prompt_profile_path: Option<PathBuf>,
     turns: Vec<Turn>,
 }
 
@@ -378,6 +383,8 @@ impl<'de> Deserialize<'de> for Thread {
             git_info: thread.git_info,
             name: thread.name,
             daybreak_enabled: thread.daybreak_enabled,
+            prompt_profile: thread.prompt_profile,
+            prompt_profile_path: thread.prompt_profile_path,
             turns: thread.turns,
         })
     }

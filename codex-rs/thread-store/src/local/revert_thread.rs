@@ -163,6 +163,8 @@ async fn create_replacement_recorder(
         source_meta.thread_source,
         source_meta.originator,
         source_meta.base_instructions.unwrap_or_default(),
+        source_meta.prompt_profile,
+        source_meta.prompt_profile_path,
         source_meta.dynamic_tools.unwrap_or_default(),
     )
     .with_session_id(source_meta.session_id)

@@ -723,6 +723,7 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
                 environment_id: "local".to_string(),
                 cwd: PathUri::from_abs_path(&config.cwd),
                 workspace_roots: Vec::new(),
+                config: EnvironmentConfigState::FromThread,
             }]),
             thread_extension_init: Default::default(),
             prompt_profile_override: PromptProfileOverride::Inherit,
