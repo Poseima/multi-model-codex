@@ -338,8 +338,11 @@ struct ThreadCompatibility {
     agent_role: Option<String>,
     git_info: Option<GitInfo>,
     name: Option<String>,
+    #[serde(default)]
     daybreak_enabled: Option<bool>,
+    #[serde(default)]
     prompt_profile: Option<PromptSource>,
+    #[serde(default)]
     prompt_profile_path: Option<PathBuf>,
     turns: Vec<Turn>,
 }
