@@ -53,6 +53,7 @@ pub(super) async fn load_config_layers_internal(
         return Ok(LoadedConfigLayers {
             managed_config: None,
             managed_config_from_mdm: None,
+            startup_warnings: Vec::new(),
         });
     }
 
