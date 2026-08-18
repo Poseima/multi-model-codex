@@ -244,6 +244,8 @@ fn overview_thread(
         model_provider: "openai".to_string(),
         model: None,
         reasoning_effort: None,
+        prompt_profile: None,
+        prompt_profile_path: None,
         created_at: *OVERVIEW_TIMESTAMP,
         updated_at: *OVERVIEW_TIMESTAMP,
         recency_at: Some(*OVERVIEW_TIMESTAMP),
