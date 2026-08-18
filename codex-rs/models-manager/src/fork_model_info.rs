@@ -31,6 +31,7 @@ fn model_messages(instructions_template: &str) -> Option<ModelMessages> {
         permissions: None,
         multi_agent: None,
         token_budget: None,
+        guardian_v2: None,
     })
 }
 

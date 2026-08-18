@@ -41,6 +41,8 @@ fn overview_thread(
         section_entered_at: None,
         history_mode: Default::default(),
         model_provider: "openai".to_string(),
+        prompt_profile: None,
+        prompt_profile_path: None,
         created_at: *OVERVIEW_TIMESTAMP,
         updated_at: *OVERVIEW_TIMESTAMP,
         recency_at: Some(*OVERVIEW_TIMESTAMP),

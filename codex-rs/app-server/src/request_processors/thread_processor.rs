@@ -2166,6 +2166,7 @@ impl ThreadRequestProcessor {
                 config,
                 thread_history,
                 self.auth_manager.clone(),
+                /*persist_extended_history*/ false,
                 self.request_trace_context(request_id).await,
                 client_mcp_extensions,
             )
