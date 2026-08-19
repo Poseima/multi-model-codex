@@ -1034,6 +1034,7 @@ fn webrtc_sideband_session_ended(err: &ApiError) -> bool {
     )
 }
 
+#[cfg(test)]
 fn map_realtime_websocket_connect_error(err: WsError) -> ApiError {
     match err {
         WsError::Http(response) => ApiError::Api {
