@@ -1062,7 +1062,7 @@ async fn handle_response_item_records_tool_result_for_exec_command_call() {
 
 #[tokio::test]
 #[traced_test]
-async fn handle_response_item_records_tool_result_for_local_shell_missing_ids() {
+async fn handle_response_item_records_tool_result_for_local_shell_generated_id() {
     let server = start_mock_server().await;
 
     mount_sse_once(
@@ -1120,7 +1120,8 @@ async fn handle_response_item_records_tool_result_for_local_shell_missing_ids() 
             .find(|line| {
                 line.contains("codex.tool_result")
                     && line.contains(&"tool_name=local_shell".to_string())
-                    && line.contains("output=LocalShellCall without call_id or id")
+                    && line.contains("call_id=lsh_")
+                    && line.contains("output=LocalShellCall status=Completed")
             })
             .ok_or_else(|| "missing codex.tool_result event".to_string())?;
 

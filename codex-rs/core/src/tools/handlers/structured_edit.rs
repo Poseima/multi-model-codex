@@ -11,6 +11,7 @@ use crate::tools::handlers::parse_arguments;
 use crate::tools::registry::CoreToolRuntime;
 use crate::tools::registry::ToolExecutor;
 use crate::tools::sandboxing::ToolCtx;
+use codex_exec_server::ReadFileOptions;
 use codex_tools::JsonSchema;
 use codex_tools::ResponsesApiTool;
 use codex_tools::ToolName;
@@ -172,7 +173,7 @@ impl StructuredEditHandler {
                     ))
                 })?;
                 let file_content = fs
-                    .read_file_text(&file_path, Some(&sandbox))
+                    .read_file_text(&file_path, ReadFileOptions::default(), Some(&sandbox))
                     .await
                     .map_err(|e| {
                         FunctionCallError::RespondToModel(format!(

@@ -6,6 +6,7 @@ use codex_extension_api::ExtensionData;
 use codex_protocol::ResponseItemId;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::items::TurnItem;
+use codex_tools::ToolName;
 use codex_utils_stream_parser::strip_citations;
 use tokio_util::sync::CancellationToken;
 
@@ -593,8 +594,9 @@ fn record_local_shell_tool_result(sess: &Session, item: &ResponseItem) {
         format!("LocalShellCall status={status:?}")
     };
 
+    let tool_name = ToolName::plain("local_shell");
     sess.services.session_telemetry.tool_result_with_tags(
-        "local_shell",
+        &tool_name,
         call_id,
         &arguments,
         Duration::ZERO,
