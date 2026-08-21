@@ -46,7 +46,7 @@ macro_rules! fork_model_info {
             description: None,
             default_reasoning_level: None,
             supported_reasoning_levels: Vec::new(),
-            shell_type: ConfigShellToolType::Default,
+            shell_type: ConfigShellToolType::UnifiedExec,
             visibility: ModelVisibility::None,
             supported_in_api: true,
             priority: 99,
@@ -100,7 +100,7 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
             slug,
             model_messages: model_messages(BASE_INSTRUCTIONS_WITH_TEXT_EDITOR),
             apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
-            shell_type: ConfigShellToolType::ShellCommand,
+            shell_type: ConfigShellToolType::UnifiedExec,
             supports_reasoning_summary_parameter: false,
             context_window: Some(200_000),
         ));
@@ -117,7 +117,7 @@ pub(crate) fn fork_model_info_for_slug(slug: &str) -> Option<ModelInfo> {
             slug,
             model_messages: model_messages(BASE_INSTRUCTIONS_WITH_TEXT_EDITOR),
             apply_patch_tool_type: Some(ApplyPatchToolType::Structured),
-            shell_type: ConfigShellToolType::ShellCommand,
+            shell_type: ConfigShellToolType::UnifiedExec,
             context_window: Some(ctx),
         ));
     }
