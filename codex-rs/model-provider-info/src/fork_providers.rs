@@ -33,9 +33,9 @@ fn create_openrouter_provider() -> ModelProviderInfo {
             [
                 (
                     "HTTP-Referer".to_string(),
-                    "https://github.com/openai/codex".to_string(),
+                    "https://github.com/openai/codex".into(),
                 ),
-                ("X-Title".to_string(), "Codex CLI".to_string()),
+                ("X-Title".to_string(), "Codex CLI".into()),
             ]
             .into_iter()
             .collect(),
