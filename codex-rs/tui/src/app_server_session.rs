@@ -2977,6 +2977,7 @@ mod tests {
             ThreadParamsMode::Remote,
             /*remote_cwd_override*/ None,
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
 
         let overrides = params.config.expect("config overrides");
