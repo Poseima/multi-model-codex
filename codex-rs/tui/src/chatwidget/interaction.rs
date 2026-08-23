@@ -175,11 +175,6 @@ impl ChatWidget {
             {
                 if self.blocks_direct_input {
                     self.add_error_message(PARENT_OWNED_INPUT_MESSAGE.to_string());
-                } else if self.should_show_plan_mode_nudge()
-                    && let Some(plan_mask) =
-                        collaboration_modes::plan_mask(self.model_catalog.as_ref())
-                {
-                    self.set_collaboration_mask(plan_mask);
                 } else {
                     self.cycle_collaboration_mode();
                 }

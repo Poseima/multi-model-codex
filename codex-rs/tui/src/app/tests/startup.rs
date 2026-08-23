@@ -950,6 +950,8 @@ async fn known_thread_started_preserves_session_without_reading_unmaterialized_r
             model_provider: "notification-provider".to_string(),
             model: None,
             reasoning_effort: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             created_at: 1,
             updated_at: 2,
             recency_at: Some(2),
