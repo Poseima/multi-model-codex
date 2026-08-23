@@ -614,7 +614,9 @@ mod tests {
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
-                call_id: "call-a".to_string(),
+                call_id: Some("call-a".to_string()),
+                name: None,
+                namespace: None,
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("A".to_string()),
                     success: None,
@@ -623,7 +625,9 @@ mod tests {
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
-                call_id: "call-b".to_string(),
+                call_id: Some("call-b".to_string()),
+                name: None,
+                namespace: None,
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("B".to_string()),
                     success: None,
@@ -632,7 +636,9 @@ mod tests {
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
-                call_id: "call-c".to_string(),
+                call_id: Some("call-c".to_string()),
+                name: None,
+                namespace: None,
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("C".to_string()),
                     success: None,
@@ -843,7 +849,9 @@ mod tests {
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
-                call_id: "call-1".to_string(),
+                call_id: Some("call-1".to_string()),
+                name: None,
+                namespace: None,
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::ContentItems(vec![
                         FunctionCallOutputContentItem::EncryptedContent {
@@ -916,7 +924,9 @@ mod tests {
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
-                call_id: "call-1".to_string(),
+                call_id: Some("call-1".to_string()),
+                name: None,
+                namespace: None,
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::ContentItems(vec![
                         FunctionCallOutputContentItem::InputAudio {
@@ -981,7 +991,9 @@ mod tests {
             },
             ResponseItem::FunctionCallOutput {
                 id: None,
-                call_id: "call-1".to_string(),
+                call_id: Some("call-1".to_string()),
+                name: None,
+                namespace: None,
                 output: FunctionCallOutputPayload {
                     body: FunctionCallOutputBody::Text("file.txt".to_string()),
                     success: None,
