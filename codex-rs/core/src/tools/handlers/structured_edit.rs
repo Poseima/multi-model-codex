@@ -124,6 +124,7 @@ impl StructuredEditHandler {
             session,
             turn,
             step_context,
+            cancellation_token,
             tracker,
             call_id,
             tool_name,
@@ -205,6 +206,7 @@ impl StructuredEditHandler {
                 let tool_ctx = ToolCtx {
                     session,
                     step_context,
+                    cancellation_token,
                     call_id,
                     tool_name,
                 };
