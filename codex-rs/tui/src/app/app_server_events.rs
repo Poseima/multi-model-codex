@@ -444,6 +444,7 @@ impl App {
                     app_server_client.thread_params_mode(),
                     app_server_client.remote_cwd_override(),
                     /*session_start_source*/ None,
+                    /*prompt_profile*/ None,
                 );
             app_server_client
                 .thread_tool_transport()

@@ -456,6 +456,7 @@ impl AppServerSession {
             self.thread_params_mode(),
             self.remote_cwd_override(),
             /*session_start_source*/ None,
+            /*prompt_profile*/ None,
         );
         self.dynamic_tool_mcp = Some(Arc::new(
             DynamicToolMcpServer::start(
