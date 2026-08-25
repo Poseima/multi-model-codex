@@ -404,6 +404,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
         session_source.clone(),
         "test_originator".to_string(),
         config.model_verbosity,
+        /*content_item_kinds_enabled*/ false,
         /*enable_request_compression*/ false,
         /*include_timing_metrics*/ false,
         /*beta_features_header*/ None,
