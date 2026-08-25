@@ -66,6 +66,8 @@ async fn timeline_pages_mix_items_and_resolve_the_opening_realtime_session() -> 
             parent_thread_id: None,
             source: SessionSource::Cli,
             thread_source: None,
+            prompt_profile: None,
+            prompt_profile_path: None,
             originator: "test_originator".to_string(),
             base_instructions: BaseInstructions::default(),
             dynamic_tools: Vec::new(),
