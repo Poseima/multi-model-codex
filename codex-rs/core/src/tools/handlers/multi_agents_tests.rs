@@ -1987,7 +1987,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
             assert!(ops_for_agent.iter().any(|op| {
                 matches!(
                     op,
-                    Op::InterAgentCommunication { communication }
+                    Op::InterAgentCommunication { communication, .. }
                         if communication.author == AgentPath::root()
                             && communication.recipient.as_str() == "/root/worker"
                             && communication.other_recipients.is_empty()
