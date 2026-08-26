@@ -5,6 +5,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use codex_app_server_protocol::GitSha;
+use codex_protocol::SanitizedGitUrl;
 use codex_protocol::protocol::GitInfo;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use futures::future::join_all;
@@ -96,7 +97,7 @@ pub async fn collect_git_info(cwd: &Path) -> Option<GitInfo> {
         && output.status.success()
         && let Ok(url) = String::from_utf8(output.stdout)
     {
-        git_info.repository_url = Some(url.trim().to_string());
+        git_info.repository_url = SanitizedGitUrl::try_from(url.trim()).ok();
     }
 
     Some(git_info)
@@ -931,10 +932,9 @@ mod tests {
             .expect("Failed to read remote url");
         // Some dev environments rewrite remotes (e.g., force SSH), so compare against
         // whatever URL Git reports instead of a fixed placeholder.
-        let expected_remote = String::from_utf8(remote_url_output.stdout)
-            .unwrap()
-            .trim()
-            .to_string();
+        let expected_remote =
+            SanitizedGitUrl::try_from(String::from_utf8(remote_url_output.stdout).unwrap().trim())
+                .unwrap();
 
         // Should have repository URL
         assert_eq!(git_info.repository_url, Some(expected_remote));
@@ -1257,7 +1257,9 @@ mod tests {
         let git_info = GitInfo {
             commit_hash: Some(GitSha::new("abc123def456")),
             branch: Some("main".to_string()),
-            repository_url: Some("https://github.com/example/repo.git".to_string()),
+            repository_url: Some(
+                SanitizedGitUrl::try_from("https://github.com/example/repo.git").unwrap(),
+            ),
         };
 
         let json = serde_json::to_string(&git_info).expect("Should serialize GitInfo");
