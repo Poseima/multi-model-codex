@@ -3974,9 +3974,10 @@ mod tests {
         let alias_missing = alias_root.join("missing.txt");
         let policy = FileSystemSandboxPolicy::restricted(vec![FileSystemSandboxEntry {
             path: FileSystemPath::Path {
-                path: canonical_root,
+                path: canonical_root.into(),
             },
             access: FileSystemAccessMode::Write,
+            missing_path_behavior: None,
         }]);
 
         assert_eq!(
