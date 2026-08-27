@@ -23,6 +23,7 @@ const CONTEXT_WINDOW_272K: i64 = 272_000;
 
 fn model_messages(instructions_template: &str) -> Option<ModelMessages> {
     Some(ModelMessages {
+        persistent_instructions: None,
         instructions_template: Some(instructions_template.to_string()),
         instructions_variables: None,
         approvals: None,
@@ -31,6 +32,7 @@ fn model_messages(instructions_template: &str) -> Option<ModelMessages> {
         permissions: None,
         multi_agent: None,
         token_budget: None,
+        confirmation_policies: None,
         guardian_v2: None,
     })
 }
