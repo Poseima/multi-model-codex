@@ -2055,7 +2055,7 @@ impl Session {
             self.services.attestation_provider.clone(),
             config.http_client_factory(),
         )
-        .with_prompt_cache_key_override(prompt_cache_key_override);
+        .with_session_context(prompt_cache_key_override, self.tx_event.clone());
         self.services.model_client.replace(model_client);
     }
 

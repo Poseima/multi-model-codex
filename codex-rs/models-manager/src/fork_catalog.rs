@@ -114,6 +114,7 @@ fn minimax_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         auto_review_model_override: None,
         model_specialty: None,
         multi_agent_version: None,
+        multi_agent_reasoning_effort: None,
     }
 }
 
@@ -161,6 +162,7 @@ fn zhipu_model(slug: &str, context_window: i64, priority: i32) -> ModelInfo {
         auto_review_model_override: None,
         model_specialty: None,
         multi_agent_version: None,
+        multi_agent_reasoning_effort: None,
     }
 }
 

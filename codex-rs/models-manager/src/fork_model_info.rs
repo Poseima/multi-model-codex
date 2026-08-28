@@ -85,6 +85,7 @@ macro_rules! fork_model_info {
             auto_review_model_override: None,
             model_specialty: None,
             multi_agent_version: None,
+            multi_agent_reasoning_effort: None,
         };
 
         $(

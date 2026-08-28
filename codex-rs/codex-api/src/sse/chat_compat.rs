@@ -131,6 +131,7 @@ async fn process_chat_sse_with_format<S>(
             .send(Ok(ResponseEvent::Completed {
                 response_id: String::new(),
                 token_usage,
+                usage_metadata: None,
                 end_turn: None,
             }))
             .await;

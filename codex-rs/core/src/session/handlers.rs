@@ -88,6 +88,7 @@ async fn update_provider(sess: &Arc<Session>, sub_id: String, provider_id: Strin
             msg: EventMsg::Error(ErrorEvent {
                 message: format!("invalid provider override: {error}"),
                 codex_error_info: Some(CodexErrorInfo::BadRequest),
+                misalignment: None,
             }),
         })
         .await;
