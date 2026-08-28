@@ -2665,14 +2665,6 @@
       ],
       "type": "string"
     },
-    "RealtimeConversationVersion": {
-      "enum": [
-        "v1",
-        "v2",
-        "v3"
-      ],
-      "type": "string"
-    },
     "PromptDepthPrompt": {
       "properties": {
         "content": {
