@@ -1731,7 +1731,7 @@ impl ModelClientSession {
                             session_telemetry,
                             &self.client.state.provider,
                             self.client.event_sender.as_ref(),
-                            responses_metadata.turn_id.as_deref(),
+                            None,
                         )
                         .await?,
                     );
@@ -1851,6 +1851,8 @@ impl ModelClientSession {
                             &mut provider_auth_recovery_attempted,
                             session_telemetry,
                             &self.client.state.provider,
+                            self.client.event_sender.as_ref(),
+                            None,
                         )
                         .await?,
                     );
