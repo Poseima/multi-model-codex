@@ -223,6 +223,8 @@ mod tests {
             status: "completed".into(),
             revised_prompt: Some("final prompt".into()),
             result: "Zm9v".into(),
+            transparent_background: None,
+            failure: None,
             saved_path: None,
         });
 
