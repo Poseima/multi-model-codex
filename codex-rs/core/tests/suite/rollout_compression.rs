@@ -13,7 +13,6 @@ use codex_core::TurnInputRequest;
 use codex_features::Feature;
 use codex_history::InitialHistory;
 use codex_history::ResumedHistory;
-use codex_protocol::mcp::ClientMcpExtensions;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::Op;
 use codex_protocol::protocol::ThreadHistoryMode;
@@ -176,8 +175,9 @@ async fn compressed_shared_fork_resume_preserves_checkpoint_and_frozen_history()
             codex_core::test_support::auth_manager_from_auth(codex_login::CodexAuth::from_api_key(
                 "dummy",
             )),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
-            ClientMcpExtensions::default(),
+            Default::default(),
         )
         .await?;
     let followup = turn(
