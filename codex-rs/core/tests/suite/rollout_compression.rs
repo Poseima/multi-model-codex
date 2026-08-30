@@ -9,11 +9,11 @@ use std::time::SystemTime;
 use anyhow::Context;
 use anyhow::Result;
 use codex_core::CodexThread;
+use codex_core::ForkThreadHistoryOptions;
 use codex_core::TurnInputRequest;
 use codex_features::Feature;
 use codex_history::InitialHistory;
 use codex_history::ResumedHistory;
-use codex_protocol::mcp::ClientMcpExtensions;
 use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::Op;
 use codex_protocol::protocol::ThreadHistoryMode;
@@ -90,10 +90,7 @@ async fn compressed_shared_fork_resume_preserves_checkpoint_and_frozen_history()
         .fork_prepared_thread(
             test.config.clone(),
             prepared,
-            /*thread_source*/ None,
-            /*parent_trace*/ None,
-            ClientMcpExtensions::default(),
-            /*reserved_thread_id*/ None,
+            ForkThreadHistoryOptions::default(),
         )
         .await?;
     turn(
@@ -180,8 +177,9 @@ async fn compressed_shared_fork_resume_preserves_checkpoint_and_frozen_history()
             codex_core::test_support::auth_manager_from_auth(codex_login::CodexAuth::from_api_key(
                 "dummy",
             )),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
-            ClientMcpExtensions::default(),
+            Default::default(),
         )
         .await?;
     let followup = turn(

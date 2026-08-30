@@ -353,6 +353,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         session_id: conversation_id.into(),
         id: conversation_id,
         forked_from_id: None,
+        forked_from_ordinal_exclusive: None,
         parent_thread_id: None,
         timestamp: meta_rfc3339.to_string(),
         cwd: PathBuf::from("/"),
