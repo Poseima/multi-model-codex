@@ -170,6 +170,7 @@ fn auth_profile_description(auth: &AuthDotJson) -> String {
         Some(AuthMode::AgentIdentity) => "Agent identity",
         Some(AuthMode::PersonalAccessToken) => "Personal access token",
         Some(AuthMode::BedrockApiKey) => "Bedrock API key",
+        Some(AuthMode::BedrockAccessKeys) => "Bedrock access keys",
         None => {
             if auth.openai_api_key.is_some() {
                 "API key"
@@ -243,6 +244,7 @@ mod tests {
             agent_identity: None,
             personal_access_token: None,
             bedrock_api_key: None,
+            bedrock_access_keys: None,
         };
 
         assert_eq!(auth_profile_description(&auth), "Header authentication");
