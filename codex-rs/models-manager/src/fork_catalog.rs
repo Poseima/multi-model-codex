@@ -22,6 +22,7 @@ const BASE_INSTRUCTIONS_WITH_TEXT_EDITOR: &str =
 fn model_messages(instructions_template: &str) -> Option<ModelMessages> {
     Some(ModelMessages {
         persistent_instructions: None,
+        tools: None,
         instructions_template: Some(instructions_template.to_string()),
         instructions_variables: None,
         approvals: None,
