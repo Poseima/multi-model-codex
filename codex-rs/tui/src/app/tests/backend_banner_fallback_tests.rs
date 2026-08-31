@@ -53,9 +53,14 @@ async fn backend_banner_fallback_updates_task_settings_and_keeps_notice() -> Res
         let thread_id = app.active_thread_id.expect("active fallback thread");
         app.chat_widget
             .set_reasoning_effort(Some(ReasoningEffortConfig::Medium));
+        let default_mode_kind = app.chat_widget.effective_collaboration_mode().mode;
         if mode_kind == ModeKind::Plan {
-            app.chat_widget
-                .handle_key_event(KeyEvent::from(KeyCode::BackTab));
+            let plan_mask = crate::collaboration_modes::mask_for_kind(
+                app.chat_widget.model_catalog().as_ref(),
+                ModeKind::Plan,
+            )
+            .expect("plan mode exists");
+            app.chat_widget.set_collaboration_mask(plan_mask);
             app.chat_widget
                 .set_plan_mode_reasoning_effort(Some(ReasoningEffortConfig::High));
         }
@@ -64,7 +69,12 @@ async fn backend_banner_fallback_updates_task_settings_and_keeps_notice() -> Res
         app.chat_widget
             .set_service_tier(Some(ServiceTier::Fast.request_value().to_string()));
         let mut expected_mode = app.chat_widget.effective_collaboration_mode();
-        assert_eq!(expected_mode.mode, mode_kind);
+        let expected_mode_kind = if mode_kind == ModeKind::Plan {
+            ModeKind::Plan
+        } else {
+            default_mode_kind
+        };
+        assert_eq!(expected_mode.mode, expected_mode_kind);
         expected_mode.settings.model = "gpt-5.2".into();
         expected_mode.settings.reasoning_effort = Some(ReasoningEffortConfig::Medium);
         let default_model = app.config.model.clone();
@@ -157,9 +167,19 @@ async fn backend_banner_fallback_updates_task_settings_and_keeps_notice() -> Res
         assert_eq!(std::fs::read(&config_path).ok(), saved_config);
         if mode_kind == ModeKind::Plan {
             let chat = &mut app.chat_widget;
-            chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
-            assert_eq!(chat.active_collaboration_mode_kind(), ModeKind::Default);
-            chat.handle_key_event(KeyEvent::from(KeyCode::BackTab));
+            let default_mask = crate::collaboration_modes::mask_for_kind(
+                chat.model_catalog().as_ref(),
+                default_mode_kind,
+            )
+            .expect("default mode exists");
+            chat.set_collaboration_mask(default_mask);
+            assert_eq!(chat.active_collaboration_mode_kind(), default_mode_kind);
+            let plan_mask = crate::collaboration_modes::mask_for_kind(
+                chat.model_catalog().as_ref(),
+                ModeKind::Plan,
+            )
+            .expect("plan mode exists");
+            chat.set_collaboration_mask(plan_mask);
         }
         app.chat_widget
             .restore_user_message_to_composer(UserMessage::from("continue"));
