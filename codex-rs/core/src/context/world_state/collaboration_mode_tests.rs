@@ -144,6 +144,8 @@ fn dawn_mode_uses_legacy_instructions_when_catalog_messages_exist() {
     let state = CollaborationModeState::from_collaboration_mode(
         &collaboration_mode(ModeKind::Dawn, Some("dawn instructions")),
         Some(&messages),
+        /*update_plan_enabled*/ true,
+        /*custom_model_catalog*/ false,
     );
 
     assert_eq!(state.instructions.as_deref(), Some("dawn instructions"));
