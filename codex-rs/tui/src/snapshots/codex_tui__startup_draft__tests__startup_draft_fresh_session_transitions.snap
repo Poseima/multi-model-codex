@@ -14,7 +14,7 @@ before:
 
 › draft while loading
 
-
+                             100% context left
 after:
 ╭───────────────────────────────────────╮
 │ >_ OpenAI Codex (v<VERSION>)              │
@@ -26,7 +26,7 @@ after:
 
 › draft while loading
 
-
+                             100% context left
 ---
 fork lookup fallback:
 before:
@@ -40,7 +40,7 @@ before:
 
 › draft while loading
 
-
+                             100% context left
 after:
 ╭───────────────────────────────────────╮
 │ >_ OpenAI Codex (v<VERSION>)              │
@@ -52,7 +52,7 @@ after:
 
 › draft while loading
 
-
+                             100% context left
 ---
 resume picker cancellation:
 before:
@@ -68,7 +68,7 @@ after:
 
 › Ask Codex to do anything
 
-  ? for shortcuts
+  ? for shortcuts            100% context left
 ---
 fork picker cancellation:
 before:
@@ -84,4 +84,4 @@ after:
 
 › Ask Codex to do anything
 
-  ? for shortcuts
+  ? for shortcuts            100% context left
