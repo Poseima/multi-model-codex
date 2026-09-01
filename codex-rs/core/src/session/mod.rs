@@ -41,7 +41,6 @@ use crate::parse_turn_item;
 use crate::prompt_profile_loader::PromptProfileOverride;
 use crate::realtime_conversation::RealtimeConversationManager;
 use crate::realtime_history::RealtimeEventOrder;
-use crate::resolve_installation_id;
 use crate::session::step_context::StepContext;
 use crate::session::step_settings::ResolvedStepSettings;
 use crate::session::step_settings::StepSettings;

@@ -13,7 +13,7 @@ empty (48 columns):
 
 › Ask Codex to do anything
 
-  ? for shortcuts
+  ? for shortcuts            100% context left
 ---
 resuming (48 columns):
 ╭───────────────────────────────────────╮
@@ -26,7 +26,7 @@ resuming (48 columns):
 
 › Ask Codex to do anything
 
-  ? for shortcuts
+  ? for shortcuts            100% context left
 ---
 forking (48 columns):
 ╭───────────────────────────────────────╮
@@ -39,7 +39,7 @@ forking (48 columns):
 
 › draft while loading
 
-
+                             100% context left
 ---
 multiline (48 columns):
 ╭───────────────────────────────────────╮
@@ -53,7 +53,7 @@ multiline (48 columns):
 › first startup line
   second startup line
 
-
+                             100% context left
 ---
 narrow (18 columns):
 ╭────────────────╮
@@ -68,3 +68,5 @@ narrow (18 columns):
   line
   second startup
   line
+
+  100% context lef
