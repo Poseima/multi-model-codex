@@ -301,9 +301,7 @@ pub(super) async fn effective_patch_permissions(
 ) {
     let environment_id = environment.selection.environment_id.as_str();
     let file_paths = file_paths_for_action(action);
-    let granted_turn_permissions = session
-        .granted_turn_permissions_for_sub_id(turn_id)
-        .await;
+    let granted_turn_permissions = session.granted_turn_permissions_for_sub_id(turn_id).await;
     let granted_permissions = merge_permission_profiles(
         session
             .granted_session_permissions(environment_id)

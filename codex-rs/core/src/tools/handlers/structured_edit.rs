@@ -212,14 +212,9 @@ impl StructuredEditHandler {
                     call_id,
                     tool_name,
                 };
-                let content = execute_verified_patch(
-                    action,
-                    &cwd_uri,
-                    turn_environment,
-                    Some(&tracker),
-                    tool_ctx,
-                )
-                .await?;
+                let content =
+                    execute_verified_patch(action, turn_environment, Some(&tracker), tool_ctx)
+                        .await?;
                 Ok(boxed_tool_output(FunctionToolOutput::from_text(
                     content,
                     Some(true),
