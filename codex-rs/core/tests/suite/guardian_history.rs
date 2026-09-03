@@ -144,6 +144,7 @@ async fn guardian_history_survives_restart_and_user_fork(
             initial.config.clone(),
             history,
             initial.thread_manager.auth_manager(),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
