@@ -4,6 +4,7 @@ use anyhow::Result;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use codex_core::ForkSnapshot;
+use codex_core::ForkThreadHistoryOptions;
 use codex_core::TurnInputRequest;
 use codex_core::config::Constrained;
 use codex_core::config::ThreadStoreConfig;
@@ -125,10 +126,7 @@ async fn guardian_history_survives_restart_and_user_fork(
             .fork_prepared_thread(
                 initial.config.clone(),
                 prepared,
-                /*thread_source*/ None,
-                /*parent_trace*/ None,
-                ClientMcpExtensions::default(),
-                /*reserved_thread_id*/ None,
+                ForkThreadHistoryOptions::default(),
             )
             .await?
     } else {
@@ -139,6 +137,7 @@ async fn guardian_history_survives_restart_and_user_fork(
                 initial.config.clone(),
                 history.clone(),
                 /*thread_source*/ None,
+                /*persist_extended_history*/ false,
                 /*parent_trace*/ None,
                 ClientMcpExtensions::default(),
                 /*reserved_thread_id*/ None,
@@ -151,6 +150,7 @@ async fn guardian_history_survives_restart_and_user_fork(
             initial.config.clone(),
             history,
             initial.thread_manager.auth_manager(),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )

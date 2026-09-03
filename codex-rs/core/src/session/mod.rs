@@ -2579,19 +2579,6 @@ impl Session {
             .map(|task| Arc::clone(&task.turn_context))
     }
 
-    pub(crate) async fn turn_state_for_sub_id(
-        &self,
-        sub_id: &str,
-    ) -> Option<Arc<Mutex<crate::state::TurnState>>> {
-        let active = self.active_turn.lock().await;
-        let active = active.as_ref()?;
-        active
-            .task
-            .as_ref()
-            .is_none_or(|task| task.turn_context.sub_id == sub_id)
-            .then(|| Arc::clone(&active.turn_state))
-    }
-
     async fn active_turn_context_and_cancellation_token(
         &self,
     ) -> Option<(Arc<TurnContext>, CancellationToken)> {
@@ -3279,23 +3266,6 @@ impl Session {
         let step_settings = turn_context.current_settings.load_full();
         let ts = active.turn_state.lock().await;
         Some((turn_context, step_settings, ts.strict_auto_review_enabled()))
-    }
-
-    pub(crate) async fn granted_turn_permissions_for_sub_id(
-        &self,
-        sub_id: &str,
-    ) -> Option<AdditionalPermissionProfile> {
-        let turn_state = self.turn_state_for_sub_id(sub_id).await?;
-        let ts = turn_state.lock().await;
-        ts.granted_permissions(codex_exec_server::LOCAL_ENVIRONMENT_ID)
-    }
-
-    pub(crate) async fn strict_auto_review_enabled_for_sub_id(&self, sub_id: &str) -> bool {
-        let Some(turn_state) = self.turn_state_for_sub_id(sub_id).await else {
-            return false;
-        };
-        let ts = turn_state.lock().await;
-        ts.strict_auto_review_enabled()
     }
 
     pub(crate) async fn granted_session_permissions(

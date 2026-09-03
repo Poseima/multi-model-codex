@@ -76,6 +76,7 @@ impl<'a> ChatRequestBuilder<'a> {
                 ResponseItem::ImageGenerationCall { .. } => last_emitted_role = Some("assistant"),
                 ResponseItem::AdditionalTools { .. }
                 | ResponseItem::AgentMessage { .. }
+                | ResponseItem::ConfigurationUpdate { .. }
                 | ResponseItem::Reasoning { .. }
                 | ResponseItem::Other => {}
                 ResponseItem::CustomToolCall { .. } => {}
@@ -351,6 +352,7 @@ impl<'a> ChatRequestBuilder<'a> {
                 }
                 ResponseItem::AdditionalTools { .. }
                 | ResponseItem::AgentMessage { .. }
+                | ResponseItem::ConfigurationUpdate { .. }
                 | ResponseItem::Reasoning { .. }
                 | ResponseItem::WebSearchCall { .. }
                 | ResponseItem::ImageGenerationCall { .. }

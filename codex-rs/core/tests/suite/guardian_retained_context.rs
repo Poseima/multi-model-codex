@@ -174,6 +174,7 @@ async fn resume(test: &TestCodex, thread: &CodexThread) -> Result<Arc<CodexThrea
                 rollout_path: None,
             }),
             test.thread_manager.auth_manager(),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
