@@ -2,12 +2,13 @@
 //!
 //! When enabled, platform system discovery is tried first, explicit environment
 //! proxies are the fallback, and the final fallback is a direct connection.
-//! When disabled, callers retain the existing reqwest builder behavior.
+//! When disabled, callers retain the existing reqwest builder behavior for non-loopback routes.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
@@ -247,7 +248,7 @@ impl HttpClientFactory {
             self.outbound_proxy_policy,
             OutboundProxyPolicy::ReqwestDefault
         ) {
-            return Ok(OutboundProxyRoute::TransportDefault);
+            return Ok(self.resolve_proxy_route(&request_url));
         }
 
         if let Some(route) = self.cached_proxy_route(&request_url) {
@@ -317,13 +318,18 @@ fn resolve_proxy_route(
     outbound_proxy_policy: OutboundProxyPolicy,
     resolve_system_proxy: impl FnOnce(&str, &RequestOrigin) -> SystemProxyDecision,
 ) -> OutboundProxyRoute {
+    let env_proxy_kind = EnvProxyKind::from_request_url(request_url);
+    let request_url = proxy_resolution_url(request_url);
+    let origin = RequestOrigin::parse(&request_url);
+    if origin.as_ref().is_some_and(RequestOrigin::is_loopback) {
+        return OutboundProxyRoute::Direct;
+    }
+
     if matches!(outbound_proxy_policy, OutboundProxyPolicy::ReqwestDefault) {
         return OutboundProxyRoute::TransportDefault;
     }
 
-    let env_proxy_kind = EnvProxyKind::from_request_url(request_url);
-    let request_url = proxy_resolution_url(request_url);
-    let Some(origin) = RequestOrigin::parse(&request_url) else {
+    let Some(origin) = origin else {
         return OutboundProxyRoute::Direct;
     };
 
@@ -515,6 +521,14 @@ impl RequestOrigin {
             _ => None,
         })?;
         Some(Self { scheme, host, port })
+    }
+
+    fn is_loopback(&self) -> bool {
+        self.host.eq_ignore_ascii_case("localhost")
+            || self
+                .host
+                .parse::<IpAddr>()
+                .is_ok_and(|address| address.is_loopback())
     }
 }
 

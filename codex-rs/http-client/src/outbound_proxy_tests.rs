@@ -188,6 +188,21 @@ fn reqwest_default_route_preserves_transport_proxy_behavior() {
     assert_eq!(route, OutboundProxyRoute::TransportDefault);
 }
 
+#[test]
+fn reqwest_default_route_bypasses_proxy_for_loopback() {
+    let env = MapEnv {
+        values: HashMap::from([("HTTP_PROXY".to_string(), "http://127.0.0.1:1".to_string())]),
+    };
+    let route = resolve_proxy_route(
+        &env,
+        "http://127.0.0.1:12345/mcp",
+        OutboundProxyPolicy::ReqwestDefault,
+        |_, _| panic!("default policy should not resolve system proxy settings"),
+    );
+
+    assert_eq!(route, OutboundProxyRoute::Direct);
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 fn macos_proxy_configuration_rejects_invalid_destination() {
