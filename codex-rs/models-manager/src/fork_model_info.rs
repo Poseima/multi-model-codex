@@ -47,6 +47,7 @@ macro_rules! fork_model_info {
             slug: $slug.to_string(),
             display_name: $slug.to_string(),
             description: None,
+            guardian: None,
             default_reasoning_level: None,
             supported_reasoning_levels: Vec::new(),
             shell_type: ConfigShellToolType::UnifiedExec,

@@ -327,7 +327,11 @@ impl App {
                     )
                     .await;
                     match app_server
-                        .fork_thread_clearing_prompt_profile(self.config.clone(), thread_id)
+                        .fork_thread_clearing_prompt_profile(
+                            &self.local_settings,
+                            self.config.clone(),
+                            thread_id,
+                        )
                         .await
                     {
                         Ok(forked) => {
@@ -392,7 +396,9 @@ impl App {
                     self.config = config.clone();
                     match app_server
                         .start_thread_with_session_start_source(
-                            &config, /*session_start_source*/ None,
+                            &self.local_settings,
+                            &config,
+                            /*session_start_source*/ None,
                             /*remote_cwd_override*/ None,
                         )
                         .await
