@@ -1987,6 +1987,7 @@ fn multi_agent_v2_followup_task_interrupts_busy_child_without_losing_message() {
                             text_elements: Vec::new(),
                         }],
                         client_id: None,
+                        acceptance_order: None,
                     }],
                     NeverEndingTask,
                 )

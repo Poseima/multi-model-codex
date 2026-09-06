@@ -751,6 +751,7 @@ async fn disabled_capture_stays_incomplete_after_compaction_and_enabled_resume()
                 rollout_path: None,
             }),
             test.thread_manager.auth_manager(),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )
