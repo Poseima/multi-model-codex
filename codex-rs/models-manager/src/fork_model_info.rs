@@ -81,6 +81,7 @@ macro_rules! fork_model_info {
             input_modalities: vec![InputModality::Text],
             used_fallback_model_metadata: false,
             supports_search_tool: false,
+            supports_experimental_context: false,
             use_responses_lite: false,
             node_repl_auto_review_required: false,
             node_repl_disabled: false,

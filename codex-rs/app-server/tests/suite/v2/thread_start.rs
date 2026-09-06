@@ -330,7 +330,7 @@ async fn thread_start_creates_thread_and_emits_started() -> Result<()> {
     let server = create_mock_responses_server_repeating_assistant("Done").await;
 
     let codex_home = TempDir::new()?;
-    create_config_toml(
+    create_config_toml_with_extra(
         codex_home.path(),
         &server.uri(),
         "sandbox_mode = \"read-only\"\nmodel_reasoning_effort = \"high\"",
