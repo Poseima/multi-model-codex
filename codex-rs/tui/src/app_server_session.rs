@@ -814,6 +814,7 @@ impl AppServerSession {
             session_start_source,
             remote_cwd_override,
             /*prompt_profile*/ None,
+            selected_profile,
         )
         .await
     }
@@ -830,6 +831,7 @@ impl AppServerSession {
             /*session_start_source*/ None,
             /*remote_cwd_override*/ None,
             prompt_profile,
+            /*selected_profile*/ None,
         )
         .await
     }
@@ -841,6 +843,7 @@ impl AppServerSession {
         session_start_source: Option<ThreadStartSource>,
         remote_cwd_override: Option<&std::path::Path>,
         prompt_profile: Option<PromptSource>,
+        selected_profile: Option<&PermissionProfileSelection>,
     ) -> Result<AppServerStartedThread> {
         let request_id = self.next_request_id();
         let session_config = self.session_config_with_effective_service_tier(config);
@@ -910,13 +913,15 @@ impl AppServerSession {
         thread_id: ThreadId,
         permission_mode: ForkPermissionMode,
     ) -> Result<AppServerStartedThread> {
-        self.fork_thread_at_with_presentation(
+        self.fork_thread_with_options(
             local_settings,
             config,
             thread_id,
             /*last_turn_id*/ None,
             /*before_turn_id*/ None,
             ForkGoalContinuation::StartIfIdle,
+            /*prompt_profile*/ None,
+            /*clear_prompt_profile*/ false,
             ForkPresentation::Regular,
             /*selected_profile*/ None,
             permission_mode,
@@ -993,6 +998,8 @@ impl AppServerSession {
             prompt_profile,
             /*clear_prompt_profile*/ false,
             ForkPresentation::Regular,
+            /*selected_profile*/ None,
+            ForkPermissionMode::InheritSaved,
         )
         .await
     }
@@ -1013,6 +1020,8 @@ impl AppServerSession {
             None,
             /*clear_prompt_profile*/ true,
             ForkPresentation::Regular,
+            /*selected_profile*/ None,
+            ForkPermissionMode::InheritSaved,
         )
         .await
     }
