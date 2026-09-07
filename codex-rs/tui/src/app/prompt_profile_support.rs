@@ -400,6 +400,7 @@ impl App {
                             &config,
                             /*session_start_source*/ None,
                             /*remote_cwd_override*/ None,
+                            /*selected_profile*/ None,
                         )
                         .await
                     {
