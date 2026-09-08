@@ -7499,6 +7499,7 @@ async fn backtrack_selection_preserves_data_image_urls_for_prompt_edit_branch() 
 
     let data_image_url = "data:image/png;base64,abc123".to_string();
     app.transcript_cells = vec![Arc::new(UserHistoryCell {
+        spoken: false,
         message: "please inspect this".to_string(),
         text_elements: Vec::new(),
         local_image_paths: Vec::new(),

@@ -826,6 +826,7 @@ async fn guardian_subagent_review_preserves_late_root_user_authorization(
                         rollout_path: None,
                     }),
                     test.thread_manager.auth_manager(),
+                    /*persist_extended_history*/ false,
                     /*parent_trace*/ None,
                     ClientMcpExtensions::default(),
                 )

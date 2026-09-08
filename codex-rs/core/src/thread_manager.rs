@@ -1131,6 +1131,8 @@ impl ThreadManager {
                 metrics_service_name: None,
                 parent_trace: None,
                 environments: Some(environments),
+                inherited_environments: None,
+                user_instructions: None,
                 thread_extension_init: ExtensionDataInit::default(),
                 prompt_profile_override: PromptProfileOverride::Inherit,
                 client_mcp_extensions: ClientMcpExtensions::default(),
