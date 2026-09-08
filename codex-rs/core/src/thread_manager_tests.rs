@@ -946,6 +946,8 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
                 workspace_roots: Vec::new(),
                 config: EnvironmentConfigState::FromThread,
             }]),
+            inherited_environments: None,
+            user_instructions: None,
             thread_extension_init: Default::default(),
             prompt_profile_override: PromptProfileOverride::Inherit,
             client_mcp_extensions: ClientMcpExtensions::default(),
