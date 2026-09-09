@@ -5162,7 +5162,7 @@ impl ThreadRequestProcessor {
 
         let fork_options = StartThreadOptions {
             thread_source,
-            persist_extended_history,
+            persist_extended_history: false,
             parent_trace,
             client_mcp_extensions,
             reserved_thread_id,
