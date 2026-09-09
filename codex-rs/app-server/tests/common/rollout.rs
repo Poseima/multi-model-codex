@@ -358,6 +358,7 @@ pub fn create_fake_rollout_with_prompt_profile(
         parent_thread_id: None,
         timestamp: meta_rfc3339.to_string(),
         cwd: PathBuf::from("/"),
+        runtime_workspace_roots: None,
         originator: "codex".to_string(),
         cli_version: "0.0.0".to_string(),
         source: SessionSource::Cli,
