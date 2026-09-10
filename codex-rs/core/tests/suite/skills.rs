@@ -2,8 +2,6 @@
 
 use anyhow::Result;
 use codex_core::StartIfIdleSubmission;
-use codex_core::StartThreadOptions;
-use codex_core::ThreadManager;
 use codex_core::TurnInput;
 use codex_core::TurnInputRequest;
 use codex_core::config::Config;
@@ -14,17 +12,11 @@ use codex_extension_api::ExtensionRegistryBuilder;
 use codex_extension_api::SkillInvocationContributor;
 use codex_extension_api::SkillInvocationInput;
 use codex_extension_api::SkillInvocationKind;
-use codex_extension_api::empty_extension_registry;
-use codex_http_client::HttpClientFactory;
-use codex_http_client::OutboundProxyPolicy;
-use codex_login::CodexAuth;
 use codex_protocol::config_types::CollaborationMode;
 use codex_protocol::config_types::ModeKind;
 use codex_protocol::config_types::Settings;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::protocol::AskForApproval;
-use codex_protocol::protocol::Op;
-use codex_protocol::protocol::SessionSource;
 use codex_protocol::protocol::ThreadSettingsOverrides;
 use codex_protocol::user_input::UserInput;
 use codex_skills_extension::SkillsExtensionConfig;
@@ -32,7 +24,6 @@ use codex_skills_extension::install;
 use codex_utils_absolute_path::AbsolutePathBuf;
 use codex_utils_path_uri::PathUri;
 use core_test_support::create_directory_symlink;
-use core_test_support::load_default_config_for_test;
 use core_test_support::responses::ev_assistant_message;
 use core_test_support::responses::ev_completed;
 use core_test_support::responses::ev_response_created;
@@ -51,7 +42,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tempfile::TempDir;
 
 #[derive(Default)]
 struct SkillInvocationRecorder(Mutex<Vec<(String, SkillInvocationKind)>>);

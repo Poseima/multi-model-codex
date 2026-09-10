@@ -2147,7 +2147,7 @@ impl Session {
             (
                 state.session_configuration.provider.info().clone(),
                 state.session_configuration.session_source.clone(),
-                state.session_configuration.parent_thread_id.clone(),
+                state.session_configuration.parent_thread_id,
                 state.session_configuration.originator.clone(),
                 Arc::clone(&state.session_configuration.original_config_do_not_use),
             )

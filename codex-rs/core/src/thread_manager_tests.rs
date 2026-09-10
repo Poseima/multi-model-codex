@@ -952,6 +952,7 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
             prompt_profile_override: PromptProfileOverride::Inherit,
             client_mcp_extensions: ClientMcpExtensions::default(),
             reserved_thread_id: None,
+            disabled_plugin_ids: None,
         })
         .await;
     let err = match result {

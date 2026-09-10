@@ -1733,6 +1733,7 @@ async fn explicit_history_runs_resume_session_start_hook() -> Result<()> {
             test.config.clone(),
             history,
             test.thread_manager.auth_manager(),
+            /*persist_extended_history*/ false,
             /*parent_trace*/ None,
             ClientMcpExtensions::default(),
         )

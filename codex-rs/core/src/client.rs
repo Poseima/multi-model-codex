@@ -1672,7 +1672,7 @@ impl ModelClientSession {
 
         let auth_manager = self.client.state.provider.auth_manager();
         let instructions = prompt.base_instructions.text.clone();
-        let input = prompt.get_formatted_input_for_request(model_info.use_responses_lite);
+        let input = prompt.get_formatted_input_for_request(model_info);
         let tools_json = create_tools_json_for_responses_api(&prompt.tools)?
             .into_iter()
             .filter_map(|mut tool| {
