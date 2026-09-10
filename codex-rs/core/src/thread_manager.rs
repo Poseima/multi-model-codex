@@ -1488,7 +1488,8 @@ impl ThreadManager {
     {
         let snapshot = snapshot.into();
         let history = self.initial_history_from_rollout_path(path).await?;
-        self.fork_thread_from_history(snapshot, options, history).await
+        self.fork_thread_from_history(snapshot, options, history)
+            .await
     }
 
     async fn initial_history_from_rollout_path(
