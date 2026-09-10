@@ -4,19 +4,17 @@
 /// Uses `std::sync::RwLock` internally. Read-side async methods clone the inner client
 /// before awaiting so the lock is never held across an `.await` point.
 use std::sync::Arc;
-use std::sync::OnceLock;
 use std::sync::RwLock;
 
 use codex_api::MemorySummarizeOutput as ApiMemorySummarizeOutput;
 use codex_api::RawMemory as ApiRawMemory;
+use codex_api::ResponsesApiRequest;
 use codex_login::AuthManager;
 use codex_otel::SessionTelemetry;
-use codex_protocol::models::ResponseItem;
+use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::openai_models::ModelInfo;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
-use codex_rollout_trace::CompactionTraceContext;
 
-use crate::client::CompactConversationRequestSettings;
 use crate::client::ModelClient;
 use crate::client::ModelClientSession;
 use crate::client_common::Prompt;
@@ -50,28 +48,24 @@ impl SwappableModelClient {
         self.inner.read().expect("lock poisoned").auth_manager()
     }
 
-    pub(crate) async fn compact_conversation_history(
+    pub(crate) fn build_responses_request(
         &self,
         prompt: &Prompt,
         model_info: &ModelInfo,
-        turn_state: Option<Arc<OnceLock<String>>>,
-        settings: CompactConversationRequestSettings,
-        session_telemetry: &SessionTelemetry,
-        compaction_trace: &CompactionTraceContext,
+        effort: Option<ReasoningEffortConfig>,
+        summary: ReasoningSummaryConfig,
+        service_tier: Option<String>,
         responses_metadata: &CodexResponsesMetadata,
-    ) -> Result<Vec<ResponseItem>> {
+    ) -> Result<ResponsesApiRequest> {
         let client = self.inner.read().expect("lock poisoned").clone();
-        client
-            .compact_conversation_history(
-                prompt,
-                model_info,
-                turn_state,
-                settings,
-                session_telemetry,
-                compaction_trace,
-                responses_metadata,
-            )
-            .await
+        client.build_responses_request(
+            prompt,
+            model_info,
+            effort,
+            summary,
+            service_tier,
+            responses_metadata,
+        )
     }
 
     /// Async: memory summarization. Same clone-then-release pattern.

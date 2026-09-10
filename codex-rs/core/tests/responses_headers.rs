@@ -368,7 +368,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
     config.model_provider_id = provider.name.clone();
     config.model_provider = provider.clone();
     let effort = config.model_reasoning_effort.clone();
-    let summary = config.model_reasoning_summary.clone();
+    let summary = config.model_reasoning_summary;
     let model = codex_core::test_support::get_model_offline(config.model.as_deref());
     config.model = Some(model.clone());
     let config = Arc::new(config);

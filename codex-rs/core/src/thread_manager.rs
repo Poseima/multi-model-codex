@@ -1137,6 +1137,7 @@ impl ThreadManager {
                 prompt_profile_override: PromptProfileOverride::Inherit,
                 client_mcp_extensions: ClientMcpExtensions::default(),
                 reserved_thread_id: None,
+                disabled_plugin_ids: None,
             },
             /*forked_from_thread_id*/ None,
             /*startup*/ None,
