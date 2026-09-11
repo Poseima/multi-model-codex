@@ -1121,6 +1121,7 @@ impl ThreadManager {
         Box::pin(self.start_thread_inner(
             StartThreadOptions {
                 config,
+                thread_instructions_provider: None,
                 allow_provider_model_fallback: false,
                 initial_history: InitialHistory::New,
                 history_mode: None,

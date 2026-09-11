@@ -932,6 +932,7 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
     let result = manager
         .start_thread_with_options(StartThreadOptions {
             config: config.clone(),
+            thread_instructions_provider: None,
             allow_provider_model_fallback: false,
             initial_history: InitialHistory::New,
             history_mode: None,
