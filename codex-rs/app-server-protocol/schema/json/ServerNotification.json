@@ -4524,9 +4524,11 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Saved prompt profile source, when a prompt profile is active."
         },
         "promptProfilePath": {
+          "description": "Path used to load the saved prompt profile, when known.",
           "type": [
             "string",
             "null"

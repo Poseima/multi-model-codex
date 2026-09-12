@@ -3873,7 +3873,7 @@ mod tests {
         for mode in [ThreadParamsMode::Embedded, ThreadParamsMode::Remote] {
             let start = thread_start_params_from_config(
                 &config, mode, /*remote_cwd_override*/ None,
-                /*session_start_source*/ None,
+                /*session_start_source*/ None, /*prompt_profile*/ None,
             );
             let resume = thread_resume_params_from_config(
                 config.clone(),
@@ -3887,6 +3887,8 @@ mod tests {
                 ThreadId::new(),
                 mode,
                 /*remote_cwd_override*/ None,
+                /*prompt_profile*/ None,
+                /*clear_prompt_profile*/ false,
             );
             for overrides in [start.config, resume.config, fork.config] {
                 assert_eq!(

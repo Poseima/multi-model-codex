@@ -11856,8 +11856,20 @@ class Thread(BaseModel):
             description="Canonical project assignment owned by app-server, if any.",
         ),
     ] = None
-    prompt_profile: Annotated[PromptSource | None, Field(alias="promptProfile")] = None
-    prompt_profile_path: Annotated[str | None, Field(alias="promptProfilePath")] = None
+    prompt_profile: Annotated[
+        PromptSource | None,
+        Field(
+            alias="promptProfile",
+            description="Saved prompt profile source, when a prompt profile is active.",
+        ),
+    ] = None
+    prompt_profile_path: Annotated[
+        str | None,
+        Field(
+            alias="promptProfilePath",
+            description="Path used to load the saved prompt profile, when known.",
+        ),
+    ] = None
     reasoning_effort: Annotated[
         ReasoningEffort | None,
         Field(
