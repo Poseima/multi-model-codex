@@ -529,6 +529,7 @@ async fn guardian_history_survives_compaction_and_eviction_but_not_legacy_rollba
                         rollout_path: None,
                     }),
                     test.thread_manager.auth_manager(),
+                    /*persist_extended_history*/ false,
                     /*parent_trace*/ None,
                     ClientMcpExtensions::default(),
                 )

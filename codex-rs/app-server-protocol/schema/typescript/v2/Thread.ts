@@ -97,13 +97,12 @@ gitInfo: GitInfo | null, /**
  * Optional user-facing thread title.
  */
 name: string | null, /**
- * Active prompt profile for this thread, if any.
+ * Saved prompt profile source, when a prompt profile is active.
  */
 promptProfile: PromptSource | null, /**
- * Source path recorded for the active prompt profile, if any.
+ * Path used to load the saved prompt profile, when known.
  */
-promptProfilePath: string | null,
-/**
+promptProfilePath: string | null, /**
  * Only populated on `thread/resume`, `thread/fork`, and `thread/read`
  * (when `includeTurns` is true) responses.
  * For all other responses and notifications returning a Thread,

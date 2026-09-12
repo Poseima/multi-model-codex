@@ -127,6 +127,7 @@ async fn check_connection(address: String) {
             retry_transport: false,
         },
         stream_idle_timeout: Duration::from_secs(/*secs*/ 5),
+        system_role: None,
     });
     let result = tokio::time::timeout(
         Duration::from_secs(/*secs*/ 20),

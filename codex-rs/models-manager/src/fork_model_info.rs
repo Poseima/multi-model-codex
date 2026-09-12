@@ -57,6 +57,7 @@ macro_rules! fork_model_info {
             additional_speed_tiers: Vec::new(),
             service_tiers: Vec::new(),
             default_service_tier: None,
+            available_access_programs: None,
             availability_nux: None,
             upgrade: None,
             model_messages: model_messages(BASE_INSTRUCTIONS),
