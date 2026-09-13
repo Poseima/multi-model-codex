@@ -259,7 +259,6 @@ use super::footer::FooterProps;
 use super::footer::GoalStatusIndicator;
 use super::footer::SummaryLeft;
 use super::footer::can_show_left_with_context;
-use super::footer::context_window_line;
 use super::footer::esc_hint_mode;
 use super::footer::footer_height;
 use super::footer::footer_hint_items_width;
@@ -1496,14 +1495,13 @@ impl ChatComposer {
     }
 
     fn right_footer_line_with_context(&self) -> Line<'static> {
-        let mut line = if self.footer.context_window_pending {
-            Line::default()
-        } else {
-            context_window_line(
-                self.footer.context_window_percent,
-                self.footer.context_window_used_tokens,
-            )
-        };
+        let mut line = super::fork_footer::context_window_line_with_total(
+            self.footer.context_window_percent,
+            self.footer.context_window_used_tokens,
+            self.footer.context_window_total,
+            /*mode_indicator*/ None,
+            /*show_cycle_hint*/ false,
+        );
         if let Some(vim_mode) = self.vim_mode_indicator_span() {
             line.spans.push(" | ".dim());
             line.spans.push(vim_mode);
@@ -4875,13 +4873,7 @@ impl ChatComposer {
                                 compact
                             }
                         } else {
-                            Some(super::fork_footer::context_window_line_with_total(
-                                footer_props.context_window_percent,
-                                footer_props.context_window_used_tokens,
-                                self.footer.context_window_total,
-                                /*mode_indicator*/ None,
-                                /*show_cycle_hint*/ false,
-                            ))
+                            Some(self.right_footer_line_with_context())
                         };
                     let right_width = right_line.as_ref().map(|l| l.width() as u16).unwrap_or(0);
                     if status_line_active
@@ -4925,7 +4917,9 @@ impl ChatComposer {
                             | FooterMode::ContextOnly => None,
                         }
                     };
-                    let show_right = if has_side_conversation_context_label {
+                    let show_right = if self.footer.flash_visible() {
+                        false
+                    } else if has_side_conversation_context_label {
                         can_show_left_and_context
                     } else if matches!(
                         footer_props.mode,
