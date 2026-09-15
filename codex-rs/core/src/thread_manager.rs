@@ -1124,6 +1124,7 @@ impl ThreadManager {
                 thread_instructions_provider: None,
                 allow_provider_model_fallback: false,
                 initial_history: InitialHistory::New,
+                internal_parent: None,
                 history_mode: None,
                 session_source: None,
                 thread_source: None,
@@ -1151,9 +1152,7 @@ impl ThreadManager {
         options: StartThreadOptions,
     ) -> CodexResult<NewThread> {
         Box::pin(self.start_thread_inner(
-            options,
-            /*forked_from_thread_id*/ None,
-            /*startup*/ None,
+            options, /*forked_from_thread_id*/ None, /*startup*/ None,
         ))
         .await
     }

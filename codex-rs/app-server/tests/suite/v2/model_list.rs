@@ -261,6 +261,7 @@ fn fork_catalog_expected_models() -> Vec<Model> {
         additional_speed_tiers: Vec::new(),
         service_tiers: Vec::new(),
         default_service_tier: None,
+        available_access_programs: None,
         is_default: false,
     })
     .collect()

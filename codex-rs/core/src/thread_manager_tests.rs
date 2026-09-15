@@ -935,6 +935,7 @@ async fn start_thread_rejects_explicit_local_environment_when_default_provider_i
             thread_instructions_provider: None,
             allow_provider_model_fallback: false,
             initial_history: InitialHistory::New,
+            internal_parent: None,
             history_mode: None,
             session_source: None,
             thread_source: None,

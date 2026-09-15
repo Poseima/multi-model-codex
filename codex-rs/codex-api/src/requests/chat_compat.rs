@@ -6,6 +6,7 @@ use crate::requests::headers::subagent_header;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::FunctionCallOutputBody;
 use codex_protocol::models::FunctionCallOutputContentItem;
+use codex_protocol::models::ImageReference;
 use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::SessionSource;
@@ -173,7 +174,10 @@ impl<'a> ChatRequestBuilder<'a> {
                                 text.push_str(t);
                                 items.push(json!({"type":"text","text": t}));
                             }
-                            ContentItem::InputImage { image_url, .. } => {
+                            ContentItem::InputImage {
+                                image: ImageReference::Inline { image_url },
+                                ..
+                            } => {
                                 use_content_parts = true;
                                 items.push(
                                     json!({"type":"image_url","image_url": {"url": image_url}}),
@@ -285,7 +289,8 @@ impl<'a> ChatRequestBuilder<'a> {
                                         json!({"type":"text","text": text})
                                     }
                                     FunctionCallOutputContentItem::InputImage {
-                                        image_url, ..
+                                        image: ImageReference::Inline { image_url },
+                                        ..
                                     } => {
                                         json!({"type":"image_url","image_url": {"url": image_url}})
                                     }
