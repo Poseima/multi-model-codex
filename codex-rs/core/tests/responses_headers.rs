@@ -413,6 +413,7 @@ async fn responses_stream_includes_thread_spawn_headers() {
         /*concurrent_reasoning_summaries_enabled*/ false,
         /*attestation_provider*/ None,
         config.http_client_factory(),
+        config.workspace_routing_context(),
     );
     let mut client_session = client.new_session();
     let responses_metadata =

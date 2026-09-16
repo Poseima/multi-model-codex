@@ -7295,15 +7295,19 @@ fn active_turn_interrupt_race_extracts_actual_turn_id_from_mismatch() {
     );
 }
 
-async fn fresh_session_config_uses_current_service_tier() {
+#[tokio::test]
+async fn load_new_session_config_uses_current_service_tier() -> Result<()> {
     let mut app = make_test_app().await;
     app.chat_widget.set_service_tier(Some(
         codex_protocol::config_types::ServiceTier::Fast
             .request_value()
             .to_string(),
     ));
+    let app_server =
+        crate::start_embedded_app_server_for_picker(app.chat_widget.config_ref()).await?;
 
-    let config = app.fresh_session_config();
+    let config = app.load_new_session_config(&app_server).await?;
+    app_server.shutdown().await?;
 
     assert_eq!(
         config.service_tier,
@@ -7313,6 +7317,7 @@ async fn fresh_session_config_uses_current_service_tier() {
                 .to_string()
         )
     );
+    Ok(())
 }
 
 #[tokio::test]
@@ -8625,12 +8630,8 @@ async fn refreshed_snapshot_session_persists_resumed_turns() {
 #[tokio::test]
 async fn late_usage_result_can_follow_finalized_plan() {
     let (mut app, mut app_event_rx, _op_rx) = make_test_app_with_channels().await;
-    app.chat_widget
-        .add_token_activity_output(crate::chatwidget::TokenActivityView::Daily);
-    let request_id = match app_event_rx.try_recv() {
-        Ok(AppEvent::RefreshTokenActivity { request_id }) => request_id,
-        other => panic!("expected token activity refresh request, got {other:?}"),
-    };
+    set_chatgpt_auth(&mut app.chat_widget);
+    let request_id = app.chat_widget.start_rate_limit_reset_startup_check();
 
     app.chat_widget.note_stream_consolidation_queued();
     app.transcript_cells
@@ -8640,17 +8641,23 @@ async fn late_usage_result_can_follow_finalized_plan() {
         )));
     app.chat_widget.note_stream_consolidation_completed();
 
-    assert!(
-        app.chat_widget.finish_token_activity_refresh(
-            request_id,
-            Err("token activity unavailable".to_string()),
-        )
-    );
+    assert!(app.chat_widget.finish_rate_limit_reset_hint_refresh(
+        request_id,
+        Vec::new(),
+        Ok(codex_app_server_protocol::RateLimitResetCreditsSummary {
+            available_count: 1,
+            credits: None,
+        }),
+    ));
     assert!(!app.pending_usage_output_insertion_blocked());
     assert!(
         app.chat_widget
-            .take_completed_token_activity_output()
+            .take_pending_rate_limit_reset_hint()
             .is_some()
+    );
+    assert_matches!(
+        app_event_rx.try_recv(),
+        Ok(AppEvent::CommitPendingUsageOutput)
     );
 }
 

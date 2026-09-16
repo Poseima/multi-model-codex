@@ -210,7 +210,15 @@ impl App {
         self.refresh_in_memory_config_from_disk_best_effort("starting a new thread")
             .await;
         let model = self.chat_widget.current_model().to_string();
-        let config = self.fresh_session_config();
+        let config = match self.load_new_session_config(app_server).await {
+            Ok(config) => config,
+            Err(err) => {
+                self.chat_widget
+                    .add_error_message(format!("Failed to read new session defaults: {err}"));
+                tui.frame_requester().schedule_frame();
+                return Ok(AppRunControl::Continue);
+            }
+        };
         let tracked_thread_ids: Vec<_> = self.thread_event_channels.keys().copied().collect();
         self.shutdown_current_thread(app_server).await;
         for thread_id in tracked_thread_ids {
@@ -382,7 +390,16 @@ impl App {
                     self.refresh_in_memory_config_from_disk_best_effort("starting a new thread")
                         .await;
                     let model = self.chat_widget.current_model().to_string();
-                    let config = self.fresh_session_config();
+                    let config = match self.load_new_session_config(app_server).await {
+                        Ok(config) => config,
+                        Err(err) => {
+                            self.chat_widget.add_error_message(format!(
+                                "Failed to read new session defaults: {err}"
+                            ));
+                            tui.frame_requester().schedule_frame();
+                            return Ok(AppRunControl::Continue);
+                        }
+                    };
                     let tracked_thread_ids: Vec<_> =
                         self.thread_event_channels.keys().copied().collect();
                     self.shutdown_current_thread(app_server).await;

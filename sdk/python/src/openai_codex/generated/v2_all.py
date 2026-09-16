@@ -2719,6 +2719,7 @@ class MisalignmentSteer(BaseModel):
 class ModeKind(Enum):
     plan = "plan"
     default = "default"
+    dawn = "dawn"
 
 
 class ModelAccessPrograms(BaseModel):
@@ -3589,6 +3590,101 @@ class ProjectRoot(BaseModel):
 class ProjectSortKey(Enum):
     position = "position"
     recency_at = "recencyAt"
+
+
+class PromptGreetingKind(Enum):
+    primary = "primary"
+    alternate = "alternate"
+
+
+class PromptIdentity(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    description: str | None = None
+    name: str | None = None
+    personality: str | None = None
+
+
+class PromptInjectionRole(Enum):
+    system = "system"
+    developer = "developer"
+    user = "user"
+    assistant = "assistant"
+
+
+class PromptKnowledgeEntry(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    content: str
+    enabled: bool | None = False
+    id: str | None = None
+    insertion_order: Annotated[int | None, Field(alias="insertionOrder")] = None
+    keys: list[str] | None = []
+    metadata: Any | None = None
+    position: str | None = None
+    secondary_keys: Annotated[list[str] | None, Field(alias="secondaryKeys")] = []
+
+
+class PromptKnowledgeSource(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    description: str | None = None
+    entries: list[PromptKnowledgeEntry] | None = []
+    kind: str | None = None
+    metadata: Any | None = None
+    name: str | None = None
+
+
+class PromptSourceOrigin(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    format: str | None = None
+    source_path: Annotated[str | None, Field(alias="sourcePath")] = None
+    spec: str | None = None
+    spec_version: Annotated[str | None, Field(alias="specVersion")] = None
+
+
+class ProviderInfo(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    base_url: Annotated[
+        str | None, Field(alias="baseUrl", description="Base URL for the provider's API.")
+    ] = None
+    env_key: Annotated[
+        str | None,
+        Field(alias="envKey", description="Environment variable that stores the API key."),
+    ] = None
+    id: Annotated[str, Field(description='Key in the providers map (e.g. `"openai"`, `"ollama"`).')]
+    name: Annotated[str, Field(description="Friendly display name.")]
+    requires_openai_auth: Annotated[
+        bool,
+        Field(
+            alias="requiresOpenaiAuth",
+            description="Whether this provider requires OpenAI authentication.",
+        ),
+    ]
+    wire_api: Annotated[
+        str, Field(alias="wireApi", description='Wire protocol: `"responses"` or `"chat"`.')
+    ]
+
+
+class ProviderListParams(BaseModel):
+    pass
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+
+
+class ProviderListResponse(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    data: list[ProviderInfo]
 
 
 class RateLimitReachedType(Enum):
@@ -7285,6 +7381,15 @@ class ExperimentalFeatureEnablementSetRequest(BaseModel):
     params: ExperimentalFeatureEnablementSetParams
 
 
+class ProviderListRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: RequestId
+    method: Annotated[Literal["provider/list"], Field(title="Provider/listRequestMethod")]
+    params: ProviderListParams
+
+
 class McpServerOauthLoginRequest(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -8667,6 +8772,31 @@ class Project(BaseModel):
     updated_at: Annotated[int, Field(alias="updatedAt")]
 
 
+class PromptDepthPrompt(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    content: str
+    depth: Annotated[int, Field(ge=0)]
+    role: PromptInjectionRole
+
+
+class PromptExampleMessage(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    content: str
+    role: PromptInjectionRole
+
+
+class PromptGreeting(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    kind: PromptGreetingKind
+    text: str
+
+
 class QueuedSubmission(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -9508,53 +9638,6 @@ class SubAgentSource(
     root: SubAgentSourceValue | ThreadSpawnSubAgentSource | OtherSubAgentSource
 
 
-class ThreadForkParams(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    approval_policy: Annotated[AskForApproval | None, Field(alias="approvalPolicy")] = None
-    approvals_reviewer: Annotated[
-        ApprovalsReviewer | None,
-        Field(
-            alias="approvalsReviewer",
-            description="Override where approval requests are routed for review on this thread and subsequent turns.",
-        ),
-    ] = None
-    base_instructions: Annotated[str | None, Field(alias="baseInstructions")] = None
-    config: dict[str, Any] | None = None
-    cwd: str | None = None
-    developer_instructions: Annotated[str | None, Field(alias="developerInstructions")] = None
-    ephemeral: bool | None = None
-    exclude_turns: Annotated[
-        bool | None,
-        Field(
-            alias="excludeTurns",
-            description="When true, return only thread metadata and live fork state without populating `thread.turns`. This is useful when the client plans to call `thread/turns/list` immediately after forking. Full-history hydration is deprecated for paginated threads; use this with `thread/turns/list` and `thread/items/list` instead.",
-        ),
-    ] = None
-    last_turn_id: Annotated[
-        str | None,
-        Field(
-            alias="lastTurnId",
-            description="Optional last turn id to fork through, inclusive.\n\nWhen specified, turns after `last_turn_id` are omitted from the fork. The referenced turn cannot be in progress.",
-        ),
-    ] = None
-    model: Annotated[
-        str | None, Field(description="Configuration overrides for the forked thread, if any.")
-    ] = None
-    model_provider: Annotated[str | None, Field(alias="modelProvider")] = None
-    sandbox: SandboxMode | None = None
-    service_tier: Annotated[str | None, Field(alias="serviceTier")] = None
-    thread_id: Annotated[str, Field(alias="threadId")]
-    thread_source: Annotated[
-        ThreadSource | None,
-        Field(
-            alias="threadSource",
-            description="Optional client-supplied analytics source classification for this forked thread.",
-        ),
-    ] = None
-
-
 class ThreadGoal(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -10001,44 +10084,6 @@ class ThreadSettingsUpdatedNotification(BaseModel):
     thread_settings: Annotated[ThreadSettings, Field(alias="threadSettings")]
 
 
-class ThreadStartParams(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    approval_policy: Annotated[AskForApproval | None, Field(alias="approvalPolicy")] = None
-    approvals_reviewer: Annotated[
-        ApprovalsReviewer | None,
-        Field(
-            alias="approvalsReviewer",
-            description="Override where approval requests are routed for review on this thread and subsequent turns.",
-        ),
-    ] = None
-    base_instructions: Annotated[str | None, Field(alias="baseInstructions")] = None
-    config: dict[str, Any] | None = None
-    cwd: str | None = None
-    developer_instructions: Annotated[str | None, Field(alias="developerInstructions")] = None
-    ephemeral: bool | None = None
-    model: str | None = None
-    model_provider: Annotated[str | None, Field(alias="modelProvider")] = None
-    personality: Annotated[
-        Personality | None,
-        Field(description="@deprecated `friendly` and `pragmatic` no longer select a style."),
-    ] = None
-    sandbox: SandboxMode | None = None
-    service_name: Annotated[str | None, Field(alias="serviceName")] = None
-    service_tier: Annotated[str | None, Field(alias="serviceTier")] = None
-    session_start_source: Annotated[ThreadStartSource | None, Field(alias="sessionStartSource")] = (
-        None
-    )
-    thread_source: Annotated[
-        ThreadSource | None,
-        Field(
-            alias="threadSource",
-            description="Optional client-supplied analytics source classification for this thread.",
-        ),
-    ] = None
-
-
 class RealtimeThreadTimelineEntry(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -10252,24 +10297,6 @@ class AppsListResponse(BaseModel):
             description="Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
         ),
     ] = None
-
-
-class ThreadStartRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: RequestId
-    method: Annotated[Literal["thread/start"], Field(title="Thread/startRequestMethod")]
-    params: ThreadStartParams
-
-
-class ThreadForkRequest(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
-    id: RequestId
-    method: Annotated[Literal["thread/fork"], Field(title="Thread/forkRequestMethod")]
-    params: ThreadForkParams
 
 
 class ThreadGoalSetRequest(BaseModel):
@@ -10789,6 +10816,33 @@ class PluginSummary(BaseModel):
     ] = None
 
 
+class PromptExample(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    messages: list[PromptExampleMessage] | None = []
+
+
+class PromptSource(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    creator_notes: Annotated[str | None, Field(alias="creatorNotes")] = None
+    depth_prompt: Annotated[PromptDepthPrompt | None, Field(alias="depthPrompt")] = None
+    examples: list[PromptExample] | None = []
+    greetings: list[PromptGreeting] | None = []
+    id: str | None = None
+    identity: PromptIdentity | None = None
+    knowledge: list[PromptKnowledgeSource] | None = []
+    name: str | None = None
+    origin: PromptSourceOrigin | None = None
+    post_history_instructions: Annotated[str | None, Field(alias="postHistoryInstructions")] = None
+    raw_extensions: Annotated[Any | None, Field(alias="rawExtensions")] = None
+    scenario: str | None = None
+    system_overlay: Annotated[str | None, Field(alias="systemOverlay")] = None
+    variables: dict[str, str] | None = {}
+
+
 class FunctionCallOutputResponseItem(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -11120,6 +11174,56 @@ class SessionSource(RootModel[SessionSourceValue | CustomSessionSource | SubAgen
     root: SessionSourceValue | CustomSessionSource | SubAgentSessionSource
 
 
+class ThreadForkParams(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    approval_policy: Annotated[AskForApproval | None, Field(alias="approvalPolicy")] = None
+    approvals_reviewer: Annotated[
+        ApprovalsReviewer | None,
+        Field(
+            alias="approvalsReviewer",
+            description="Override where approval requests are routed for review on this thread and subsequent turns.",
+        ),
+    ] = None
+    base_instructions: Annotated[str | None, Field(alias="baseInstructions")] = None
+    clear_prompt_profile: Annotated[bool | None, Field(alias="clearPromptProfile")] = None
+    config: dict[str, Any] | None = None
+    cwd: str | None = None
+    developer_instructions: Annotated[str | None, Field(alias="developerInstructions")] = None
+    ephemeral: bool | None = None
+    exclude_turns: Annotated[
+        bool | None,
+        Field(
+            alias="excludeTurns",
+            description="When true, return only thread metadata and live fork state without populating `thread.turns`. This is useful when the client plans to call `thread/turns/list` immediately after forking. Full-history hydration is deprecated for paginated threads; use this with `thread/turns/list` and `thread/items/list` instead.",
+        ),
+    ] = None
+    last_turn_id: Annotated[
+        str | None,
+        Field(
+            alias="lastTurnId",
+            description="Optional last turn id to fork through, inclusive.\n\nWhen specified, turns after `last_turn_id` are omitted from the fork. The referenced turn cannot be in progress.",
+        ),
+    ] = None
+    model: Annotated[
+        str | None, Field(description="Configuration overrides for the forked thread, if any.")
+    ] = None
+    model_provider: Annotated[str | None, Field(alias="modelProvider")] = None
+    prompt_profile: Annotated[PromptSource | None, Field(alias="promptProfile")] = None
+    prompt_profile_path: Annotated[str | None, Field(alias="promptProfilePath")] = None
+    sandbox: SandboxMode | None = None
+    service_tier: Annotated[str | None, Field(alias="serviceTier")] = None
+    thread_id: Annotated[str, Field(alias="threadId")]
+    thread_source: Annotated[
+        ThreadSource | None,
+        Field(
+            alias="threadSource",
+            description="Optional client-supplied analytics source classification for this forked thread.",
+        ),
+    ] = None
+
+
 class FunctionCallOutputThreadItem(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -11205,6 +11309,46 @@ class ThreadItemsListResponse(BaseModel):
         Field(
             alias="nextCursor",
             description="Opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.",
+        ),
+    ] = None
+
+
+class ThreadStartParams(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    approval_policy: Annotated[AskForApproval | None, Field(alias="approvalPolicy")] = None
+    approvals_reviewer: Annotated[
+        ApprovalsReviewer | None,
+        Field(
+            alias="approvalsReviewer",
+            description="Override where approval requests are routed for review on this thread and subsequent turns.",
+        ),
+    ] = None
+    base_instructions: Annotated[str | None, Field(alias="baseInstructions")] = None
+    config: dict[str, Any] | None = None
+    cwd: str | None = None
+    developer_instructions: Annotated[str | None, Field(alias="developerInstructions")] = None
+    ephemeral: bool | None = None
+    model: str | None = None
+    model_provider: Annotated[str | None, Field(alias="modelProvider")] = None
+    personality: Annotated[
+        Personality | None,
+        Field(description="@deprecated `friendly` and `pragmatic` no longer select a style."),
+    ] = None
+    prompt_profile: Annotated[PromptSource | None, Field(alias="promptProfile")] = None
+    prompt_profile_path: Annotated[str | None, Field(alias="promptProfilePath")] = None
+    sandbox: SandboxMode | None = None
+    service_name: Annotated[str | None, Field(alias="serviceName")] = None
+    service_tier: Annotated[str | None, Field(alias="serviceTier")] = None
+    session_start_source: Annotated[ThreadStartSource | None, Field(alias="sessionStartSource")] = (
+        None
+    )
+    thread_source: Annotated[
+        ThreadSource | None,
+        Field(
+            alias="threadSource",
+            description="Optional client-supplied analytics source classification for this thread.",
         ),
     ] = None
 
@@ -11348,6 +11492,24 @@ class AdditionalFileSystemPermissions(BaseModel):
         list[LegacyAppPathString] | None,
         Field(description="This will be removed in favor of `entries`."),
     ] = None
+
+
+class ThreadStartRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: RequestId
+    method: Annotated[Literal["thread/start"], Field(title="Thread/startRequestMethod")]
+    params: ThreadStartParams
+
+
+class ThreadForkRequest(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
+    id: RequestId
+    method: Annotated[Literal["thread/fork"], Field(title="Thread/forkRequestMethod")]
+    params: ThreadForkParams
 
 
 class PluginShareSaveRequest(BaseModel):
@@ -11805,6 +11967,20 @@ class Thread(BaseModel):
         Field(
             alias="projectId",
             description="Canonical project assignment owned by app-server, if any.",
+        ),
+    ] = None
+    prompt_profile: Annotated[
+        PromptSource | None,
+        Field(
+            alias="promptProfile",
+            description="Saved prompt profile source, when a prompt profile is active.",
+        ),
+    ] = None
+    prompt_profile_path: Annotated[
+        str | None,
+        Field(
+            alias="promptProfilePath",
+            description="Path used to load the saved prompt profile, when known.",
         ),
     ] = None
     reasoning_effort: Annotated[
@@ -12306,6 +12482,7 @@ class ClientRequest(
         | ExperimentalFeatureListRequest
         | PermissionProfileListRequest
         | ExperimentalFeatureEnablementSetRequest
+        | ProviderListRequest
         | McpServerOauthLoginRequest
         | ConfigMcpServerReloadRequest
         | McpServerStatusListRequest
@@ -12413,6 +12590,7 @@ class ClientRequest(
         | ExperimentalFeatureListRequest
         | PermissionProfileListRequest
         | ExperimentalFeatureEnablementSetRequest
+        | ProviderListRequest
         | McpServerOauthLoginRequest
         | ConfigMcpServerReloadRequest
         | McpServerStatusListRequest

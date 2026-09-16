@@ -1798,10 +1798,15 @@ impl ModelClientSession {
         let mut provider_auth_recovery_attempted = false;
         let mut pending_retry = PendingUnauthorizedRetry::default();
         loop {
-            let client_setup = self.client.current_client_setup().await?;
-            let transport = self
+            let client_setup = self
                 .client
-                .build_api_transport(&client_setup.api_provider, CHAT_COMPLETIONS_ENDPOINT)?;
+                .current_client_setup(ClientRouting::ConfiguredProvider)
+                .await?;
+            let transport = self.client.build_api_transport(
+                &client_setup.api_provider,
+                CHAT_COMPLETIONS_ENDPOINT,
+                client_setup.redirect_policy,
+            )?;
             let (request_telemetry, sse_telemetry) = Self::build_streaming_telemetry(
                 session_telemetry,
                 AuthRequestTelemetryContext::new(

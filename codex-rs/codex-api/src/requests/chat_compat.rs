@@ -175,12 +175,16 @@ impl<'a> ChatRequestBuilder<'a> {
                                 items.push(json!({"type":"text","text": t}));
                             }
                             ContentItem::InputImage {
-                                image: ImageReference::Inline { image_url },
+                                image:
+                                    ImageReference::Inline {
+                                        image_url: image_ref,
+                                    }
+                                    | ImageReference::File { file_id: image_ref },
                                 ..
                             } => {
                                 use_content_parts = true;
                                 items.push(
-                                    json!({"type":"image_url","image_url": {"url": image_url}}),
+                                    json!({"type":"image_url","image_url": {"url": image_ref}}),
                                 );
                             }
                             ContentItem::InputAudio { audio_url } => {
@@ -289,10 +293,14 @@ impl<'a> ChatRequestBuilder<'a> {
                                         json!({"type":"text","text": text})
                                     }
                                     FunctionCallOutputContentItem::InputImage {
-                                        image: ImageReference::Inline { image_url },
+                                        image:
+                                            ImageReference::Inline {
+                                                image_url: image_ref,
+                                            }
+                                            | ImageReference::File { file_id: image_ref },
                                         ..
                                     } => {
-                                        json!({"type":"image_url","image_url": {"url": image_url}})
+                                        json!({"type":"image_url","image_url": {"url": image_ref}})
                                     }
                                     FunctionCallOutputContentItem::InputAudio { audio_url } => {
                                         json!({"type":"input_audio","audio_url": audio_url})

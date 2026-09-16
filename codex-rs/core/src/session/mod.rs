@@ -2254,8 +2254,15 @@ impl Session {
                 .enabled(Feature::ConcurrentReasoningSummaries),
             self.services.attestation_provider.clone(),
             config.http_client_factory(),
+            config.workspace_routing_context(),
         )
-        .with_session_context(prompt_cache_key_override, self.tx_event.clone());
+        .with_session_context(
+            prompt_cache_key_override,
+            self.tx_event.clone(),
+            self.services
+                .thread_extension_data
+                .get::<crate::CodexResponsesHeaders>(),
+        );
         self.services.model_client.replace(model_client);
     }
 
